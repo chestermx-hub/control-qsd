@@ -25,6 +25,10 @@ export interface Panel {
   columns_asc: boolean;
   /** Row labels in ascending order top to bottom */
   rows_asc: boolean;
+  diagram_scale?: number;
+  diagram_offset_x?: number;
+  diagram_offset_y?: number;
+  diagram_opacity?: number;
   /** @nullable */
   zone_id?: number | null;
   /** @nullable */

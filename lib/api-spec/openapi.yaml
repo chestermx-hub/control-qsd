@@ -1276,6 +1276,22 @@ components:
           type: boolean
           default: true
           description: Row labels in ascending order top to bottom
+        diagram_scale:
+          type: number
+          format: float
+          default: 1.0
+        diagram_offset_x:
+          type: number
+          format: float
+          default: 0.0
+        diagram_offset_y:
+          type: number
+          format: float
+          default: 0.0
+        diagram_opacity:
+          type: number
+          format: float
+          default: 0.5
         zone_id:
           type: ["integer", "null"]
         side_id:
@@ -1313,6 +1329,18 @@ components:
           type: boolean
         rows_asc:
           type: boolean
+        diagram_scale:
+          type: number
+          format: float
+        diagram_offset_x:
+          type: number
+          format: float
+        diagram_offset_y:
+          type: number
+          format: float
+        diagram_opacity:
+          type: number
+          format: float
         zone_id:
           type: integer
         side_id:
@@ -1345,6 +1373,18 @@ components:
           type: boolean
         rows_asc:
           type: boolean
+        diagram_scale:
+          type: number
+          format: float
+        diagram_offset_x:
+          type: number
+          format: float
+        diagram_offset_y:
+          type: number
+          format: float
+        diagram_opacity:
+          type: number
+          format: float
         zone_id:
           type: integer
         side_id:

@@ -12,6 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -28,6 +29,10 @@ const panelSchema = z.object({
   row_start_letter: z.string().min(1, "Requerido").max(1).regex(/^[A-Za-z]$/, "Debe ser una letra (A-Z)").default("A"),
   columns_asc: z.boolean().default(true),
   rows_asc: z.boolean().default(true),
+  diagram_scale: z.number().min(0.2).max(5).default(1.0),
+  diagram_offset_x: z.number().min(-200).max(200).default(0),
+  diagram_offset_y: z.number().min(-200).max(200).default(0),
+  diagram_opacity: z.number().min(0.05).max(1).default(0.5),
   zone_id: z.coerce.number().optional(),
   side_id: z.coerce.number().optional(),
   visual_zone_id: z.coerce.number().optional(),
@@ -52,6 +57,10 @@ function PanelGrid({
   rowStart = 0,
   columnsAsc = true,
   rowsAsc = true,
+  diagramScale = 1,
+  diagramOffsetX = 0,
+  diagramOffsetY = 0,
+  diagramOpacity = 0.5,
 }: {
   columns: number;
   rows: number;
@@ -60,6 +69,10 @@ function PanelGrid({
   rowStart?: number;
   columnsAsc?: boolean;
   rowsAsc?: boolean;
+  diagramScale?: number;
+  diagramOffsetX?: number;
+  diagramOffsetY?: number;
+  diagramOpacity?: number;
 }) {
   const colStart = Number(columnStart) || 1;
   const rowIdx0 = Number(rowStart) || 0;
@@ -80,7 +93,16 @@ function PanelGrid({
   return (
     <div className="relative mt-4 border rounded-md overflow-hidden bg-muted/20" style={{ minHeight: "300px" }}>
       {diagramUrl && (
-        <img src={diagramUrl} alt="Diagrama" className="absolute inset-0 w-full h-full object-contain opacity-50" />
+        <img
+          src={diagramUrl}
+          alt="Diagrama"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+          style={{
+            opacity: diagramOpacity,
+            transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scale(${diagramScale})`,
+            transformOrigin: "center",
+          }}
+        />
       )}
       <div
         className="absolute inset-0 grid"
@@ -224,6 +246,10 @@ export default function Paneles() {
   const formRowStartLetter = form.watch("row_start_letter");
   const formColumnsAsc = form.watch("columns_asc");
   const formRowsAsc = form.watch("rows_asc");
+  const formDiagramScale = form.watch("diagram_scale");
+  const formDiagramOffsetX = form.watch("diagram_offset_x");
+  const formDiagramOffsetY = form.watch("diagram_offset_y");
+  const formDiagramOpacity = form.watch("diagram_opacity");
 
   const handleEdit = (panel: any) => {
     setEditingId(panel.id);
@@ -239,6 +265,10 @@ export default function Paneles() {
       row_start_letter: indexToLetter(panel.row_start ?? 0),
       columns_asc: panel.columns_asc ?? true,
       rows_asc: panel.rows_asc ?? true,
+      diagram_scale: panel.diagram_scale ?? 1.0,
+      diagram_offset_x: panel.diagram_offset_x ?? 0,
+      diagram_offset_y: panel.diagram_offset_y ?? 0,
+      diagram_opacity: panel.diagram_opacity ?? 0.5,
       zone_id: panel.zone_id || undefined,
       side_id: panel.side_id || undefined,
       visual_zone_id: panel.visual_zone_id || undefined,
@@ -254,6 +284,7 @@ export default function Paneles() {
       columns: 5, rows: 5,
       column_start: 1, row_start_letter: "A",
       columns_asc: true, rows_asc: true,
+      diagram_scale: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
     });
     setIsOpen(true);
   };
@@ -377,6 +408,10 @@ export default function Paneles() {
                     rowStart={viewingGrid.row_start ?? 0}
                     columnsAsc={viewingGrid.columns_asc ?? true}
                     rowsAsc={viewingGrid.rows_asc ?? true}
+                    diagramScale={viewingGrid.diagram_scale ?? 1}
+                    diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
+                    diagramOffsetY={viewingGrid.diagram_offset_y ?? 0}
+                    diagramOpacity={viewingGrid.diagram_opacity ?? 0.5}
                   />
                 </div>
               </div>
@@ -578,9 +613,76 @@ export default function Paneles() {
                   )}
                 </div>
 
-                {/* Vista previa */}
-                <div className="pt-4 border-t">
-                  <Label className="mb-2 block">Vista Previa de la Cuadrícula</Label>
+                {/* Vista previa + ajuste de imagen */}
+                <div className="pt-4 border-t space-y-4">
+                  <Label className="block">Vista Previa de la Cuadrícula</Label>
+
+                  {formDiagramUrl && (
+                    <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ajuste de Imagen</p>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Escala</span>
+                            <span>{(formDiagramScale ?? 1).toFixed(2)}x</span>
+                          </div>
+                          <Slider
+                            min={0.2} max={5} step={0.05}
+                            value={[formDiagramScale ?? 1]}
+                            onValueChange={([v]) => form.setValue("diagram_scale", v)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Opacidad</span>
+                            <span>{Math.round((formDiagramOpacity ?? 0.5) * 100)}%</span>
+                          </div>
+                          <Slider
+                            min={0.05} max={1} step={0.05}
+                            value={[formDiagramOpacity ?? 0.5]}
+                            onValueChange={([v]) => form.setValue("diagram_opacity", v)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Posición X</span>
+                            <span>{(formDiagramOffsetX ?? 0).toFixed(0)}%</span>
+                          </div>
+                          <Slider
+                            min={-200} max={200} step={1}
+                            value={[formDiagramOffsetX ?? 0]}
+                            onValueChange={([v]) => form.setValue("diagram_offset_x", v)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Posición Y</span>
+                            <span>{(formDiagramOffsetY ?? 0).toFixed(0)}%</span>
+                          </div>
+                          <Slider
+                            min={-200} max={200} step={1}
+                            value={[formDiagramOffsetY ?? 0]}
+                            onValueChange={([v]) => form.setValue("diagram_offset_y", v)}
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-muted-foreground"
+                        onClick={() => {
+                          form.setValue("diagram_scale", 1);
+                          form.setValue("diagram_offset_x", 0);
+                          form.setValue("diagram_offset_y", 0);
+                          form.setValue("diagram_opacity", 0.5);
+                        }}
+                      >
+                        Restablecer ajustes
+                      </Button>
+                    </div>
+                  )}
+
                   <PanelGrid
                     columns={formColumns || 1}
                     rows={formRows || 1}
@@ -589,6 +691,10 @@ export default function Paneles() {
                     rowStart={letterToIndex(formRowStartLetter || "A")}
                     columnsAsc={formColumnsAsc}
                     rowsAsc={formRowsAsc}
+                    diagramScale={formDiagramScale ?? 1}
+                    diagramOffsetX={formDiagramOffsetX ?? 0}
+                    diagramOffsetY={formDiagramOffsetY ?? 0}
+                    diagramOpacity={formDiagramOpacity ?? 0.5}
                   />
                 </div>
 

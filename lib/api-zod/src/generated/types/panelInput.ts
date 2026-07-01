@@ -16,6 +16,10 @@ export interface PanelInput {
   row_start?: number;
   columns_asc?: boolean;
   rows_asc?: boolean;
+  diagram_scale?: number;
+  diagram_offset_x?: number;
+  diagram_offset_y?: number;
+  diagram_opacity?: number;
   zone_id?: number;
   side_id?: number;
   visual_zone_id?: number;
