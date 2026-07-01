@@ -61,16 +61,19 @@ function PanelGrid({
   columnsAsc?: boolean;
   rowsAsc?: boolean;
 }) {
+  const colStart = Number(columnStart) || 1;
+  const rowIdx0 = Number(rowStart) || 0;
+
   const getColLabel = (colIdx: number) => {
     const label = columnsAsc
-      ? columnStart + colIdx
-      : columnStart + columns - 1 - colIdx;
+      ? colStart + colIdx
+      : colStart + columns - 1 - colIdx;
     return label.toString();
   };
   const getRowLabel = (rowIdx: number) => {
     const idx = rowsAsc
-      ? rowStart + rowIdx
-      : rowStart + rows - 1 - rowIdx;
+      ? rowIdx0 + rowIdx
+      : rowIdx0 + rows - 1 - rowIdx;
     return indexToLetter(idx);
   };
 
