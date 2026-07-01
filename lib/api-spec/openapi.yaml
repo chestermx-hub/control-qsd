@@ -1276,6 +1276,12 @@ components:
           type: boolean
           default: true
           description: Row labels in ascending order top to bottom
+        cell_width:
+          type: integer
+          default: 48
+        cell_height:
+          type: integer
+          default: 32
         diagram_scale_x:
           type: number
           format: float
@@ -1333,6 +1339,10 @@ components:
           type: boolean
         rows_asc:
           type: boolean
+        cell_width:
+          type: integer
+        cell_height:
+          type: integer
         diagram_scale_x:
           type: number
           format: float
@@ -1380,6 +1390,10 @@ components:
           type: boolean
         rows_asc:
           type: boolean
+        cell_width:
+          type: integer
+        cell_height:
+          type: integer
         diagram_scale_x:
           type: number
           format: float

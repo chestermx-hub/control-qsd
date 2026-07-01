@@ -25,6 +25,8 @@ export interface Panel {
   columns_asc: boolean;
   /** Row labels in ascending order top to bottom */
   rows_asc: boolean;
+  cell_width?: number;
+  cell_height?: number;
   diagram_scale_x?: number;
   diagram_scale_y?: number;
   diagram_offset_x?: number;

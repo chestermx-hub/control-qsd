@@ -410,6 +410,8 @@ export const listPanelsResponseColumnStartDefault = 1;
 export const listPanelsResponseRowStartDefault = 0;
 export const listPanelsResponseColumnsAscDefault = true;
 export const listPanelsResponseRowsAscDefault = true;
+export const listPanelsResponseCellWidthDefault = 48;
+export const listPanelsResponseCellHeightDefault = 32;
 export const listPanelsResponseDiagramScaleXDefault = 1;
 export const listPanelsResponseDiagramScaleYDefault = 1;
 export const listPanelsResponseDiagramOffsetXDefault = 0;
@@ -428,6 +430,8 @@ export const ListPanelsResponseItem = zod.object({
   "row_start": zod.number().default(listPanelsResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
   "columns_asc": zod.boolean().default(listPanelsResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
   "rows_asc": zod.boolean().default(listPanelsResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
+  "cell_width": zod.number().default(listPanelsResponseCellWidthDefault),
+  "cell_height": zod.number().default(listPanelsResponseCellHeightDefault),
   "diagram_scale_x": zod.number().default(listPanelsResponseDiagramScaleXDefault),
   "diagram_scale_y": zod.number().default(listPanelsResponseDiagramScaleYDefault),
   "diagram_offset_x": zod.number().default(listPanelsResponseDiagramOffsetXDefault),
@@ -455,6 +459,8 @@ export const CreatePanelBody = zod.object({
   "row_start": zod.number().optional(),
   "columns_asc": zod.boolean().optional(),
   "rows_asc": zod.boolean().optional(),
+  "cell_width": zod.number().optional(),
+  "cell_height": zod.number().optional(),
   "diagram_scale_x": zod.number().optional(),
   "diagram_scale_y": zod.number().optional(),
   "diagram_offset_x": zod.number().optional(),
@@ -470,6 +476,8 @@ export const createPanelResponseColumnStartDefault = 1;
 export const createPanelResponseRowStartDefault = 0;
 export const createPanelResponseColumnsAscDefault = true;
 export const createPanelResponseRowsAscDefault = true;
+export const createPanelResponseCellWidthDefault = 48;
+export const createPanelResponseCellHeightDefault = 32;
 export const createPanelResponseDiagramScaleXDefault = 1;
 export const createPanelResponseDiagramScaleYDefault = 1;
 export const createPanelResponseDiagramOffsetXDefault = 0;
@@ -488,6 +496,8 @@ export const CreatePanelResponse = zod.object({
   "row_start": zod.number().default(createPanelResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
   "columns_asc": zod.boolean().default(createPanelResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
   "rows_asc": zod.boolean().default(createPanelResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
+  "cell_width": zod.number().default(createPanelResponseCellWidthDefault),
+  "cell_height": zod.number().default(createPanelResponseCellHeightDefault),
   "diagram_scale_x": zod.number().default(createPanelResponseDiagramScaleXDefault),
   "diagram_scale_y": zod.number().default(createPanelResponseDiagramScaleYDefault),
   "diagram_offset_x": zod.number().default(createPanelResponseDiagramOffsetXDefault),
@@ -512,6 +522,8 @@ export const getPanelResponseColumnStartDefault = 1;
 export const getPanelResponseRowStartDefault = 0;
 export const getPanelResponseColumnsAscDefault = true;
 export const getPanelResponseRowsAscDefault = true;
+export const getPanelResponseCellWidthDefault = 48;
+export const getPanelResponseCellHeightDefault = 32;
 export const getPanelResponseDiagramScaleXDefault = 1;
 export const getPanelResponseDiagramScaleYDefault = 1;
 export const getPanelResponseDiagramOffsetXDefault = 0;
@@ -530,6 +542,8 @@ export const GetPanelResponse = zod.object({
   "row_start": zod.number().default(getPanelResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
   "columns_asc": zod.boolean().default(getPanelResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
   "rows_asc": zod.boolean().default(getPanelResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
+  "cell_width": zod.number().default(getPanelResponseCellWidthDefault),
+  "cell_height": zod.number().default(getPanelResponseCellHeightDefault),
   "diagram_scale_x": zod.number().default(getPanelResponseDiagramScaleXDefault),
   "diagram_scale_y": zod.number().default(getPanelResponseDiagramScaleYDefault),
   "diagram_offset_x": zod.number().default(getPanelResponseDiagramOffsetXDefault),
@@ -560,6 +574,8 @@ export const UpdatePanelBody = zod.object({
   "row_start": zod.number().optional(),
   "columns_asc": zod.boolean().optional(),
   "rows_asc": zod.boolean().optional(),
+  "cell_width": zod.number().optional(),
+  "cell_height": zod.number().optional(),
   "diagram_scale_x": zod.number().optional(),
   "diagram_scale_y": zod.number().optional(),
   "diagram_offset_x": zod.number().optional(),
@@ -575,6 +591,8 @@ export const updatePanelResponseColumnStartDefault = 1;
 export const updatePanelResponseRowStartDefault = 0;
 export const updatePanelResponseColumnsAscDefault = true;
 export const updatePanelResponseRowsAscDefault = true;
+export const updatePanelResponseCellWidthDefault = 48;
+export const updatePanelResponseCellHeightDefault = 32;
 export const updatePanelResponseDiagramScaleXDefault = 1;
 export const updatePanelResponseDiagramScaleYDefault = 1;
 export const updatePanelResponseDiagramOffsetXDefault = 0;
@@ -593,6 +611,8 @@ export const UpdatePanelResponse = zod.object({
   "row_start": zod.number().default(updatePanelResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
   "columns_asc": zod.boolean().default(updatePanelResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
   "rows_asc": zod.boolean().default(updatePanelResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
+  "cell_width": zod.number().default(updatePanelResponseCellWidthDefault),
+  "cell_height": zod.number().default(updatePanelResponseCellHeightDefault),
   "diagram_scale_x": zod.number().default(updatePanelResponseDiagramScaleXDefault),
   "diagram_scale_y": zod.number().default(updatePanelResponseDiagramScaleYDefault),
   "diagram_offset_x": zod.number().default(updatePanelResponseDiagramOffsetXDefault),

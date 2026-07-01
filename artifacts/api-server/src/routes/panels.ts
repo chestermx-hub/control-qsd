@@ -17,6 +17,8 @@ function toJson(row: typeof panelsTable.$inferSelect) {
     row_start: row.rowStart,
     columns_asc: row.columnsAsc,
     rows_asc: row.rowsAsc,
+    cell_width: row.cellWidth,
+    cell_height: row.cellHeight,
     diagram_scale_x: row.diagramScaleX,
     diagram_scale_y: row.diagramScaleY,
     diagram_offset_x: row.diagramOffsetX,
@@ -39,6 +41,7 @@ router.post("/panels", async (req: Request, res: Response) => {
   const {
     name, description, diagram_url, columns, rows,
     column_start, row_start, columns_asc, rows_asc,
+    cell_width, cell_height,
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
@@ -46,6 +49,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     columns: number; rows: number;
     column_start?: number; row_start?: number;
     columns_asc?: boolean; rows_asc?: boolean;
+    cell_width?: number; cell_height?: number;
     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
@@ -55,6 +59,8 @@ router.post("/panels", async (req: Request, res: Response) => {
     rowStart: row_start ?? 0,
     columnsAsc: columns_asc ?? true,
     rowsAsc: rows_asc ?? true,
+    cellWidth: cell_width ?? 48,
+    cellHeight: cell_height ?? 32,
     diagramScaleX: diagram_scale_x ?? 1.0,
     diagramScaleY: diagram_scale_y ?? 1.0,
     diagramOffsetX: diagram_offset_x ?? 0.0,
@@ -78,6 +84,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   const {
     name, description, diagram_url, columns, rows,
     column_start, row_start, columns_asc, rows_asc,
+    cell_width, cell_height,
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
@@ -85,6 +92,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     columns?: number; rows?: number;
     column_start?: number; row_start?: number;
     columns_asc?: boolean; rows_asc?: boolean;
+    cell_width?: number; cell_height?: number;
     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
@@ -98,6 +106,8 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (row_start !== undefined) updates.rowStart = row_start;
   if (columns_asc !== undefined) updates.columnsAsc = columns_asc;
   if (rows_asc !== undefined) updates.rowsAsc = rows_asc;
+  if (cell_width !== undefined) updates.cellWidth = cell_width;
+  if (cell_height !== undefined) updates.cellHeight = cell_height;
   if (diagram_scale_x !== undefined) updates.diagramScaleX = diagram_scale_x;
   if (diagram_scale_y !== undefined) updates.diagramScaleY = diagram_scale_y;
   if (diagram_offset_x !== undefined) updates.diagramOffsetX = diagram_offset_x;

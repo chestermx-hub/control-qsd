@@ -29,6 +29,8 @@ const panelSchema = z.object({
   row_start_letter: z.string().min(1, "Requerido").max(1).regex(/^[A-Za-z]$/, "Debe ser una letra (A-Z)").default("A"),
   columns_asc: z.boolean().default(true),
   rows_asc: z.boolean().default(true),
+  cell_width: z.number().min(20).max(200).default(48),
+  cell_height: z.number().min(12).max(120).default(32),
   diagram_scale_x: z.number().min(0.2).max(5).default(1.0),
   diagram_scale_y: z.number().min(0.2).max(5).default(1.0),
   diagram_offset_x: z.number().min(-200).max(200).default(0),
@@ -58,6 +60,8 @@ function PanelGrid({
   rowStart = 0,
   columnsAsc = true,
   rowsAsc = true,
+  cellWidth = 48,
+  cellHeight = 32,
   diagramScaleX = 1,
   diagramScaleY = 1,
   diagramOffsetX = 0,
@@ -71,6 +75,8 @@ function PanelGrid({
   rowStart?: number;
   columnsAsc?: boolean;
   rowsAsc?: boolean;
+  cellWidth?: number;
+  cellHeight?: number;
   diagramScaleX?: number;
   diagramScaleY?: number;
   diagramOffsetX?: number;
@@ -93,8 +99,8 @@ function PanelGrid({
     return indexToLetter(idx);
   };
 
-  const CELL_W = 48;
-  const CELL_H = 32;
+  const CELL_W = cellWidth;
+  const CELL_H = cellHeight;
   const gridW = columns * CELL_W;
   const gridH = rows * CELL_H;
 
@@ -256,6 +262,8 @@ export default function Paneles() {
   const formRowStartLetter = form.watch("row_start_letter");
   const formColumnsAsc = form.watch("columns_asc");
   const formRowsAsc = form.watch("rows_asc");
+  const formCellWidth = form.watch("cell_width");
+  const formCellHeight = form.watch("cell_height");
   const formDiagramScaleX = form.watch("diagram_scale_x");
   const formDiagramScaleY = form.watch("diagram_scale_y");
   const formDiagramOffsetX = form.watch("diagram_offset_x");
@@ -276,6 +284,8 @@ export default function Paneles() {
       row_start_letter: indexToLetter(panel.row_start ?? 0),
       columns_asc: panel.columns_asc ?? true,
       rows_asc: panel.rows_asc ?? true,
+      cell_width: panel.cell_width ?? 48,
+      cell_height: panel.cell_height ?? 32,
       diagram_scale_x: panel.diagram_scale_x ?? 1.0,
       diagram_scale_y: panel.diagram_scale_y ?? 1.0,
       diagram_offset_x: panel.diagram_offset_x ?? 0,
@@ -296,6 +306,7 @@ export default function Paneles() {
       columns: 5, rows: 5,
       column_start: 1, row_start_letter: "A",
       columns_asc: true, rows_asc: true,
+      cell_width: 48, cell_height: 32,
       diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
     });
     setIsOpen(true);
@@ -420,6 +431,8 @@ export default function Paneles() {
                     rowStart={viewingGrid.row_start ?? 0}
                     columnsAsc={viewingGrid.columns_asc ?? true}
                     rowsAsc={viewingGrid.rows_asc ?? true}
+                    cellWidth={viewingGrid.cell_width ?? 48}
+                    cellHeight={viewingGrid.cell_height ?? 32}
                     diagramScaleX={viewingGrid.diagram_scale_x ?? 1}
                     diagramScaleY={viewingGrid.diagram_scale_y ?? 1}
                     diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
@@ -626,6 +639,35 @@ export default function Paneles() {
                   )}
                 </div>
 
+                {/* Tamaño de celdas */}
+                <div className="pt-4 border-t space-y-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tamaño de Celdas</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Ancho de columna</span>
+                        <span>{formCellWidth ?? 48}px</span>
+                      </div>
+                      <Slider
+                        min={20} max={200} step={2}
+                        value={[formCellWidth ?? 48]}
+                        onValueChange={([v]) => form.setValue("cell_width", v)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Alto de fila</span>
+                        <span>{formCellHeight ?? 32}px</span>
+                      </div>
+                      <Slider
+                        min={12} max={120} step={2}
+                        value={[formCellHeight ?? 32]}
+                        onValueChange={([v]) => form.setValue("cell_height", v)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* Vista previa + ajuste de imagen */}
                 <div className="pt-4 border-t space-y-4">
                   <Label className="block">Vista Previa de la Cuadrícula</Label>
@@ -716,6 +758,8 @@ export default function Paneles() {
                     rowStart={letterToIndex(formRowStartLetter || "A")}
                     columnsAsc={formColumnsAsc}
                     rowsAsc={formRowsAsc}
+                    cellWidth={formCellWidth ?? 48}
+                    cellHeight={formCellHeight ?? 32}
                     diagramScaleX={formDiagramScaleX ?? 1}
                     diagramScaleY={formDiagramScaleY ?? 1}
                     diagramOffsetX={formDiagramOffsetX ?? 0}

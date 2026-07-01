@@ -20,6 +20,8 @@ export const panelsTable = pgTable("panels", {
   rowStart: integer("row_start").notNull().default(0),
   columnsAsc: boolean("columns_asc").notNull().default(true),
   rowsAsc: boolean("rows_asc").notNull().default(true),
+  cellWidth: integer("cell_width").notNull().default(48),
+  cellHeight: integer("cell_height").notNull().default(32),
   diagramScaleX: real("diagram_scale_x").notNull().default(1.0),
   diagramScaleY: real("diagram_scale_y").notNull().default(1.0),
   diagramOffsetX: real("diagram_offset_x").notNull().default(0.0),
