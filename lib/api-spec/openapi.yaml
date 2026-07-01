@@ -1,22 +1,43 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Control de Capital Humano API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: users
+    description: User management
+  - name: udns
+    description: Unidades de Negocio
+  - name: profiles
+    description: Access profiles
+  - name: zones
+    description: Zonas Auditadas
+  - name: panels
+    description: Paneles
+  - name: defects
+    description: Defectos
+  - name: sides
+    description: Lados
+  - name: visualZones
+    description: Zona Visual
+  - name: alphanumeric
+    description: Alfanumerico
+  - name: dashboard
+    description: Dashboard stats
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +45,861 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login success
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current session
+      responses:
+        "200":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+
+  # USERS
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # UDNs
+  /udns:
+    get:
+      operationId: listUdns
+      tags: [udns]
+      summary: List all UDNs
+      responses:
+        "200":
+          description: List of UDNs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Udn"
+    post:
+      operationId: createUdn
+      tags: [udns]
+      summary: Create a UDN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UdnInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Udn"
+
+  /udns/{id}:
+    get:
+      operationId: getUdn
+      tags: [udns]
+      summary: Get UDN by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: UDN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Udn"
+    patch:
+      operationId: updateUdn
+      tags: [udns]
+      summary: Update UDN
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UdnUpdate"
+      responses:
+        "200":
+          description: Updated UDN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Udn"
+    delete:
+      operationId: deleteUdn
+      tags: [udns]
+      summary: Delete UDN
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # PROFILES
+  /profiles:
+    get:
+      operationId: listProfiles
+      tags: [profiles]
+      summary: List all profiles
+      responses:
+        "200":
+          description: List of profiles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Profile"
+    post:
+      operationId: createProfile
+      tags: [profiles]
+      summary: Create a profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+
+  /profiles/{id}:
+    get:
+      operationId: getProfile
+      tags: [profiles]
+      summary: Get profile by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    patch:
+      operationId: updateProfile
+      tags: [profiles]
+      summary: Update profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+    delete:
+      operationId: deleteProfile
+      tags: [profiles]
+      summary: Delete profile
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ZONAS AUDITADAS
+  /zones:
+    get:
+      operationId: listZones
+      tags: [zones]
+      summary: List all audited zones
+      responses:
+        "200":
+          description: List of zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Zone"
+    post:
+      operationId: createZone
+      tags: [zones]
+      summary: Create a zone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+
+  /zones/{id}:
+    get:
+      operationId: getZone
+      tags: [zones]
+      summary: Get zone by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+    patch:
+      operationId: updateZone
+      tags: [zones]
+      summary: Update zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ZoneUpdate"
+      responses:
+        "200":
+          description: Updated zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Zone"
+    delete:
+      operationId: deleteZone
+      tags: [zones]
+      summary: Delete zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # PANELES
+  /panels:
+    get:
+      operationId: listPanels
+      tags: [panels]
+      summary: List all panels
+      responses:
+        "200":
+          description: List of panels
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Panel"
+    post:
+      operationId: createPanel
+      tags: [panels]
+      summary: Create a panel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PanelInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Panel"
+
+  /panels/{id}:
+    get:
+      operationId: getPanel
+      tags: [panels]
+      summary: Get panel by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Panel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Panel"
+    patch:
+      operationId: updatePanel
+      tags: [panels]
+      summary: Update panel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PanelUpdate"
+      responses:
+        "200":
+          description: Updated panel
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Panel"
+    delete:
+      operationId: deletePanel
+      tags: [panels]
+      summary: Delete panel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # DEFECTOS
+  /defects:
+    get:
+      operationId: listDefects
+      tags: [defects]
+      summary: List all defects
+      responses:
+        "200":
+          description: List of defects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Defect"
+    post:
+      operationId: createDefect
+      tags: [defects]
+      summary: Create a defect
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DefectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+
+  /defects/{id}:
+    get:
+      operationId: getDefect
+      tags: [defects]
+      summary: Get defect by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Defect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+    patch:
+      operationId: updateDefect
+      tags: [defects]
+      summary: Update defect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DefectUpdate"
+      responses:
+        "200":
+          description: Updated defect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Defect"
+    delete:
+      operationId: deleteDefect
+      tags: [defects]
+      summary: Delete defect
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # LADOS
+  /sides:
+    get:
+      operationId: listSides
+      tags: [sides]
+      summary: List all sides
+      responses:
+        "200":
+          description: List of sides
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Side"
+    post:
+      operationId: createSide
+      tags: [sides]
+      summary: Create a side
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SideInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Side"
+
+  /sides/{id}:
+    get:
+      operationId: getSide
+      tags: [sides]
+      summary: Get side by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Side
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Side"
+    patch:
+      operationId: updateSide
+      tags: [sides]
+      summary: Update side
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SideUpdate"
+      responses:
+        "200":
+          description: Updated side
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Side"
+    delete:
+      operationId: deleteSide
+      tags: [sides]
+      summary: Delete side
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ZONA VISUAL
+  /visual-zones:
+    get:
+      operationId: listVisualZones
+      tags: [visualZones]
+      summary: List all visual zones
+      responses:
+        "200":
+          description: List of visual zones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VisualZone"
+    post:
+      operationId: createVisualZone
+      tags: [visualZones]
+      summary: Create a visual zone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisualZoneInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisualZone"
+
+  /visual-zones/{id}:
+    get:
+      operationId: getVisualZone
+      tags: [visualZones]
+      summary: Get visual zone by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: VisualZone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisualZone"
+    patch:
+      operationId: updateVisualZone
+      tags: [visualZones]
+      summary: Update visual zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisualZoneUpdate"
+      responses:
+        "200":
+          description: Updated visual zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VisualZone"
+    delete:
+      operationId: deleteVisualZone
+      tags: [visualZones]
+      summary: Delete visual zone
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ALFANUMERICO
+  /alphanumeric:
+    get:
+      operationId: listAlphanumeric
+      tags: [alphanumeric]
+      summary: List all alphanumeric records
+      responses:
+        "200":
+          description: List of alphanumeric records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AlphanumericRecord"
+    post:
+      operationId: createAlphanumeric
+      tags: [alphanumeric]
+      summary: Create an alphanumeric record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlphanumericInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphanumericRecord"
+
+  /alphanumeric/{id}:
+    get:
+      operationId: getAlphanumeric
+      tags: [alphanumeric]
+      summary: Get alphanumeric record by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AlphanumericRecord
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphanumericRecord"
+    patch:
+      operationId: updateAlphanumeric
+      tags: [alphanumeric]
+      summary: Update alphanumeric record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AlphanumericUpdate"
+      responses:
+        "200":
+          description: Updated alphanumeric record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlphanumericRecord"
+    delete:
+      operationId: deleteAlphanumeric
+      tags: [alphanumeric]
+      summary: Delete alphanumeric record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # DASHBOARD
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: Dashboard stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +910,428 @@ components:
       required:
         - status
 
+    # AUTH
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [user]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+
+    # USER
+    User:
+      type: object
+      required: [id, name, email, puesto, area, udn_id, role, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        puesto:
+          type: string
+        area:
+          type: string
+        profile_id:
+          type: ["integer", "null"]
+        udn_id:
+          type: ["integer", "null"]
+        role:
+          type: string
+          enum: [superadmin, admin, user]
+        created_at:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required: [name, email, password, puesto, area]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        puesto:
+          type: string
+        area:
+          type: string
+        profile_id:
+          type: ["integer", "null"]
+        udn_id:
+          type: ["integer", "null"]
+        role:
+          type: string
+          enum: [superadmin, admin, user]
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        puesto:
+          type: string
+        area:
+          type: string
+        profile_id:
+          type: ["integer", "null"]
+        udn_id:
+          type: ["integer", "null"]
+        role:
+          type: string
+          enum: [superadmin, admin, user]
+
+    # UDN
+    Udn:
+      type: object
+      required: [id, name, code, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    UdnInput:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    UdnUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    # PROFILE
+    Profile:
+      type: object
+      required: [id, name, permissions, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        permissions:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+
+    ProfileInput:
+      type: object
+      required: [name, permissions]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    ProfileUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    # ZONE
+    Zone:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        udn_id:
+          type: ["integer", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    ZoneInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        udn_id:
+          type: integer
+
+    ZoneUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        udn_id:
+          type: integer
+
+    # PANEL
+    Panel:
+      type: object
+      required: [id, name, columns, rows, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        diagram_url:
+          type: ["string", "null"]
+        columns:
+          type: integer
+          description: Number of columns (numbered)
+        rows:
+          type: integer
+          description: Number of rows (lettered A, B, C...)
+        zone_id:
+          type: ["integer", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    PanelInput:
+      type: object
+      required: [name, columns, rows]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        diagram_url:
+          type: string
+        columns:
+          type: integer
+        rows:
+          type: integer
+        zone_id:
+          type: integer
+
+    PanelUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        diagram_url:
+          type: string
+        columns:
+          type: integer
+        rows:
+          type: integer
+        zone_id:
+          type: integer
+
+    # DEFECT
+    Defect:
+      type: object
+      required: [id, name, code, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    DefectInput:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    DefectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    # SIDE
+    Side:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    SideInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    SideUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    # VISUAL ZONE
+    VisualZone:
+      type: object
+      required: [id, name, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    VisualZoneInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    VisualZoneUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    # ALPHANUMERIC
+    AlphanumericRecord:
+      type: object
+      required: [id, name, code, created_at]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: ["string", "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    AlphanumericInput:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    AlphanumericUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    # DASHBOARD
+    DashboardStats:
+      type: object
+      required: [totalUsers, totalUdns, totalZones, totalDefects, totalPanels, recentUsers]
+      properties:
+        totalUsers:
+          type: integer
+        totalUdns:
+          type: integer
+        totalZones:
+          type: integer
+        totalDefects:
+          type: integer
+        totalPanels:
+          type: integer
+        recentUsers:
+          type: array
+          items:
+            $ref: "#/components/schemas/User"

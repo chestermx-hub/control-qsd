@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Control de Capital Humano"
+version = "1.0.0"
+id = "artifacts/capital-humano"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21951
+
+[services.development]
+run = "pnpm --filter @workspace/capital-humano run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/capital-humano", "run", "build" ]
+publicDir = "artifacts/capital-humano/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21951"
+BASE_PATH = "/"
