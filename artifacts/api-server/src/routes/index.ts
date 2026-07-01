@@ -12,6 +12,7 @@ import visualZonesRouter from "./visualZones";
 import alphanumericRouter from "./alphanumeric";
 import auditCapturesRouter from "./auditCaptures";
 import dashboardRouter from "./dashboard";
+import uploadRouter from "./upload";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(visualZonesRouter);
 router.use(alphanumericRouter);
 router.use(auditCapturesRouter);
 router.use(dashboardRouter);
+router.use(uploadRouter);
 
 export default router;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   useListPanels, useCreatePanel, useUpdatePanel, useDeletePanel, getListPanelsQueryKey,
   useListZones, useListSides, useListVisualZones, useListAlphanumeric,
@@ -6,7 +6,7 @@ import {
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Loader2, Grid3X3, ArrowUpDown } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Grid3X3, ArrowUpDown, Upload, X } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -152,9 +152,31 @@ export default function Paneles() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewingGrid, setViewingGrid] = useState<any>(null);
   const [selectedAlphanumericIds, setSelectedAlphanumericIds] = useState<number[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: formData });
+      if (!res.ok) throw new Error("Error al subir");
+      const { url } = await res.json() as { url: string };
+      form.setValue("diagram_url", url, { shouldDirty: true });
+      toast({ title: "Imagen cargada correctamente" });
+    } catch {
+      toast({ title: "No se pudo cargar la imagen", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const createPanel = useCreatePanel({
     mutation: {
@@ -404,7 +426,52 @@ export default function Paneles() {
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="diagram_url" render={({ field }) => (
-                    <FormItem><FormLabel>URL del Diagrama (opcional)</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel>Diagrama (opcional)</FormLabel>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <FormControl>
+                            <Input {...field} placeholder="https://... o sube un archivo" />
+                          </FormControl>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            disabled={uploading}
+                            onClick={() => fileInputRef.current?.click()}
+                            title="Subir imagen"
+                          >
+                            {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          </Button>
+                          {field.value && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => form.setValue("diagram_url", "", { shouldDirty: true })}
+                              title="Quitar imagen"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                        {field.value && (
+                          <img
+                            src={field.value}
+                            alt="Vista previa del diagrama"
+                            className="h-20 w-auto rounded border object-contain bg-muted"
+                          />
+                        )}
+                      </div>
+                      <FormMessage />
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileUpload}
+                      />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem className="col-span-2"><FormLabel>Descripción</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
