@@ -22,6 +22,19 @@ import {
   X,
 } from "lucide-react";
 
+const controlModuloZA = {
+  key: "control-modulo",
+  title: "Control Modulo ZA",
+  items: [
+    { href: "/control/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
+    { href: "/control/zona-visual", label: "Vista", icon: Eye },
+    { href: "/control/paneles", label: "Paneles", icon: LayoutGrid },
+    { href: "/control/defectos", label: "Defectos", icon: AlertTriangle },
+    { href: "/control/lados", label: "Lados", icon: BoxSelect },
+    { href: "/control/alfanumerico", label: "Alfanumérico", icon: Type },
+  ],
+};
+
 const navigation = [
   {
     key: "analisis",
@@ -30,18 +43,7 @@ const navigation = [
       { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3 },
       { href: "/analisis-defectos/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
     ],
-  },
-  {
-    key: "control-modulo",
-    title: "Control Modulo ZA",
-    items: [
-      { href: "/control/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
-      { href: "/control/zona-visual", label: "Vista", icon: Eye },
-      { href: "/control/paneles", label: "Paneles", icon: LayoutGrid },
-      { href: "/control/defectos", label: "Defectos", icon: AlertTriangle },
-      { href: "/control/lados", label: "Lados", icon: BoxSelect },
-      { href: "/control/alfanumerico", label: "Alfanumérico", icon: Type },
-    ],
+    subSection: controlModuloZA,
   },
   {
     key: "operacion",
@@ -59,26 +61,31 @@ const navigation = [
       { href: "/control/udns", label: "UDN", icon: Building2 },
     ],
   },
-];
+] as const;
+
+type NavSection = (typeof navigation)[number];
+
+function allHrefs(section: { items: readonly { href: string }[]; subSection?: { items: { href: string }[] } }) {
+  const hrefs = section.items.map((i) => i.href);
+  if (section.subSection) hrefs.push(...section.subSection.items.map((i) => i.href));
+  return hrefs;
+}
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
-  const isInSection = (items: { href: string }[]) =>
-    items.some((item) => location === item.href);
-
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
     navigation.forEach((section) => {
-      initial[section.key] = isInSection(section.items);
+      initial[section.key] = allHrefs(section).includes(location);
     });
+    initial["control-modulo"] = controlModuloZA.items.some((i) => i.href === location);
     return initial;
   });
 
-  const toggleSection = (key: string) => {
+  const toggle = (key: string) =>
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
 
   return (
     <div className="flex flex-col h-full text-sidebar-foreground">
@@ -119,25 +126,25 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           </Link>
         </div>
 
-        {/* Collapsible sections */}
+        {/* Top-level sections */}
         {navigation.map((section) => {
           const isOpen = openSections[section.key] ?? false;
+          const subOpen = openSections["control-modulo"] ?? false;
+
           return (
             <div key={section.key} className="mb-1 px-3">
+              {/* Section header */}
               <button
-                onClick={() => toggleSection(section.key)}
+                onClick={() => toggle(section.key)}
                 className="w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider hover:text-sidebar-foreground/70 transition-colors"
               >
                 <span>{section.title}</span>
-                {isOpen ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )}
+                {isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
               </button>
 
               {isOpen && (
                 <div className="space-y-0.5 mt-0.5">
+                  {/* Regular items */}
                   {section.items.map((item) => {
                     const Icon = item.icon;
                     const isActive = location === item.href;
@@ -158,6 +165,44 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                       </Link>
                     );
                   })}
+
+                  {/* Nested subsection */}
+                  {"subSection" in section && section.subSection && (
+                    <div className="mt-1 pl-2 border-l border-sidebar-border/50">
+                      <button
+                        onClick={() => toggle("control-modulo")}
+                        className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider hover:text-sidebar-foreground/60 transition-colors"
+                      >
+                        <span>{section.subSection.title}</span>
+                        {subOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+                      </button>
+
+                      {subOpen && (
+                        <div className="space-y-0.5 mt-0.5">
+                          {section.subSection.items.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = location === item.href;
+                            return (
+                              <Link
+                                key={item.href}
+                                href={item.href}
+                                onClick={onClose}
+                                className={cn(
+                                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+                                  isActive
+                                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                                    : "hover:bg-sidebar-accent/50 text-sidebar-foreground/80"
+                                )}
+                              >
+                                <Icon className="h-4 w-4 shrink-0" />
+                                {item.label}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -197,22 +242,11 @@ export function Sidebar() {
   );
 }
 
-export function MobileSidebar({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) {
+export function MobileSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   if (!isOpen) return null;
   return (
     <>
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50 md:hidden"
-        onClick={onClose}
-      />
-      {/* Drawer */}
+      <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={onClose} />
       <div className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-xl md:hidden">
         <SidebarContent onClose={onClose} />
       </div>
