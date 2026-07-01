@@ -39,7 +39,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
-  (req.session as Record<string, unknown>).userId = user.id;
+  (req.session as unknown as Record<string, unknown>).userId = user.id;
   res.json({ user: userToJson(user) });
 });
 
@@ -50,7 +50,7 @@ router.post("/auth/logout", (req: Request, res: Response) => {
 });
 
 router.get("/auth/me", async (req: Request, res: Response) => {
-  const userId = (req.session as Record<string, unknown>).userId as number | undefined;
+  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
   if (!userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;

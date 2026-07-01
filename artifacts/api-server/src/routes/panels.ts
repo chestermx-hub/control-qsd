@@ -40,14 +40,14 @@ router.post("/panels", async (req: Request, res: Response) => {
 });
 
 router.get("/panels/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const [row] = await db.select().from(panelsTable).where(eq(panelsTable.id, id));
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toJson(row));
 });
 
 router.patch("/panels/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const { name, description, diagram_url, columns, rows, zone_id, side_id, visual_zone_id, alphanumeric_ids } = req.body as {
     name?: string; description?: string; diagram_url?: string; columns?: number; rows?: number;
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
@@ -68,7 +68,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
 });
 
 router.delete("/panels/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   await db.delete(panelsTable).where(eq(panelsTable.id, id));
   res.status(204).send();
 });

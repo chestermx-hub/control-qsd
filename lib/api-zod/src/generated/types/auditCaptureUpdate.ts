@@ -8,6 +8,7 @@
 
 export interface AuditCaptureUpdate {
   skill_number?: string;
+  zone_id?: number;
   panel_id?: number;
   side_id?: number;
   visual_zone_id?: number;

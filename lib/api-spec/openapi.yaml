@@ -1340,6 +1340,8 @@ components:
           format: date
         skill_number:
           type: string
+        zone_id:
+          type: ["integer", "null"]
         panel_id:
           type: ["integer", "null"]
         side_id:
@@ -1375,6 +1377,8 @@ components:
           format: date
         skill_number:
           type: string
+        zone_id:
+          type: integer
         panel_id:
           type: integer
         side_id:
@@ -1399,6 +1403,8 @@ components:
       properties:
         skill_number:
           type: string
+        zone_id:
+          type: integer
         panel_id:
           type: integer
         side_id:

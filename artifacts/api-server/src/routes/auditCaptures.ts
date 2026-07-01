@@ -12,6 +12,7 @@ function toJson(row: typeof auditCapturesTable.$inferSelect) {
     week_number: row.weekNumber,
     date: row.date,
     skill_number: row.skillNumber,
+    zone_id: row.zoneId,
     panel_id: row.panelId,
     side_id: row.sideId,
     visual_zone_id: row.visualZoneId,
@@ -67,11 +68,11 @@ router.get("/audit-captures", async (req: Request, res: Response) => {
 router.post("/audit-captures", async (req: Request, res: Response) => {
   const {
     unit_number, week_number, date, skill_number,
-    panel_id, side_id, visual_zone_id, alphanumeric_id,
+    zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
     grid_col, grid_row, defect_id, defect_other, quantity,
   } = req.body as {
     unit_number: number; week_number: number; date: string; skill_number: string;
-    panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
+    zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     grid_col: number; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
   };
   const [row] = await db.insert(auditCapturesTable).values({
@@ -79,6 +80,7 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     weekNumber: week_number,
     date,
     skillNumber: skill_number,
+    zoneId: zone_id,
     panelId: panel_id,
     sideId: side_id,
     visualZoneId: visual_zone_id,
@@ -93,23 +95,24 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
 });
 
 router.get("/audit-captures/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const [row] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toJson(row));
 });
 
 router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const {
-    skill_number, panel_id, side_id, visual_zone_id, alphanumeric_id,
+    skill_number, zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
     grid_col, grid_row, defect_id, defect_other, quantity,
   } = req.body as {
-    skill_number?: string; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
+    skill_number?: string; zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     grid_col?: number; grid_row?: string; defect_id?: number; defect_other?: string; quantity?: number;
   };
   const updates: Partial<typeof auditCapturesTable.$inferInsert> = {};
   if (skill_number !== undefined) updates.skillNumber = skill_number;
+  if (zone_id !== undefined) updates.zoneId = zone_id;
   if (panel_id !== undefined) updates.panelId = panel_id;
   if (side_id !== undefined) updates.sideId = side_id;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;
@@ -125,7 +128,7 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
 });
 
 router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   await db.delete(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   res.status(204).send();
 });

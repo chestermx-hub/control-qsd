@@ -13,6 +13,8 @@ export interface AuditCapture {
   date: Date;
   skill_number: string;
   /** @nullable */
+  zone_id?: number | null;
+  /** @nullable */
   panel_id?: number | null;
   /** @nullable */
   side_id?: number | null;

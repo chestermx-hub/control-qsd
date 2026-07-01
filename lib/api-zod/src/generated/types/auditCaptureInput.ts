@@ -11,6 +11,7 @@ export interface AuditCaptureInput {
   week_number: number;
   date: Date;
   skill_number: string;
+  zone_id?: number;
   panel_id?: number;
   side_id?: number;
   visual_zone_id?: number;

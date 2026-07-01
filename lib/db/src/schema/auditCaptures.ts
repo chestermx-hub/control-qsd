@@ -5,6 +5,7 @@ import { panelsTable } from "./panels";
 import { sidesTable } from "./sides";
 import { visualZonesTable } from "./visualZones";
 import { defectsTable } from "./defects";
+import { zonesTable } from "./zones";
 
 export const auditCapturesTable = pgTable("audit_captures", {
   id: serial("id").primaryKey(),
@@ -12,6 +13,7 @@ export const auditCapturesTable = pgTable("audit_captures", {
   weekNumber: integer("week_number").notNull(),
   date: date("date").notNull(),
   skillNumber: text("skill_number").notNull(),
+  zoneId: integer("zone_id").references(() => zonesTable.id, { onDelete: "set null" }),
   panelId: integer("panel_id").references(() => panelsTable.id, { onDelete: "set null" }),
   sideId: integer("side_id").references(() => sidesTable.id, { onDelete: "set null" }),
   visualZoneId: integer("visual_zone_id").references(() => visualZonesTable.id, { onDelete: "set null" }),

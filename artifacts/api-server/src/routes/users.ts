@@ -46,14 +46,14 @@ router.post("/users", async (req: Request, res: Response) => {
 });
 
 router.get("/users/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id));
   if (!user) { res.status(404).json({ error: "Not found" }); return; }
   res.json(userToJson(user));
 });
 
 router.patch("/users/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const { name, email, password, puesto, area, profile_id, udn_id, role } = req.body as {
     name?: string; email?: string; password?: string; puesto?: string; area?: string;
     profile_id?: number | null; udn_id?: number | null; role?: string;
@@ -75,7 +75,7 @@ router.patch("/users/:id", async (req: Request, res: Response) => {
 });
 
 router.delete("/users/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   await db.delete(usersTable).where(eq(usersTable.id, id));
   res.status(204).send();
 });

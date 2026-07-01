@@ -201,6 +201,8 @@ export interface AuditCapture {
   date: string;
   skill_number: string;
   /** @nullable */
+  zone_id?: number | null;
+  /** @nullable */
   panel_id?: number | null;
   /** @nullable */
   side_id?: number | null;
@@ -223,6 +225,7 @@ export interface AuditCaptureInput {
   week_number: number;
   date: string;
   skill_number: string;
+  zone_id?: number;
   panel_id?: number;
   side_id?: number;
   visual_zone_id?: number;
@@ -236,6 +239,7 @@ export interface AuditCaptureInput {
 
 export interface AuditCaptureUpdate {
   skill_number?: string;
+  zone_id?: number;
   panel_id?: number;
   side_id?: number;
   visual_zone_id?: number;

@@ -27,14 +27,14 @@ router.post("/defects", async (req: Request, res: Response) => {
 });
 
 router.get("/defects/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const [row] = await db.select().from(defectsTable).where(eq(defectsTable.id, id));
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toJson(row));
 });
 
 router.patch("/defects/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   const { name, code, description } = req.body as { name?: string; code?: string; description?: string };
   const updates: Partial<typeof defectsTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
@@ -46,7 +46,7 @@ router.patch("/defects/:id", async (req: Request, res: Response) => {
 });
 
 router.delete("/defects/:id", async (req: Request, res: Response) => {
-  const id = parseInt(req.params.id!);
+  const id = parseInt(req.params["id"] as string);
   await db.delete(defectsTable).where(eq(defectsTable.id, id));
   res.status(204).send();
 });

@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import {
   useListPanels, useListSides, useListVisualZones, useListAlphanumeric,
   useListDefects, useCreateAuditCapture, useGetAuditDailyCounter,
-  getListAuditCapturesQueryKey,
+  useListZones, getListAuditCapturesQueryKey,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -49,9 +49,11 @@ export default function NuevoRegistro() {
   const { data: visualZones } = useListVisualZones();
   const { data: alphanumericList } = useListAlphanumeric();
   const { data: defects } = useListDefects();
+  const { data: zones } = useListZones();
 
   const [date, setDate] = useState(todayStr());
   const [skillNumber, setSkillNumber] = useState("");
+  const [zoneId, setZoneId] = useState<number | null>(null);
   const [panelId, setPanelId] = useState<number | null>(null);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
 
@@ -151,6 +153,7 @@ export default function NuevoRegistro() {
         week_number: dailyCounter?.week_number ?? 1,
         date,
         skill_number: skillNumber,
+        zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
@@ -167,7 +170,7 @@ export default function NuevoRegistro() {
   const cellHasCaptures = (col: number, row: number) =>
     capturedCells.find((c) => c.col === col && c.row === row);
 
-  const headerComplete = date && skillNumber && panelId;
+  const headerComplete = date && skillNumber && zoneId && panelId;
 
   return (
     <AppLayout>
@@ -216,6 +219,17 @@ export default function NuevoRegistro() {
                 onChange={(e) => setSkillNumber(e.target.value)}
                 placeholder="Ej. 12345"
               />
+            </div>
+            <div className="space-y-1">
+              <Label>Zona Auditada</Label>
+              <Select onValueChange={(val) => setZoneId(Number(val))} value={zoneId?.toString() || ""}>
+                <SelectTrigger><SelectValue placeholder="Selecciona una zona" /></SelectTrigger>
+                <SelectContent>
+                  {zones?.map((z) => (
+                    <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Panel</Label>
