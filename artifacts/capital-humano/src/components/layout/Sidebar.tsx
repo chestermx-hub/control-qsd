@@ -24,12 +24,11 @@ import {
 
 const navigation = [
   {
-    key: "panel-control",
-    title: "Panel de Control",
+    key: "analisis",
+    title: "Análisis de Defectos",
     items: [
-      { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck },
-      { href: "/control/usuarios", label: "Usuarios", icon: Users },
-      { href: "/control/udns", label: "UDN", icon: Building2 },
+      { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3 },
+      { href: "/analisis-defectos/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
     ],
   },
   {
@@ -45,18 +44,19 @@ const navigation = [
     ],
   },
   {
-    key: "analisis",
-    title: "Análisis de Defectos",
-    items: [
-      { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3 },
-      { href: "/analisis-defectos/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
-    ],
-  },
-  {
     key: "operacion",
     title: "Operación",
     items: [
       { href: "/checklist-operacion", label: "Checklist de Operación", icon: ClipboardCheck },
+    ],
+  },
+  {
+    key: "panel-control",
+    title: "Panel de Control",
+    items: [
+      { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck },
+      { href: "/control/usuarios", label: "Usuarios", icon: Users },
+      { href: "/control/udns", label: "UDN", icon: Building2 },
     ],
   },
 ];
