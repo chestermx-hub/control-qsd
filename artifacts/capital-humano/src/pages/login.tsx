@@ -40,9 +40,11 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold tracking-tight">QIS Servicio</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight">
+            Querétaro Servicio Decapado
+          </CardTitle>
           <CardDescription>
-            Control de Capital Humano
+            Control Interno de Operacion
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -55,7 +57,11 @@ export default function Login() {
                   <FormItem>
                     <FormLabel>Correo Electrónico</FormLabel>
                     <FormControl>
-                      <Input placeholder="usuario@qis.mx" {...field} />
+                      <Input
+                        placeholder="usuario@qis.mx"
+                        autoComplete="email"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -68,7 +74,11 @@ export default function Login() {
                   <FormItem>
                     <FormLabel>Contraseña</FormLabel>
                     <FormControl>
-                      <Input type="password" {...field} />
+                      <Input
+                        type="password"
+                        autoComplete="current-password"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

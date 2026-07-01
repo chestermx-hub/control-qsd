@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -170,7 +171,7 @@ export default function Profiles() {
                 </div>
                 
                 <div className="space-y-2 mt-4">
-                  <FormLabel>Permisos</FormLabel>
+                  <Label>Permisos</Label>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-md p-4 bg-muted/20 max-h-[300px] overflow-y-auto">
                     {PERMISSION_OPTIONS.map((permission) => (
                       <FormField
