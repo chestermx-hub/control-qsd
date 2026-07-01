@@ -22,8 +22,16 @@ router.get("/defects", async (_req: Request, res: Response) => {
 
 router.post("/defects", async (req: Request, res: Response) => {
   const { name, code, description } = req.body as { name: string; code: string; description?: string };
-  const [row] = await db.insert(defectsTable).values({ name, code, description }).returning();
-  res.status(201).json(toJson(row!));
+  try {
+    const [row] = await db.insert(defectsTable).values({ name, code, description }).returning();
+    res.status(201).json(toJson(row!));
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "El código ya está en uso por otro defecto." });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.get("/defects/:id", async (req: Request, res: Response) => {
@@ -40,9 +48,17 @@ router.patch("/defects/:id", async (req: Request, res: Response) => {
   if (name !== undefined) updates.name = name;
   if (code !== undefined) updates.code = code;
   if (description !== undefined) updates.description = description;
-  const [row] = await db.update(defectsTable).set(updates).where(eq(defectsTable.id, id)).returning();
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(toJson(row));
+  try {
+    const [row] = await db.update(defectsTable).set(updates).where(eq(defectsTable.id, id)).returning();
+    if (!row) { res.status(404).json({ error: "Not found" }); return; }
+    res.json(toJson(row));
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "El código ya está en uso por otro defecto." });
+      return;
+    }
+    throw err;
+  }
 });
 
 router.delete("/defects/:id", async (req: Request, res: Response) => {

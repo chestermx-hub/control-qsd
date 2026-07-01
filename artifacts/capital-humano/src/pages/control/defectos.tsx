@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useListDefects, useCreateDefect, useUpdateDefect, useDeleteDefect, getListDefectsQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -34,6 +34,7 @@ export default function Defectos() {
   const { data: defects, isLoading } = useListDefects();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const autoCodeRef = useRef(true);
   const [autoCode, setAutoCode] = useState(true);
 
   const queryClient = useQueryClient();
@@ -45,7 +46,11 @@ export default function Defectos() {
         queryClient.invalidateQueries({ queryKey: getListDefectsQueryKey() });
         setIsOpen(false);
         toast({ title: "Defecto creado exitosamente" });
-      }
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Error al crear el defecto";
+        toast({ title: msg, variant: "destructive" });
+      },
     }
   });
 
@@ -55,7 +60,11 @@ export default function Defectos() {
         queryClient.invalidateQueries({ queryKey: getListDefectsQueryKey() });
         setIsOpen(false);
         toast({ title: "Defecto actualizado exitosamente" });
-      }
+      },
+      onError: (err: any) => {
+        const msg = err?.response?.data?.error ?? "Error al actualizar el defecto";
+        toast({ title: msg, variant: "destructive" });
+      },
     }
   });
 
@@ -76,21 +85,23 @@ export default function Defectos() {
   const watchedName = form.watch("name");
 
   useEffect(() => {
-    if (autoCode && !editingId) {
-      form.setValue("code", generateCode(watchedName));
+    if (autoCodeRef.current) {
+      form.setValue("code", generateCode(watchedName), { shouldDirty: false });
     }
-  }, [watchedName, autoCode, editingId]);
+  }, [watchedName]);
 
   const handleEdit = (defect: { id: number; name: string; code: string; description?: string | null }) => {
-    setEditingId(defect.id);
+    autoCodeRef.current = false;
     setAutoCode(false);
+    setEditingId(defect.id);
     form.reset({ name: defect.name, code: defect.code, description: defect.description || "" });
     setIsOpen(true);
   };
 
   const handleOpen = () => {
-    setEditingId(null);
+    autoCodeRef.current = true;
     setAutoCode(true);
+    setEditingId(null);
     form.reset({ name: "", code: "", description: "" });
     setIsOpen(true);
   };
