@@ -1244,7 +1244,7 @@ components:
     # PANEL
     Panel:
       type: object
-      required: [id, name, columns, rows, created_at]
+      required: [id, name, columns, rows, column_start, row_start, columns_asc, rows_asc, created_at]
       properties:
         id:
           type: integer
@@ -1260,6 +1260,22 @@ components:
         rows:
           type: integer
           description: Number of rows (lettered A, B, C...)
+        column_start:
+          type: integer
+          default: 1
+          description: Column numbering starts at this number
+        row_start:
+          type: integer
+          default: 0
+          description: Row labeling starts at this letter index (0=A, 1=B, ...)
+        columns_asc:
+          type: boolean
+          default: true
+          description: Column labels in ascending order left to right
+        rows_asc:
+          type: boolean
+          default: true
+          description: Row labels in ascending order top to bottom
         zone_id:
           type: ["integer", "null"]
         side_id:
@@ -1289,6 +1305,14 @@ components:
           type: integer
         rows:
           type: integer
+        column_start:
+          type: integer
+        row_start:
+          type: integer
+        columns_asc:
+          type: boolean
+        rows_asc:
+          type: boolean
         zone_id:
           type: integer
         side_id:
@@ -1313,6 +1337,14 @@ components:
           type: integer
         rows:
           type: integer
+        column_start:
+          type: integer
+        row_start:
+          type: integer
+        columns_asc:
+          type: boolean
+        rows_asc:
+          type: boolean
         zone_id:
           type: integer
         side_id:

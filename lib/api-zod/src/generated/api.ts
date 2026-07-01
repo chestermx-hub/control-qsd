@@ -406,6 +406,10 @@ export const DeleteZoneResponse = zod.void()
 /**
  * @summary List all panels
  */
+export const listPanelsResponseColumnStartDefault = 1;
+export const listPanelsResponseRowStartDefault = 0;
+export const listPanelsResponseColumnsAscDefault = true;
+export const listPanelsResponseRowsAscDefault = true;
 export const listPanelsResponseAlphanumericIdsDefault = [];
 
 export const ListPanelsResponseItem = zod.object({
@@ -415,6 +419,10 @@ export const ListPanelsResponseItem = zod.object({
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
+  "column_start": zod.number().default(listPanelsResponseColumnStartDefault).describe('Column numbering starts at this number'),
+  "row_start": zod.number().default(listPanelsResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
+  "columns_asc": zod.boolean().default(listPanelsResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
+  "rows_asc": zod.boolean().default(listPanelsResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),
@@ -433,12 +441,20 @@ export const CreatePanelBody = zod.object({
   "diagram_url": zod.string().optional(),
   "columns": zod.number(),
   "rows": zod.number(),
+  "column_start": zod.number().optional(),
+  "row_start": zod.number().optional(),
+  "columns_asc": zod.boolean().optional(),
+  "rows_asc": zod.boolean().optional(),
   "zone_id": zod.number().optional(),
   "side_id": zod.number().optional(),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_ids": zod.array(zod.number()).optional()
 })
 
+export const createPanelResponseColumnStartDefault = 1;
+export const createPanelResponseRowStartDefault = 0;
+export const createPanelResponseColumnsAscDefault = true;
+export const createPanelResponseRowsAscDefault = true;
 export const createPanelResponseAlphanumericIdsDefault = [];
 
 export const CreatePanelResponse = zod.object({
@@ -448,6 +464,10 @@ export const CreatePanelResponse = zod.object({
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
+  "column_start": zod.number().default(createPanelResponseColumnStartDefault).describe('Column numbering starts at this number'),
+  "row_start": zod.number().default(createPanelResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
+  "columns_asc": zod.boolean().default(createPanelResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
+  "rows_asc": zod.boolean().default(createPanelResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),
@@ -463,6 +483,10 @@ export const GetPanelParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getPanelResponseColumnStartDefault = 1;
+export const getPanelResponseRowStartDefault = 0;
+export const getPanelResponseColumnsAscDefault = true;
+export const getPanelResponseRowsAscDefault = true;
 export const getPanelResponseAlphanumericIdsDefault = [];
 
 export const GetPanelResponse = zod.object({
@@ -472,6 +496,10 @@ export const GetPanelResponse = zod.object({
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
+  "column_start": zod.number().default(getPanelResponseColumnStartDefault).describe('Column numbering starts at this number'),
+  "row_start": zod.number().default(getPanelResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
+  "columns_asc": zod.boolean().default(getPanelResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
+  "rows_asc": zod.boolean().default(getPanelResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),
@@ -493,12 +521,20 @@ export const UpdatePanelBody = zod.object({
   "diagram_url": zod.string().optional(),
   "columns": zod.number().optional(),
   "rows": zod.number().optional(),
+  "column_start": zod.number().optional(),
+  "row_start": zod.number().optional(),
+  "columns_asc": zod.boolean().optional(),
+  "rows_asc": zod.boolean().optional(),
   "zone_id": zod.number().optional(),
   "side_id": zod.number().optional(),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_ids": zod.array(zod.number()).optional()
 })
 
+export const updatePanelResponseColumnStartDefault = 1;
+export const updatePanelResponseRowStartDefault = 0;
+export const updatePanelResponseColumnsAscDefault = true;
+export const updatePanelResponseRowsAscDefault = true;
 export const updatePanelResponseAlphanumericIdsDefault = [];
 
 export const UpdatePanelResponse = zod.object({
@@ -508,6 +544,10 @@ export const UpdatePanelResponse = zod.object({
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
+  "column_start": zod.number().default(updatePanelResponseColumnStartDefault).describe('Column numbering starts at this number'),
+  "row_start": zod.number().default(updatePanelResponseRowStartDefault).describe('Row labeling starts at this letter index (0=A, 1=B, ...)'),
+  "columns_asc": zod.boolean().default(updatePanelResponseColumnsAscDefault).describe('Column labels in ascending order left to right'),
+  "rows_asc": zod.boolean().default(updatePanelResponseRowsAscDefault).describe('Row labels in ascending order top to bottom'),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),

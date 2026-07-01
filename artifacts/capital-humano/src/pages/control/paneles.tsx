@@ -6,7 +6,7 @@ import {
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Loader2, Grid3X3 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Grid3X3, ArrowUpDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -24,6 +24,10 @@ const panelSchema = z.object({
   diagram_url: z.string().optional(),
   columns: z.coerce.number().min(1, "Debe ser mayor a 0"),
   rows: z.coerce.number().min(1, "Debe ser mayor a 0"),
+  column_start: z.coerce.number().min(1, "Mínimo 1").default(1),
+  row_start_letter: z.string().min(1, "Requerido").max(1).regex(/^[A-Za-z]$/, "Debe ser una letra (A-Z)").default("A"),
+  columns_asc: z.boolean().default(true),
+  rows_asc: z.boolean().default(true),
   zone_id: z.coerce.number().optional(),
   side_id: z.coerce.number().optional(),
   visual_zone_id: z.coerce.number().optional(),
@@ -32,8 +36,44 @@ const panelSchema = z.object({
 
 type PanelFormValues = z.infer<typeof panelSchema>;
 
-function PanelGrid({ columns, rows, diagramUrl }: { columns: number; rows: number; diagramUrl?: string }) {
-  const getRowLabel = (index: number) => String.fromCharCode(65 + index);
+function letterToIndex(letter: string): number {
+  return letter.toUpperCase().charCodeAt(0) - 65;
+}
+
+function indexToLetter(index: number): string {
+  return String.fromCharCode(65 + Math.max(0, index));
+}
+
+function PanelGrid({
+  columns,
+  rows,
+  diagramUrl,
+  columnStart = 1,
+  rowStart = 0,
+  columnsAsc = true,
+  rowsAsc = true,
+}: {
+  columns: number;
+  rows: number;
+  diagramUrl?: string;
+  columnStart?: number;
+  rowStart?: number;
+  columnsAsc?: boolean;
+  rowsAsc?: boolean;
+}) {
+  const getColLabel = (colIdx: number) => {
+    const label = columnsAsc
+      ? columnStart + colIdx
+      : columnStart + columns - 1 - colIdx;
+    return label.toString();
+  };
+  const getRowLabel = (rowIdx: number) => {
+    const idx = rowsAsc
+      ? rowStart + rowIdx
+      : rowStart + rows - 1 - rowIdx;
+    return indexToLetter(idx);
+  };
+
   return (
     <div className="relative mt-4 border rounded-md overflow-hidden bg-muted/20" style={{ minHeight: "300px" }}>
       {diagramUrl && (
@@ -50,7 +90,7 @@ function PanelGrid({ columns, rows, diagramUrl }: { columns: number; rows: numbe
           Array.from({ length: columns }).map((_, c) => (
             <div key={`${r}-${c}`} className="border border-primary/20 flex flex-col items-center justify-center relative">
               <span className="text-[10px] font-mono text-primary/70 bg-background/80 px-1 rounded-sm shadow-sm absolute top-1 left-1">
-                {getRowLabel(r)}{c + 1}
+                {getRowLabel(r)}{getColLabel(c)}
               </span>
             </div>
           ))
@@ -144,12 +184,21 @@ export default function Paneles() {
 
   const form = useForm<PanelFormValues>({
     resolver: zodResolver(panelSchema),
-    defaultValues: { name: "", description: "", diagram_url: "", columns: 1, rows: 1 },
+    defaultValues: {
+      name: "", description: "", diagram_url: "",
+      columns: 5, rows: 5,
+      column_start: 1, row_start_letter: "A",
+      columns_asc: true, rows_asc: true,
+    },
   });
 
   const formColumns = form.watch("columns");
   const formRows = form.watch("rows");
   const formDiagramUrl = form.watch("diagram_url");
+  const formColumnStart = form.watch("column_start");
+  const formRowStartLetter = form.watch("row_start_letter");
+  const formColumnsAsc = form.watch("columns_asc");
+  const formRowsAsc = form.watch("rows_asc");
 
   const handleEdit = (panel: any) => {
     setEditingId(panel.id);
@@ -161,6 +210,10 @@ export default function Paneles() {
       diagram_url: panel.diagram_url || "",
       columns: panel.columns,
       rows: panel.rows,
+      column_start: panel.column_start ?? 1,
+      row_start_letter: indexToLetter(panel.row_start ?? 0),
+      columns_asc: panel.columns_asc ?? true,
+      rows_asc: panel.rows_asc ?? true,
       zone_id: panel.zone_id || undefined,
       side_id: panel.side_id || undefined,
       visual_zone_id: panel.visual_zone_id || undefined,
@@ -171,12 +224,25 @@ export default function Paneles() {
   const handleOpen = () => {
     setEditingId(null);
     setSelectedAlphanumericIds([]);
-    form.reset({ name: "", description: "", diagram_url: "", columns: 1, rows: 1 });
+    form.reset({
+      name: "", description: "", diagram_url: "",
+      columns: 5, rows: 5,
+      column_start: 1, row_start_letter: "A",
+      columns_asc: true, rows_asc: true,
+    });
     setIsOpen(true);
   };
 
   const onSubmit = (data: PanelFormValues) => {
-    const payload = { ...data, alphanumeric_ids: selectedAlphanumericIds };
+    const { row_start_letter, columns_asc, rows_asc, column_start, ...rest } = data;
+    const payload = {
+      ...rest,
+      column_start,
+      row_start: letterToIndex(row_start_letter),
+      columns_asc,
+      rows_asc,
+      alphanumeric_ids: selectedAlphanumericIds,
+    };
     if (editingId) {
       updatePanel.mutate({ id: editingId, data: payload });
     } else {
@@ -228,6 +294,10 @@ export default function Paneles() {
                   <TableCell>{visualZones?.find((v) => v.id === panel.visual_zone_id)?.name || "-"}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {panel.columns} cols × {panel.rows} filas
+                    <span className="block text-[11px]">
+                      Col {panel.column_start ?? 1}+ · Fila {indexToLetter(panel.row_start ?? 0)}+
+                      {" · "}{(panel.columns_asc ?? true) ? "Asc" : "Desc"} / {(panel.rows_asc ?? true) ? "Asc" : "Desc"}
+                    </span>
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
@@ -263,19 +333,25 @@ export default function Paneles() {
             </DialogHeader>
             {viewingGrid && (
               <div className="space-y-2">
-                <div className="flex gap-4 text-sm text-muted-foreground">
+                <div className="flex gap-4 text-sm text-muted-foreground flex-wrap">
                   {viewingGrid.side_id && (
                     <span>Lado: <span className="font-medium text-foreground">{sides?.find((s) => s.id === viewingGrid.side_id)?.name}</span></span>
                   )}
                   {viewingGrid.visual_zone_id && (
                     <span>Zona Visual: <span className="font-medium text-foreground">{visualZones?.find((v) => v.id === viewingGrid.visual_zone_id)?.name}</span></span>
                   )}
+                  <span>Columnas: <span className="font-medium text-foreground">{(viewingGrid.columns_asc ?? true) ? "Ascendente" : "Descendente"}</span></span>
+                  <span>Filas: <span className="font-medium text-foreground">{(viewingGrid.rows_asc ?? true) ? "Ascendente" : "Descendente"}</span></span>
                 </div>
                 <div className="h-[60vh]">
                   <PanelGrid
                     columns={viewingGrid.columns}
                     rows={viewingGrid.rows}
                     diagramUrl={viewingGrid.diagram_url}
+                    columnStart={viewingGrid.column_start ?? 1}
+                    rowStart={viewingGrid.row_start ?? 0}
+                    columnsAsc={viewingGrid.columns_asc ?? true}
+                    rowsAsc={viewingGrid.rows_asc ?? true}
                   />
                 </div>
               </div>
@@ -294,6 +370,8 @@ export default function Paneles() {
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+
+                {/* Datos generales */}
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
@@ -322,20 +400,102 @@ export default function Paneles() {
                       <FormMessage />
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="columns" render={({ field }) => (
-                    <FormItem><FormLabel>Columnas (1, 2, 3...)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
-                  <FormField control={form.control} name="rows" render={({ field }) => (
-                    <FormItem><FormLabel>Filas (A, B, C...)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                  )} />
                   <FormField control={form.control} name="diagram_url" render={({ field }) => (
-                    <FormItem className="col-span-2"><FormLabel>URL del Diagrama (opcional)</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>URL del Diagrama (opcional)</FormLabel><FormControl><Input {...field} placeholder="https://..." /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="description" render={({ field }) => (
                     <FormItem className="col-span-2"><FormLabel>Descripción</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                 </div>
 
+                {/* Sección Cuadrícula */}
+                <div className="border rounded-lg p-4 space-y-4 bg-muted/30">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+                    <span className="font-medium text-sm">Configuración de Cuadrícula</span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Columnas */}
+                    <div className="space-y-3 border-r pr-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Columnas (1, 2, 3...)</p>
+                      <FormField control={form.control} name="columns" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cantidad de columnas</FormLabel>
+                          <FormControl><Input type="number" min={1} {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="column_start" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Columna inicial</FormLabel>
+                          <FormControl><Input type="number" min={1} {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="columns_asc" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sentido</FormLabel>
+                          <Select
+                            onValueChange={(val) => field.onChange(val === "asc")}
+                            value={field.value ? "asc" : "desc"}
+                          >
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="asc">Ascendente (1, 2, 3...)</SelectItem>
+                              <SelectItem value="desc">Descendente (3, 2, 1...)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+
+                    {/* Filas */}
+                    <div className="space-y-3 pl-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filas (A, B, C...)</p>
+                      <FormField control={form.control} name="rows" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cantidad de filas</FormLabel>
+                          <FormControl><Input type="number" min={1} {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="row_start_letter" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Fila inicial</FormLabel>
+                          <FormControl>
+                            <Input
+                              maxLength={1}
+                              placeholder="A"
+                              {...field}
+                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="rows_asc" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Sentido</FormLabel>
+                          <Select
+                            onValueChange={(val) => field.onChange(val === "asc")}
+                            value={field.value ? "asc" : "desc"}
+                          >
+                            <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                            <SelectContent>
+                              <SelectItem value="asc">Ascendente (A, B, C...)</SelectItem>
+                              <SelectItem value="desc">Descendente (C, B, A...)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Alfanuméricos */}
                 <div>
                   <Label className="mb-2 block">Alfanuméricos Asociados</Label>
                   <AlphanumericMultiSelect
@@ -348,9 +508,18 @@ export default function Paneles() {
                   )}
                 </div>
 
+                {/* Vista previa */}
                 <div className="pt-4 border-t">
                   <Label className="mb-2 block">Vista Previa de la Cuadrícula</Label>
-                  <PanelGrid columns={formColumns || 1} rows={formRows || 1} diagramUrl={formDiagramUrl} />
+                  <PanelGrid
+                    columns={formColumns || 1}
+                    rows={formRows || 1}
+                    diagramUrl={formDiagramUrl}
+                    columnStart={formColumnStart || 1}
+                    rowStart={letterToIndex(formRowStartLetter || "A")}
+                    columnsAsc={formColumnsAsc}
+                    rowsAsc={formRowsAsc}
+                  />
                 </div>
 
                 <DialogFooter>

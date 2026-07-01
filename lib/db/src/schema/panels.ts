@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { zonesTable } from "./zones";
@@ -16,6 +16,10 @@ export const panelsTable = pgTable("panels", {
   sideId: integer("side_id").references(() => sidesTable.id, { onDelete: "set null" }),
   visualZoneId: integer("visual_zone_id").references(() => visualZonesTable.id, { onDelete: "set null" }),
   alphanumericIds: integer("alphanumeric_ids").array().default([]),
+  columnStart: integer("column_start").notNull().default(1),
+  rowStart: integer("row_start").notNull().default(0),
+  columnsAsc: boolean("columns_asc").notNull().default(true),
+  rowsAsc: boolean("rows_asc").notNull().default(true),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

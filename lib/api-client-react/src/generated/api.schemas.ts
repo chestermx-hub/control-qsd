@@ -160,6 +160,14 @@ export interface Panel {
   columns: number;
   /** Number of rows (lettered A, B, C...) */
   rows: number;
+  /** Column numbering starts at this number */
+  column_start: number;
+  /** Row labeling starts at this letter index (0=A, 1=B, ...) */
+  row_start: number;
+  /** Column labels in ascending order left to right */
+  columns_asc: boolean;
+  /** Row labels in ascending order top to bottom */
+  rows_asc: boolean;
   /** @nullable */
   zone_id?: number | null;
   /** @nullable */
@@ -176,6 +184,10 @@ export interface PanelInput {
   diagram_url?: string;
   columns: number;
   rows: number;
+  column_start?: number;
+  row_start?: number;
+  columns_asc?: boolean;
+  rows_asc?: boolean;
   zone_id?: number;
   side_id?: number;
   visual_zone_id?: number;
@@ -188,6 +200,10 @@ export interface PanelUpdate {
   diagram_url?: string;
   columns?: number;
   rows?: number;
+  column_start?: number;
+  row_start?: number;
+  columns_asc?: boolean;
+  rows_asc?: boolean;
   zone_id?: number;
   side_id?: number;
   visual_zone_id?: number;

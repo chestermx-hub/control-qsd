@@ -12,6 +12,10 @@ export interface PanelInput {
   diagram_url?: string;
   columns: number;
   rows: number;
+  column_start?: number;
+  row_start?: number;
+  columns_asc?: boolean;
+  rows_asc?: boolean;
   zone_id?: number;
   side_id?: number;
   visual_zone_id?: number;

@@ -17,6 +17,14 @@ export interface Panel {
   columns: number;
   /** Number of rows (lettered A, B, C...) */
   rows: number;
+  /** Column numbering starts at this number */
+  column_start: number;
+  /** Row labeling starts at this letter index (0=A, 1=B, ...) */
+  row_start: number;
+  /** Column labels in ascending order left to right */
+  columns_asc: boolean;
+  /** Row labels in ascending order top to bottom */
+  rows_asc: boolean;
   /** @nullable */
   zone_id?: number | null;
   /** @nullable */
