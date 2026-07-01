@@ -16,7 +16,8 @@ export interface PanelInput {
   row_start?: number;
   columns_asc?: boolean;
   rows_asc?: boolean;
-  diagram_scale?: number;
+  diagram_scale_x?: number;
+  diagram_scale_y?: number;
   diagram_offset_x?: number;
   diagram_offset_y?: number;
   diagram_opacity?: number;

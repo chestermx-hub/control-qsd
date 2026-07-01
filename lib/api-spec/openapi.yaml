@@ -1276,7 +1276,11 @@ components:
           type: boolean
           default: true
           description: Row labels in ascending order top to bottom
-        diagram_scale:
+        diagram_scale_x:
+          type: number
+          format: float
+          default: 1.0
+        diagram_scale_y:
           type: number
           format: float
           default: 1.0
@@ -1329,7 +1333,10 @@ components:
           type: boolean
         rows_asc:
           type: boolean
-        diagram_scale:
+        diagram_scale_x:
+          type: number
+          format: float
+        diagram_scale_y:
           type: number
           format: float
         diagram_offset_x:
@@ -1373,7 +1380,10 @@ components:
           type: boolean
         rows_asc:
           type: boolean
-        diagram_scale:
+        diagram_scale_x:
+          type: number
+          format: float
+        diagram_scale_y:
           type: number
           format: float
         diagram_offset_x:

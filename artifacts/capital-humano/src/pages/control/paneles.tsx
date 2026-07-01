@@ -29,7 +29,8 @@ const panelSchema = z.object({
   row_start_letter: z.string().min(1, "Requerido").max(1).regex(/^[A-Za-z]$/, "Debe ser una letra (A-Z)").default("A"),
   columns_asc: z.boolean().default(true),
   rows_asc: z.boolean().default(true),
-  diagram_scale: z.number().min(0.2).max(5).default(1.0),
+  diagram_scale_x: z.number().min(0.2).max(5).default(1.0),
+  diagram_scale_y: z.number().min(0.2).max(5).default(1.0),
   diagram_offset_x: z.number().min(-200).max(200).default(0),
   diagram_offset_y: z.number().min(-200).max(200).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
@@ -57,7 +58,8 @@ function PanelGrid({
   rowStart = 0,
   columnsAsc = true,
   rowsAsc = true,
-  diagramScale = 1,
+  diagramScaleX = 1,
+  diagramScaleY = 1,
   diagramOffsetX = 0,
   diagramOffsetY = 0,
   diagramOpacity = 0.5,
@@ -69,7 +71,8 @@ function PanelGrid({
   rowStart?: number;
   columnsAsc?: boolean;
   rowsAsc?: boolean;
-  diagramScale?: number;
+  diagramScaleX?: number;
+  diagramScaleY?: number;
   diagramOffsetX?: number;
   diagramOffsetY?: number;
   diagramOpacity?: number;
@@ -105,7 +108,7 @@ function PanelGrid({
             className="absolute inset-0 w-full h-full object-contain pointer-events-none"
             style={{
               opacity: diagramOpacity,
-              transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scale(${diagramScale})`,
+              transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
               transformOrigin: "center",
             }}
           />
@@ -253,7 +256,8 @@ export default function Paneles() {
   const formRowStartLetter = form.watch("row_start_letter");
   const formColumnsAsc = form.watch("columns_asc");
   const formRowsAsc = form.watch("rows_asc");
-  const formDiagramScale = form.watch("diagram_scale");
+  const formDiagramScaleX = form.watch("diagram_scale_x");
+  const formDiagramScaleY = form.watch("diagram_scale_y");
   const formDiagramOffsetX = form.watch("diagram_offset_x");
   const formDiagramOffsetY = form.watch("diagram_offset_y");
   const formDiagramOpacity = form.watch("diagram_opacity");
@@ -272,7 +276,8 @@ export default function Paneles() {
       row_start_letter: indexToLetter(panel.row_start ?? 0),
       columns_asc: panel.columns_asc ?? true,
       rows_asc: panel.rows_asc ?? true,
-      diagram_scale: panel.diagram_scale ?? 1.0,
+      diagram_scale_x: panel.diagram_scale_x ?? 1.0,
+      diagram_scale_y: panel.diagram_scale_y ?? 1.0,
       diagram_offset_x: panel.diagram_offset_x ?? 0,
       diagram_offset_y: panel.diagram_offset_y ?? 0,
       diagram_opacity: panel.diagram_opacity ?? 0.5,
@@ -291,7 +296,7 @@ export default function Paneles() {
       columns: 5, rows: 5,
       column_start: 1, row_start_letter: "A",
       columns_asc: true, rows_asc: true,
-      diagram_scale: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
+      diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
     });
     setIsOpen(true);
   };
@@ -415,7 +420,8 @@ export default function Paneles() {
                     rowStart={viewingGrid.row_start ?? 0}
                     columnsAsc={viewingGrid.columns_asc ?? true}
                     rowsAsc={viewingGrid.rows_asc ?? true}
-                    diagramScale={viewingGrid.diagram_scale ?? 1}
+                    diagramScaleX={viewingGrid.diagram_scale_x ?? 1}
+                    diagramScaleY={viewingGrid.diagram_scale_y ?? 1}
                     diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
                     diagramOffsetY={viewingGrid.diagram_offset_y ?? 0}
                     diagramOpacity={viewingGrid.diagram_opacity ?? 0.5}
@@ -630,13 +636,24 @@ export default function Paneles() {
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Escala</span>
-                            <span>{(formDiagramScale ?? 1).toFixed(2)}x</span>
+                            <span>Escala X</span>
+                            <span>{(formDiagramScaleX ?? 1).toFixed(2)}x</span>
                           </div>
                           <Slider
                             min={0.2} max={5} step={0.05}
-                            value={[formDiagramScale ?? 1]}
-                            onValueChange={([v]) => form.setValue("diagram_scale", v)}
+                            value={[formDiagramScaleX ?? 1]}
+                            onValueChange={([v]) => form.setValue("diagram_scale_x", v)}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-muted-foreground">
+                            <span>Escala Y</span>
+                            <span>{(formDiagramScaleY ?? 1).toFixed(2)}x</span>
+                          </div>
+                          <Slider
+                            min={0.2} max={5} step={0.05}
+                            value={[formDiagramScaleY ?? 1]}
+                            onValueChange={([v]) => form.setValue("diagram_scale_y", v)}
                           />
                         </div>
                         <div className="space-y-1">
@@ -679,7 +696,8 @@ export default function Paneles() {
                         size="sm"
                         className="text-xs text-muted-foreground"
                         onClick={() => {
-                          form.setValue("diagram_scale", 1);
+                          form.setValue("diagram_scale_x", 1);
+                          form.setValue("diagram_scale_y", 1);
                           form.setValue("diagram_offset_x", 0);
                           form.setValue("diagram_offset_y", 0);
                           form.setValue("diagram_opacity", 0.5);
@@ -698,7 +716,8 @@ export default function Paneles() {
                     rowStart={letterToIndex(formRowStartLetter || "A")}
                     columnsAsc={formColumnsAsc}
                     rowsAsc={formRowsAsc}
-                    diagramScale={formDiagramScale ?? 1}
+                    diagramScaleX={formDiagramScaleX ?? 1}
+                    diagramScaleY={formDiagramScaleY ?? 1}
                     diagramOffsetX={formDiagramOffsetX ?? 0}
                     diagramOffsetY={formDiagramOffsetY ?? 0}
                     diagramOpacity={formDiagramOpacity ?? 0.5}
