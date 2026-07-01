@@ -90,36 +90,43 @@ function PanelGrid({
     return indexToLetter(idx);
   };
 
+  const CELL_W = 48;
+  const CELL_H = 32;
+  const gridW = columns * CELL_W;
+  const gridH = rows * CELL_H;
+
   return (
-    <div className="relative mt-4 border rounded-md overflow-hidden bg-muted/20" style={{ minHeight: "300px" }}>
-      {diagramUrl && (
-        <img
-          src={diagramUrl}
-          alt="Diagrama"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-          style={{
-            opacity: diagramOpacity,
-            transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scale(${diagramScale})`,
-            transformOrigin: "center",
-          }}
-        />
-      )}
-      <div
-        className="absolute inset-0 grid"
-        style={{
-          gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
-        }}
-      >
-        {Array.from({ length: rows }).map((_, r) =>
-          Array.from({ length: columns }).map((_, c) => (
-            <div key={`${r}-${c}`} className="border border-primary/20 flex flex-col items-center justify-center relative">
-              <span className="text-[10px] font-mono text-primary/70 bg-background/80 px-1 rounded-sm shadow-sm absolute top-1 left-1">
-                {getRowLabel(r)}{getColLabel(c)}
-              </span>
-            </div>
-          ))
+    <div className="relative mt-4 border rounded-md overflow-auto bg-muted/20">
+      <div className="relative" style={{ width: gridW, height: gridH }}>
+        {diagramUrl && (
+          <img
+            src={diagramUrl}
+            alt="Diagrama"
+            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+            style={{
+              opacity: diagramOpacity,
+              transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scale(${diagramScale})`,
+              transformOrigin: "center",
+            }}
+          />
         )}
+        <div
+          className="absolute inset-0 grid"
+          style={{
+            gridTemplateColumns: `repeat(${columns}, ${CELL_W}px)`,
+            gridTemplateRows: `repeat(${rows}, ${CELL_H}px)`,
+          }}
+        >
+          {Array.from({ length: rows }).map((_, r) =>
+            Array.from({ length: columns }).map((_, c) => (
+              <div key={`${r}-${c}`} className="border border-primary/20 flex items-center justify-center relative" style={{ width: CELL_W, height: CELL_H }}>
+                <span className="text-[9px] font-mono text-primary/70 leading-none">
+                  {getRowLabel(r)}{getColLabel(c)}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
