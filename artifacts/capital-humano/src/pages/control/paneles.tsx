@@ -298,18 +298,6 @@ export default function Paneles() {
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="zone_id" render={({ field }) => (
-                    <FormItem><FormLabel>Zona Auditada</FormLabel>
-                      <Select onValueChange={(val) => field.onChange(val && val !== "none" ? Number(val) : undefined)} value={field.value?.toString() || ""}>
-                        <FormControl><SelectTrigger><SelectValue placeholder="Selecciona una zona" /></SelectTrigger></FormControl>
-                        <SelectContent>
-                          <SelectItem value="none">Sin zona</SelectItem>
-                          {zones?.map((z) => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
                   <FormField control={form.control} name="side_id" render={({ field }) => (
                     <FormItem><FormLabel>Lado</FormLabel>
                       <Select onValueChange={(val) => field.onChange(val && val !== "none" ? Number(val) : undefined)} value={field.value?.toString() || ""}>

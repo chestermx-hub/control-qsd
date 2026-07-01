@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListDefects, useCreateDefect, useUpdateDefect, useDeleteDefect, getListDefectsQueryKey } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -22,11 +22,20 @@ const defectSchema = z.object({
 
 type DefectFormValues = z.infer<typeof defectSchema>;
 
+function generateCode(name: string): string {
+  const clean = name.replace(/\(.*?\)/g, "").trim();
+  const words = clean.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length === 0) return "";
+  if (words.length === 1) return words[0]!.slice(0, 3).toUpperCase();
+  return (words[0]!.slice(0, 2) + words[1]!.slice(0, 1)).toUpperCase();
+}
+
 export default function Defectos() {
   const { data: defects, isLoading } = useListDefects();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  
+  const [autoCode, setAutoCode] = useState(true);
+
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -64,14 +73,24 @@ export default function Defectos() {
     defaultValues: { name: "", code: "", description: "" }
   });
 
-  const handleEdit = (defect: any) => {
+  const watchedName = form.watch("name");
+
+  useEffect(() => {
+    if (autoCode && !editingId) {
+      form.setValue("code", generateCode(watchedName));
+    }
+  }, [watchedName, autoCode, editingId]);
+
+  const handleEdit = (defect: { id: number; name: string; code: string; description?: string | null }) => {
     setEditingId(defect.id);
+    setAutoCode(false);
     form.reset({ name: defect.name, code: defect.code, description: defect.description || "" });
     setIsOpen(true);
   };
 
   const handleOpen = () => {
     setEditingId(null);
+    setAutoCode(true);
     form.reset({ name: "", code: "", description: "" });
     setIsOpen(true);
   };
@@ -114,7 +133,7 @@ export default function Defectos() {
               ) : defects?.map((defect) => (
                 <TableRow key={defect.id}>
                   <TableCell className="font-medium">{defect.name}</TableCell>
-                  <TableCell>{defect.code}</TableCell>
+                  <TableCell><span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{defect.code}</span></TableCell>
                   <TableCell className="text-muted-foreground">{defect.description}</TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
@@ -140,10 +159,29 @@ export default function Defectos() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <FormField control={form.control} name="name" render={({ field }) => (
-                  <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Nombre</FormLabel>
+                    <FormControl><Input {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="code" render={({ field }) => (
-                  <FormItem><FormLabel>Código</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel>Código</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        onChange={(e) => {
+                          setAutoCode(false);
+                          field.onChange(e.target.value.toUpperCase());
+                        }}
+                      />
+                    </FormControl>
+                    {!editingId && autoCode && (
+                      <p className="text-xs text-muted-foreground">Generado automáticamente. Edítalo para personalizar.</p>
+                    )}
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
