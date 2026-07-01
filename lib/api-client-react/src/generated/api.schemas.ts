@@ -162,6 +162,11 @@ export interface Panel {
   rows: number;
   /** @nullable */
   zone_id?: number | null;
+  /** @nullable */
+  side_id?: number | null;
+  /** @nullable */
+  visual_zone_id?: number | null;
+  alphanumeric_ids?: number[];
   created_at: string;
 }
 
@@ -172,6 +177,9 @@ export interface PanelInput {
   columns: number;
   rows: number;
   zone_id?: number;
+  side_id?: number;
+  visual_zone_id?: number;
+  alphanumeric_ids?: number[];
 }
 
 export interface PanelUpdate {
@@ -181,6 +189,68 @@ export interface PanelUpdate {
   columns?: number;
   rows?: number;
   zone_id?: number;
+  side_id?: number;
+  visual_zone_id?: number;
+  alphanumeric_ids?: number[];
+}
+
+export interface AuditCapture {
+  id: number;
+  unit_number: number;
+  week_number: number;
+  date: string;
+  skill_number: string;
+  /** @nullable */
+  panel_id?: number | null;
+  /** @nullable */
+  side_id?: number | null;
+  /** @nullable */
+  visual_zone_id?: number | null;
+  /** @nullable */
+  alphanumeric_id?: number | null;
+  grid_col: number;
+  grid_row: string;
+  /** @nullable */
+  defect_id?: number | null;
+  /** @nullable */
+  defect_other?: string | null;
+  quantity: number;
+  created_at: string;
+}
+
+export interface AuditCaptureInput {
+  unit_number: number;
+  week_number: number;
+  date: string;
+  skill_number: string;
+  panel_id?: number;
+  side_id?: number;
+  visual_zone_id?: number;
+  alphanumeric_id?: number;
+  grid_col: number;
+  grid_row: string;
+  defect_id?: number;
+  defect_other?: string;
+  quantity: number;
+}
+
+export interface AuditCaptureUpdate {
+  skill_number?: string;
+  panel_id?: number;
+  side_id?: number;
+  visual_zone_id?: number;
+  alphanumeric_id?: number;
+  grid_col?: number;
+  grid_row?: string;
+  defect_id?: number;
+  defect_other?: string;
+  quantity?: number;
+}
+
+export interface AuditDailyCounter {
+  date: string;
+  next_unit_number: number;
+  week_number: number;
 }
 
 export interface Defect {
@@ -269,4 +339,16 @@ export interface DashboardStats {
   totalPanels: number;
   recentUsers: User[];
 }
+
+export type ListAuditCapturesParams = {
+/**
+ * Filter by date (YYYY-MM-DD)
+ */
+date?: string;
+panel_id?: number;
+};
+
+export type GetAuditDailyCounterParams = {
+date: string;
+};
 

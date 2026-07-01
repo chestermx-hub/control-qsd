@@ -29,6 +29,8 @@ tags:
     description: Zona Visual
   - name: alphanumeric
     description: Alfanumerico
+  - name: auditCaptures
+    description: Capturas de Auditoría
   - name: dashboard
     description: Dashboard stats
 
@@ -798,6 +800,127 @@ paths:
         "204":
           description: Deleted
 
+  # AUDIT CAPTURES
+  /audit-captures:
+    get:
+      operationId: listAuditCaptures
+      tags: [auditCaptures]
+      summary: List audit captures
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Filter by date (YYYY-MM-DD)
+        - name: panel_id
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of audit captures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditCapture"
+    post:
+      operationId: createAuditCapture
+      tags: [auditCaptures]
+      summary: Create an audit capture record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditCaptureInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditCapture"
+
+  /audit-captures/daily-counter:
+    get:
+      operationId: getAuditDailyCounter
+      tags: [auditCaptures]
+      summary: Get next unit number for a given date
+      parameters:
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Daily counter info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditDailyCounter"
+
+  /audit-captures/{id}:
+    get:
+      operationId: getAuditCapture
+      tags: [auditCaptures]
+      summary: Get audit capture by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: AuditCapture
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditCapture"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateAuditCapture
+      tags: [auditCaptures]
+      summary: Update audit capture
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AuditCaptureUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditCapture"
+    delete:
+      operationId: deleteAuditCapture
+      tags: [auditCaptures]
+      summary: Delete audit capture
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ALFANUMERICO
   /alphanumeric:
     get:
@@ -1139,6 +1262,15 @@ components:
           description: Number of rows (lettered A, B, C...)
         zone_id:
           type: ["integer", "null"]
+        side_id:
+          type: ["integer", "null"]
+        visual_zone_id:
+          type: ["integer", "null"]
+        alphanumeric_ids:
+          type: array
+          items:
+            type: integer
+          default: []
         created_at:
           type: string
           format: date-time
@@ -1159,6 +1291,14 @@ components:
           type: integer
         zone_id:
           type: integer
+        side_id:
+          type: integer
+        visual_zone_id:
+          type: integer
+        alphanumeric_ids:
+          type: array
+          items:
+            type: integer
 
     PanelUpdate:
       type: object
@@ -1174,6 +1314,120 @@ components:
         rows:
           type: integer
         zone_id:
+          type: integer
+        side_id:
+          type: integer
+        visual_zone_id:
+          type: integer
+        alphanumeric_ids:
+          type: array
+          items:
+            type: integer
+
+    # AUDIT CAPTURE
+    AuditCapture:
+      type: object
+      required: [id, unit_number, week_number, date, skill_number, grid_col, grid_row, quantity, created_at]
+      properties:
+        id:
+          type: integer
+        unit_number:
+          type: integer
+        week_number:
+          type: integer
+        date:
+          type: string
+          format: date
+        skill_number:
+          type: string
+        panel_id:
+          type: ["integer", "null"]
+        side_id:
+          type: ["integer", "null"]
+        visual_zone_id:
+          type: ["integer", "null"]
+        alphanumeric_id:
+          type: ["integer", "null"]
+        grid_col:
+          type: integer
+        grid_row:
+          type: string
+        defect_id:
+          type: ["integer", "null"]
+        defect_other:
+          type: ["string", "null"]
+        quantity:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    AuditCaptureInput:
+      type: object
+      required: [unit_number, week_number, date, skill_number, grid_col, grid_row, quantity]
+      properties:
+        unit_number:
+          type: integer
+        week_number:
+          type: integer
+        date:
+          type: string
+          format: date
+        skill_number:
+          type: string
+        panel_id:
+          type: integer
+        side_id:
+          type: integer
+        visual_zone_id:
+          type: integer
+        alphanumeric_id:
+          type: integer
+        grid_col:
+          type: integer
+        grid_row:
+          type: string
+        defect_id:
+          type: integer
+        defect_other:
+          type: string
+        quantity:
+          type: integer
+
+    AuditCaptureUpdate:
+      type: object
+      properties:
+        skill_number:
+          type: string
+        panel_id:
+          type: integer
+        side_id:
+          type: integer
+        visual_zone_id:
+          type: integer
+        alphanumeric_id:
+          type: integer
+        grid_col:
+          type: integer
+        grid_row:
+          type: string
+        defect_id:
+          type: integer
+        defect_other:
+          type: string
+        quantity:
+          type: integer
+
+    AuditDailyCounter:
+      type: object
+      required: [date, next_unit_number, week_number]
+      properties:
+        date:
+          type: string
+          format: date
+        next_unit_number:
+          type: integer
+        week_number:
           type: integer
 
     # DEFECT

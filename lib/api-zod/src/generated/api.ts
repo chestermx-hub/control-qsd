@@ -406,6 +406,8 @@ export const DeleteZoneResponse = zod.void()
 /**
  * @summary List all panels
  */
+export const listPanelsResponseAlphanumericIdsDefault = [];
+
 export const ListPanelsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -414,6 +416,9 @@ export const ListPanelsResponseItem = zod.object({
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
   "zone_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_ids": zod.array(zod.number()).default(listPanelsResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
 })
 export const ListPanelsResponse = zod.array(ListPanelsResponseItem)
@@ -428,8 +433,13 @@ export const CreatePanelBody = zod.object({
   "diagram_url": zod.string().optional(),
   "columns": zod.number(),
   "rows": zod.number(),
-  "zone_id": zod.number().optional()
+  "zone_id": zod.number().optional(),
+  "side_id": zod.number().optional(),
+  "visual_zone_id": zod.number().optional(),
+  "alphanumeric_ids": zod.array(zod.number()).optional()
 })
+
+export const createPanelResponseAlphanumericIdsDefault = [];
 
 export const CreatePanelResponse = zod.object({
   "id": zod.number(),
@@ -439,6 +449,9 @@ export const CreatePanelResponse = zod.object({
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
   "zone_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_ids": zod.array(zod.number()).default(createPanelResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
 })
 
@@ -450,6 +463,8 @@ export const GetPanelParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getPanelResponseAlphanumericIdsDefault = [];
+
 export const GetPanelResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
@@ -458,6 +473,9 @@ export const GetPanelResponse = zod.object({
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
   "zone_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_ids": zod.array(zod.number()).default(getPanelResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
 })
 
@@ -475,8 +493,13 @@ export const UpdatePanelBody = zod.object({
   "diagram_url": zod.string().optional(),
   "columns": zod.number().optional(),
   "rows": zod.number().optional(),
-  "zone_id": zod.number().optional()
+  "zone_id": zod.number().optional(),
+  "side_id": zod.number().optional(),
+  "visual_zone_id": zod.number().optional(),
+  "alphanumeric_ids": zod.array(zod.number()).optional()
 })
+
+export const updatePanelResponseAlphanumericIdsDefault = [];
 
 export const UpdatePanelResponse = zod.object({
   "id": zod.number(),
@@ -486,6 +509,9 @@ export const UpdatePanelResponse = zod.object({
   "columns": zod.number().describe('Number of columns (numbered)'),
   "rows": zod.number().describe('Number of rows (lettered A, B, C...)'),
   "zone_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_ids": zod.array(zod.number()).default(updatePanelResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
 })
 
@@ -723,6 +749,161 @@ export const DeleteVisualZoneParams = zod.object({
 })
 
 export const DeleteVisualZoneResponse = zod.void()
+
+
+/**
+ * @summary List audit captures
+ */
+export const ListAuditCapturesQueryParams = zod.object({
+  "date": zod.date().optional().describe('Filter by date (YYYY-MM-DD)'),
+  "panel_id": zod.coerce.number().optional()
+})
+
+export const ListAuditCapturesResponseItem = zod.object({
+  "id": zod.number(),
+  "unit_number": zod.number(),
+  "week_number": zod.number(),
+  "date": zod.coerce.date(),
+  "skill_number": zod.string(),
+  "panel_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_id": zod.number().nullish(),
+  "grid_col": zod.number(),
+  "grid_row": zod.string(),
+  "defect_id": zod.number().nullish(),
+  "defect_other": zod.string().nullish(),
+  "quantity": zod.number(),
+  "created_at": zod.coerce.date()
+})
+export const ListAuditCapturesResponse = zod.array(ListAuditCapturesResponseItem)
+
+
+/**
+ * @summary Create an audit capture record
+ */
+export const CreateAuditCaptureBody = zod.object({
+  "unit_number": zod.number(),
+  "week_number": zod.number(),
+  "date": zod.coerce.date(),
+  "skill_number": zod.string(),
+  "panel_id": zod.number().optional(),
+  "side_id": zod.number().optional(),
+  "visual_zone_id": zod.number().optional(),
+  "alphanumeric_id": zod.number().optional(),
+  "grid_col": zod.number(),
+  "grid_row": zod.string(),
+  "defect_id": zod.number().optional(),
+  "defect_other": zod.string().optional(),
+  "quantity": zod.number()
+})
+
+export const CreateAuditCaptureResponse = zod.object({
+  "id": zod.number(),
+  "unit_number": zod.number(),
+  "week_number": zod.number(),
+  "date": zod.coerce.date(),
+  "skill_number": zod.string(),
+  "panel_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_id": zod.number().nullish(),
+  "grid_col": zod.number(),
+  "grid_row": zod.string(),
+  "defect_id": zod.number().nullish(),
+  "defect_other": zod.string().nullish(),
+  "quantity": zod.number(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get next unit number for a given date
+ */
+export const GetAuditDailyCounterQueryParams = zod.object({
+  "date": zod.date()
+})
+
+export const GetAuditDailyCounterResponse = zod.object({
+  "date": zod.coerce.date(),
+  "next_unit_number": zod.number(),
+  "week_number": zod.number()
+})
+
+
+/**
+ * @summary Get audit capture by id
+ */
+export const GetAuditCaptureParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAuditCaptureResponse = zod.object({
+  "id": zod.number(),
+  "unit_number": zod.number(),
+  "week_number": zod.number(),
+  "date": zod.coerce.date(),
+  "skill_number": zod.string(),
+  "panel_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_id": zod.number().nullish(),
+  "grid_col": zod.number(),
+  "grid_row": zod.string(),
+  "defect_id": zod.number().nullish(),
+  "defect_other": zod.string().nullish(),
+  "quantity": zod.number(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update audit capture
+ */
+export const UpdateAuditCaptureParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAuditCaptureBody = zod.object({
+  "skill_number": zod.string().optional(),
+  "panel_id": zod.number().optional(),
+  "side_id": zod.number().optional(),
+  "visual_zone_id": zod.number().optional(),
+  "alphanumeric_id": zod.number().optional(),
+  "grid_col": zod.number().optional(),
+  "grid_row": zod.string().optional(),
+  "defect_id": zod.number().optional(),
+  "defect_other": zod.string().optional(),
+  "quantity": zod.number().optional()
+})
+
+export const UpdateAuditCaptureResponse = zod.object({
+  "id": zod.number(),
+  "unit_number": zod.number(),
+  "week_number": zod.number(),
+  "date": zod.coerce.date(),
+  "skill_number": zod.string(),
+  "panel_id": zod.number().nullish(),
+  "side_id": zod.number().nullish(),
+  "visual_zone_id": zod.number().nullish(),
+  "alphanumeric_id": zod.number().nullish(),
+  "grid_col": zod.number(),
+  "grid_row": zod.string(),
+  "defect_id": zod.number().nullish(),
+  "defect_other": zod.string().nullish(),
+  "quantity": zod.number(),
+  "created_at": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete audit capture
+ */
+export const DeleteAuditCaptureParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteAuditCaptureResponse = zod.void()
 
 
 /**

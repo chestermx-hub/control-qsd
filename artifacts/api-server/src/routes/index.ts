@@ -10,6 +10,7 @@ import defectsRouter from "./defects";
 import sidesRouter from "./sides";
 import visualZonesRouter from "./visualZones";
 import alphanumericRouter from "./alphanumeric";
+import auditCapturesRouter from "./auditCaptures";
 import dashboardRouter from "./dashboard";
 
 const router: IRouter = Router();
@@ -25,6 +26,7 @@ router.use(defectsRouter);
 router.use(sidesRouter);
 router.use(visualZonesRouter);
 router.use(alphanumericRouter);
+router.use(auditCapturesRouter);
 router.use(dashboardRouter);
 
 export default router;

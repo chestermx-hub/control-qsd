@@ -13,4 +13,7 @@ export interface PanelInput {
   columns: number;
   rows: number;
   zone_id?: number;
+  side_id?: number;
+  visual_zone_id?: number;
+  alphanumeric_ids?: number[];
 }

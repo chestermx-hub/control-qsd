@@ -14,6 +14,9 @@ function toJson(row: typeof panelsTable.$inferSelect) {
     columns: row.columns,
     rows: row.rows,
     zone_id: row.zoneId,
+    side_id: row.sideId,
+    visual_zone_id: row.visualZoneId,
+    alphanumeric_ids: row.alphanumericIds ?? [],
     created_at: row.createdAt,
   };
 }
@@ -24,10 +27,15 @@ router.get("/panels", async (_req: Request, res: Response) => {
 });
 
 router.post("/panels", async (req: Request, res: Response) => {
-  const { name, description, diagram_url, columns, rows, zone_id } = req.body as {
-    name: string; description?: string; diagram_url?: string; columns: number; rows: number; zone_id?: number;
+  const { name, description, diagram_url, columns, rows, zone_id, side_id, visual_zone_id, alphanumeric_ids } = req.body as {
+    name: string; description?: string; diagram_url?: string; columns: number; rows: number;
+    zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
-  const [row] = await db.insert(panelsTable).values({ name, description, diagramUrl: diagram_url, columns, rows, zoneId: zone_id }).returning();
+  const [row] = await db.insert(panelsTable).values({
+    name, description, diagramUrl: diagram_url, columns, rows,
+    zoneId: zone_id, sideId: side_id, visualZoneId: visual_zone_id,
+    alphanumericIds: alphanumeric_ids ?? [],
+  }).returning();
   res.status(201).json(toJson(row!));
 });
 
@@ -40,8 +48,9 @@ router.get("/panels/:id", async (req: Request, res: Response) => {
 
 router.patch("/panels/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params.id!);
-  const { name, description, diagram_url, columns, rows, zone_id } = req.body as {
-    name?: string; description?: string; diagram_url?: string; columns?: number; rows?: number; zone_id?: number;
+  const { name, description, diagram_url, columns, rows, zone_id, side_id, visual_zone_id, alphanumeric_ids } = req.body as {
+    name?: string; description?: string; diagram_url?: string; columns?: number; rows?: number;
+    zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
   const updates: Partial<typeof panelsTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
@@ -50,6 +59,9 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (columns !== undefined) updates.columns = columns;
   if (rows !== undefined) updates.rows = rows;
   if (zone_id !== undefined) updates.zoneId = zone_id;
+  if (side_id !== undefined) updates.sideId = side_id;
+  if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;
+  if (alphanumeric_ids !== undefined) updates.alphanumericIds = alphanumeric_ids;
   const [row] = await db.update(panelsTable).set(updates).where(eq(panelsTable.id, id)).returning();
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toJson(row));

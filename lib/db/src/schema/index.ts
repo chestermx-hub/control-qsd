@@ -7,3 +7,4 @@ export * from "./defects";
 export * from "./sides";
 export * from "./visualZones";
 export * from "./alphanumeric";
+export * from "./auditCaptures";

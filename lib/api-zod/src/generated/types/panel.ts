@@ -19,5 +19,10 @@ export interface Panel {
   rows: number;
   /** @nullable */
   zone_id?: number | null;
+  /** @nullable */
+  side_id?: number | null;
+  /** @nullable */
+  visual_zone_id?: number | null;
+  alphanumeric_ids?: number[];
   created_at: Date;
 }

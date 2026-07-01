@@ -20,6 +20,7 @@ import Alfanumerico from "@/pages/control/alfanumerico";
 // Analysis Module Pages
 import AnalisisDashboard from "@/pages/analisis-defectos/dashboard";
 import AnalisisZonasAuditadas from "@/pages/analisis-defectos/zonas-auditadas";
+import NuevoRegistro from "@/pages/analisis-defectos/nuevo-registro";
 
 // Operation Module Pages
 import ChecklistOperacion from "@/pages/checklist-operacion";
@@ -60,6 +61,7 @@ function AppRouter() {
       {/* Analisis Defectos Module */}
       <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} />} />
       <Route path="/analisis-defectos/zonas-auditadas" component={() => <ProtectedRoute component={AnalisisZonasAuditadas} />} />
+      <Route path="/analisis-defectos/nuevo-registro" component={() => <ProtectedRoute component={NuevoRegistro} />} />
       
       {/* Operacion */}
       <Route path="/checklist-operacion" component={() => <ProtectedRoute component={ChecklistOperacion} />} />

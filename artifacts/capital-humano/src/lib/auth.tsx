@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
-import { useGetMe, useLogin, useLogout, User } from "@workspace/api-client-react";
+import { useGetMe, useLogin, useLogout, User, getGetMeQueryKey } from "@workspace/api-client-react";
 
 interface AuthContextType {
   user: User | null;
@@ -16,6 +16,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   
   const { data: user, isLoading, refetch } = useGetMe({
     query: {
+      queryKey: getGetMeQueryKey(),
       retry: false,
     }
   });
