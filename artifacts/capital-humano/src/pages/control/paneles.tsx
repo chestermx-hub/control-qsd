@@ -228,8 +228,8 @@ function PanelGrid({
   const canResizeCols = !!onColumnWidthsChange;
   const canResizeRows = !!onRowHeightsChange;
 
-  // Tamaño de la imagen fijo: se calcula una sola vez y no cambia al alargar la cuadrícula
-  const [imgHeight] = useState(() => totalH - HEADER_H);
+  // Tamaño de la imagen: tamaño natural real del archivo, estable sin importar cambios de la cuadrícula
+  const [naturalImgHeight, setNaturalImgHeight] = useState<number | null>(null);
 
   return (
     <div
@@ -245,11 +245,15 @@ function PanelGrid({
             src={diagramUrl}
             alt="Diagrama"
             draggable={false}
+            onLoad={(e) => {
+              const img = e.currentTarget;
+              setNaturalImgHeight(img.naturalHeight || null);
+            }}
             style={{
               position: "absolute",
               left: HEADER_W + imgOffset.x,
               top: HEADER_H + imgOffset.y,
-              height: `${imgHeight}px`,
+              height: naturalImgHeight ? `${naturalImgHeight}px` : "auto",
               width: "auto",
               maxWidth: "none",
               transform: `scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
