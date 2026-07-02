@@ -78,6 +78,7 @@ function PanelGrid({
   diagramOffsetY = 0,
   diagramOpacity = 0.5,
   onImagePositionChange,
+  onImageNaturalSize,
 }: {
   columns: number;
   rows: number;
@@ -100,6 +101,7 @@ function PanelGrid({
   diagramOffsetY?: number;
   diagramOpacity?: number;
   onImagePositionChange?: (x: number, y: number) => void;
+  onImageNaturalSize?: (w: number, h: number) => void;
 }) {
   const HEADER_W = 36;
   const HEADER_H = 24;
@@ -248,6 +250,9 @@ function PanelGrid({
             onLoad={(e) => {
               const img = e.currentTarget;
               setNaturalImgHeight(img.naturalHeight || null);
+              if (img.naturalWidth && img.naturalHeight) {
+                onImageNaturalSize?.(img.naturalWidth, img.naturalHeight);
+              }
             }}
             style={{
               position: "absolute",
@@ -408,6 +413,7 @@ export default function Paneles() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [viewingGrid, setViewingGrid] = useState<any>(null);
+  const [naturalImgSize, setNaturalImgSize] = useState<{ w: number; h: number } | null>(null);
   const [selectedAlphanumericIds, setSelectedAlphanumericIds] = useState<number[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -495,6 +501,7 @@ export default function Paneles() {
 
   const handleEdit = (panel: any) => {
     setEditingId(panel.id);
+    setNaturalImgSize(null);
     const ids = panel.alphanumeric_ids ?? [];
     setSelectedAlphanumericIds(ids);
     form.reset({
@@ -527,6 +534,7 @@ export default function Paneles() {
 
   const handleOpen = () => {
     setEditingId(null);
+    setNaturalImgSize(null);
     setSelectedAlphanumericIds([]);
     form.reset({
       name: "", description: "", diagram_url: "",
@@ -890,7 +898,7 @@ export default function Paneles() {
                             onValueChange={([v]) => form.setValue("diagram_opacity", v)}
                           />
                         </div>
-                        <div className="flex items-end">
+                        <div className="flex items-end gap-2">
                           <Button
                             type="button"
                             variant="outline"
@@ -902,6 +910,32 @@ export default function Paneles() {
                             }}
                           >
                             Reiniciar posición
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            disabled={!naturalImgSize}
+                            onClick={() => {
+                              if (!naturalImgSize) return;
+                              const cellW = formCellWidth ?? 48;
+                              const cellH = formCellHeight ?? 32;
+                              const gridBodyW = formColumnWidths?.length
+                                ? formColumnWidths.reduce((s: number, w: number) => s + w, 0)
+                                : (formColumns || 1) * cellW;
+                              const gridBodyH = formRowHeights?.length
+                                ? formRowHeights.reduce((s: number, h: number) => s + h, 0)
+                                : (formRows || 1) * cellH;
+                              const scaleX = gridBodyW / naturalImgSize.w;
+                              const scaleY = gridBodyH / naturalImgSize.h;
+                              form.setValue("diagram_scale_x", scaleX);
+                              form.setValue("diagram_scale_y", scaleY);
+                              form.setValue("diagram_offset_x", 0);
+                              form.setValue("diagram_offset_y", 0);
+                            }}
+                          >
+                            Ajustar a la cuadrícula
                           </Button>
                         </div>
                       </div>
@@ -925,6 +959,8 @@ export default function Paneles() {
                     onRowHeightsChange={h => form.setValue("row_heights", h)}
                     gridOffsetX={formGridOffsetX ?? 0}
                     gridOffsetY={formGridOffsetY ?? 0}
+                    diagramScaleX={formDiagramScaleX ?? 1}
+                    diagramScaleY={formDiagramScaleY ?? 1}
                     diagramOffsetX={formDiagramOffsetX ?? 0}
                     diagramOffsetY={formDiagramOffsetY ?? 0}
                     diagramOpacity={formDiagramOpacity ?? 0.5}
@@ -932,6 +968,7 @@ export default function Paneles() {
                       form.setValue("diagram_offset_x", Math.round(x));
                       form.setValue("diagram_offset_y", Math.round(y));
                     }}
+                    onImageNaturalSize={(w, h) => setNaturalImgSize({ w, h })}
                   />
                 </div>
 

@@ -1,1 +1,2 @@
 - [Orval query hooks require queryKey](orval-query-key.md) — generated UseQueryOptions requires explicit queryKey; pass it with the getter function when setting custom query options.
+- [Draggable image sizing in dynamic containers](draggable-image-sizing.md) — never derive a draggable/positioned element's size from a sibling layout's mutable total (e.g. grid totalH); use its own natural/intrinsic size instead.
