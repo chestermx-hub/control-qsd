@@ -99,10 +99,10 @@ function PanelGrid({
   diagramOffsetY?: number;
   diagramOpacity?: number;
 }) {
-  const HEADER_W = 32;
-  const HEADER_H = 22;
-  const MARGIN = 16;
-  const EXTRA = 120;
+  const HEADER_W = 36;
+  const HEADER_H = 24;
+  const MARGIN = 0;
+  const EXTRA = 0;
 
   const [colWidths, setColWidths] = useState<number[]>(() =>
     columnWidthsProp?.length === columns
@@ -189,8 +189,8 @@ function PanelGrid({
 
   return (
     <div
-      className="relative mt-4 border rounded-md bg-muted/20"
-      style={{ height: totalH + (MARGIN + EXTRA) * 2 }}
+      className="relative mt-4 border border-gray-300 bg-white overflow-hidden"
+      style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200 }}
     >
       {/* Imagen: cubre el área completa incluyendo el margen */}
       {diagramUrl && (
@@ -226,15 +226,15 @@ function PanelGrid({
           }}
         >
           {/* Corner */}
-          <div className="sticky top-0 left-0 z-30 bg-card border-r border-b border-border" />
+          <div className="sticky top-0 left-0 z-30 bg-gray-100 border-r border-b border-gray-400" />
 
           {/* Column headers */}
           {colWidths.map((w, c) => (
             <div
               key={`hc-${c}`}
-              className="sticky top-0 z-20 bg-card border-r border-b border-border flex items-center justify-center relative"
+              className="sticky top-0 z-20 bg-gray-100 border-r border-b border-gray-400 flex items-center justify-center relative"
             >
-              <span className="text-[9px] font-mono font-semibold text-muted-foreground leading-none select-none">
+              <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                 {getColLabel(c)}
               </span>
               {canResizeCols && (
@@ -256,9 +256,9 @@ function PanelGrid({
               {/* Row header */}
               <div
                 key={`hr-${r}`}
-                className="sticky left-0 z-10 bg-card border-r border-b border-border flex items-center justify-center relative"
+                className="sticky left-0 z-10 bg-gray-100 border-r border-b border-gray-400 flex items-center justify-center relative"
               >
-                <span className="text-[9px] font-mono font-semibold text-muted-foreground leading-none select-none">
+                <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                   {getRowLabel(r)}
                 </span>
                 {canResizeRows && (
@@ -277,9 +277,9 @@ function PanelGrid({
               {Array.from({ length: columns }).map((_, c) => (
                 <div
                   key={`cell-${r}-${c}`}
-                  className="border-r border-b border-primary/60 flex items-center justify-center bg-transparent"
+                  className="border-r border-b border-gray-300 flex items-center justify-center bg-transparent"
                 >
-                  <span className="text-[8px] font-mono text-primary/35 leading-none select-none">
+                  <span className="text-[8px] font-mono text-gray-300 leading-none select-none">
                     {getRowLabel(r)}{getColLabel(c)}
                   </span>
                 </div>
@@ -800,78 +800,6 @@ export default function Paneles() {
                   {selectedAlphanumericIds.length > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">{selectedAlphanumericIds.length} seleccionado(s)</p>
                   )}
-                </div>
-
-                {/* Tamaño y posición de celdas */}
-                <div className="pt-4 border-t space-y-3">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tamaño de Celdas</p>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Ancho de columna</span>
-                        <span>{formCellWidth ?? 48}px</span>
-                      </div>
-                      <Slider
-                        min={20} max={200} step={2}
-                        value={[formCellWidth ?? 48]}
-                        onValueChange={([v]) => {
-                          form.setValue("cell_width", v);
-                          form.setValue("column_widths", []);
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Alto de fila</span>
-                        <span>{formCellHeight ?? 32}px</span>
-                      </div>
-                      <Slider
-                        min={12} max={120} step={2}
-                        value={[formCellHeight ?? 32]}
-                        onValueChange={([v]) => {
-                          form.setValue("cell_height", v);
-                          form.setValue("row_heights", []);
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Posición de Cuadrícula</p>
-                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Desplazamiento X</span>
-                        <span>{formGridOffsetX ?? 0}px</span>
-                      </div>
-                      <Slider
-                        min={-500} max={500} step={1}
-                        value={[formGridOffsetX ?? 0]}
-                        onValueChange={([v]) => form.setValue("grid_offset_x", v)}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <span>Desplazamiento Y</span>
-                        <span>{formGridOffsetY ?? 0}px</span>
-                      </div>
-                      <Slider
-                        min={-500} max={500} step={1}
-                        value={[formGridOffsetY ?? 0]}
-                        onValueChange={([v]) => form.setValue("grid_offset_y", v)}
-                      />
-                    </div>
-                  </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="text-xs text-muted-foreground"
-                    onClick={() => {
-                      form.setValue("grid_offset_x", 0);
-                      form.setValue("grid_offset_y", 0);
-                    }}
-                  >
-                    Centrar cuadrícula
-                  </Button>
                 </div>
 
                 {/* Vista previa + ajuste de imagen */}
