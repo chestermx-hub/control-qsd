@@ -102,6 +102,7 @@ function PanelGrid({
   const HEADER_W = 32;
   const HEADER_H = 22;
   const MARGIN = 16;
+  const EXTRA = 120;
 
   const [colWidths, setColWidths] = useState<number[]>(() =>
     columnWidthsProp?.length === columns
@@ -189,7 +190,7 @@ function PanelGrid({
   return (
     <div
       className="relative mt-4 border rounded-md bg-muted/20"
-      style={{ height: totalH + MARGIN * 2 }}
+      style={{ height: totalH + (MARGIN + EXTRA) * 2 }}
     >
       {/* Imagen: cubre el área completa incluyendo el margen */}
       {diagramUrl && (
@@ -213,7 +214,7 @@ function PanelGrid({
       {/* Grid desplazable con encabezados sticky */}
       <div
         className="absolute overflow-auto z-10"
-        style={{ inset: MARGIN, transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)` }}
+        style={{ inset: MARGIN + EXTRA, transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)` }}
       >
         <div
           style={{
@@ -225,13 +226,13 @@ function PanelGrid({
           }}
         >
           {/* Corner */}
-          <div className="sticky top-0 left-0 z-30 bg-card border-r border-b border-border/60" />
+          <div className="sticky top-0 left-0 z-30 bg-card border-r border-b border-border" />
 
           {/* Column headers */}
           {colWidths.map((w, c) => (
             <div
               key={`hc-${c}`}
-              className="sticky top-0 z-20 bg-card border-r border-b border-border/60 flex items-center justify-center relative"
+              className="sticky top-0 z-20 bg-card border-r border-b border-border flex items-center justify-center relative"
             >
               <span className="text-[9px] font-mono font-semibold text-muted-foreground leading-none select-none">
                 {getColLabel(c)}
@@ -255,7 +256,7 @@ function PanelGrid({
               {/* Row header */}
               <div
                 key={`hr-${r}`}
-                className="sticky left-0 z-10 bg-card border-r border-b border-border/60 flex items-center justify-center relative"
+                className="sticky left-0 z-10 bg-card border-r border-b border-border flex items-center justify-center relative"
               >
                 <span className="text-[9px] font-mono font-semibold text-muted-foreground leading-none select-none">
                   {getRowLabel(r)}
@@ -276,7 +277,7 @@ function PanelGrid({
               {Array.from({ length: columns }).map((_, c) => (
                 <div
                   key={`cell-${r}-${c}`}
-                  className="border-r border-b border-primary/25 flex items-center justify-center bg-transparent"
+                  className="border-r border-b border-primary/60 flex items-center justify-center bg-transparent"
                 >
                   <span className="text-[8px] font-mono text-primary/35 leading-none select-none">
                     {getRowLabel(r)}{getColLabel(c)}
