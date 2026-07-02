@@ -732,21 +732,35 @@ export default function Paneles() {
                           />
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-muted-foreground"
-                        onClick={() => {
-                          form.setValue("diagram_scale_x", 1);
-                          form.setValue("diagram_scale_y", 1);
-                          form.setValue("diagram_offset_x", 0);
-                          form.setValue("diagram_offset_y", 0);
-                          form.setValue("diagram_opacity", 0.5);
-                        }}
-                      >
-                        Restablecer ajustes
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="text-xs"
+                          onClick={() => {
+                            form.setValue("diagram_offset_x", 0);
+                            form.setValue("diagram_offset_y", 0);
+                          }}
+                        >
+                          Centrar imagen
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs text-muted-foreground"
+                          onClick={() => {
+                            form.setValue("diagram_scale_x", 1);
+                            form.setValue("diagram_scale_y", 1);
+                            form.setValue("diagram_offset_x", 0);
+                            form.setValue("diagram_offset_y", 0);
+                            form.setValue("diagram_opacity", 0.5);
+                          }}
+                        >
+                          Restablecer ajustes
+                        </Button>
+                      </div>
                     </div>
                   )}
 
