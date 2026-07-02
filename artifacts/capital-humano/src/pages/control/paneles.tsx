@@ -35,8 +35,8 @@ const panelSchema = z.object({
   grid_offset_y: z.number().min(-500).max(500).default(0),
   diagram_scale_x: z.number().min(0.2).max(5).default(1.0),
   diagram_scale_y: z.number().min(0.2).max(5).default(1.0),
-  diagram_offset_x: z.number().min(-500).max(500).default(0),
-  diagram_offset_y: z.number().min(-500).max(500).default(0),
+  diagram_offset_x: z.number().min(0).max(500).default(0),
+  diagram_offset_y: z.number().min(0).max(500).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
   zone_id: z.coerce.number().optional(),
   side_id: z.coerce.number().optional(),
@@ -849,7 +849,7 @@ export default function Paneles() {
                             <span>{(formDiagramOffsetX ?? 0).toFixed(0)}px</span>
                           </div>
                           <Slider
-                            min={-500} max={500} step={1}
+                            min={0} max={500} step={1}
                             value={[formDiagramOffsetX ?? 0]}
                             onValueChange={([v]) => form.setValue("diagram_offset_x", v)}
                           />
@@ -860,7 +860,7 @@ export default function Paneles() {
                             <span>{(formDiagramOffsetY ?? 0).toFixed(0)}px</span>
                           </div>
                           <Slider
-                            min={-500} max={500} step={1}
+                            min={0} max={500} step={1}
                             value={[formDiagramOffsetY ?? 0]}
                             onValueChange={([v]) => form.setValue("diagram_offset_y", v)}
                           />
