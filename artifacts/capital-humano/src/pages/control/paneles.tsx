@@ -228,6 +228,9 @@ function PanelGrid({
   const canResizeCols = !!onColumnWidthsChange;
   const canResizeRows = !!onRowHeightsChange;
 
+  // Tamaño de la imagen fijo: se calcula una sola vez y no cambia al alargar la cuadrícula
+  const [imgHeight] = useState(() => totalH - HEADER_H);
+
   return (
     <div
       className="relative mt-4 border border-gray-300 bg-white overflow-hidden"
@@ -246,7 +249,7 @@ function PanelGrid({
               position: "absolute",
               left: HEADER_W + imgOffset.x,
               bottom: imgOffset.y,
-              height: `${totalH - HEADER_H}px`,
+              height: `${imgHeight}px`,
               width: "auto",
               maxWidth: "none",
               transform: `scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
