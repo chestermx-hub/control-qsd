@@ -31,6 +31,8 @@ const panelSchema = z.object({
   rows_asc: z.boolean().default(true),
   cell_width: z.number().min(20).max(200).default(48),
   cell_height: z.number().min(12).max(120).default(32),
+  grid_offset_x: z.number().min(-500).max(500).default(0),
+  grid_offset_y: z.number().min(-500).max(500).default(0),
   diagram_scale_x: z.number().min(0.2).max(5).default(1.0),
   diagram_scale_y: z.number().min(0.2).max(5).default(1.0),
   diagram_offset_x: z.number().min(-500).max(500).default(0),
@@ -62,6 +64,8 @@ function PanelGrid({
   rowsAsc = true,
   cellWidth = 48,
   cellHeight = 32,
+  gridOffsetX = 0,
+  gridOffsetY = 0,
   diagramScaleX = 1,
   diagramScaleY = 1,
   diagramOffsetX = 0,
@@ -77,6 +81,8 @@ function PanelGrid({
   rowsAsc?: boolean;
   cellWidth?: number;
   cellHeight?: number;
+  gridOffsetX?: number;
+  gridOffsetY?: number;
   diagramScaleX?: number;
   diagramScaleY?: number;
   diagramOffsetX?: number;
@@ -128,8 +134,11 @@ function PanelGrid({
           />
         </div>
       )}
-      {/* Grid scrollable encima, con fondo transparente */}
-      <div className="absolute inset-0 overflow-auto z-10">
+      {/* Grid desplazable e independiente sobre la imagen */}
+      <div
+        className="absolute inset-0 overflow-auto z-10"
+        style={{ transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)` }}
+      >
         <div
           className="grid"
           style={{
@@ -281,6 +290,8 @@ export default function Paneles() {
   const formRowsAsc = form.watch("rows_asc");
   const formCellWidth = form.watch("cell_width");
   const formCellHeight = form.watch("cell_height");
+  const formGridOffsetX = form.watch("grid_offset_x");
+  const formGridOffsetY = form.watch("grid_offset_y");
   const formDiagramScaleX = form.watch("diagram_scale_x");
   const formDiagramScaleY = form.watch("diagram_scale_y");
   const formDiagramOffsetX = form.watch("diagram_offset_x");
@@ -303,6 +314,8 @@ export default function Paneles() {
       rows_asc: panel.rows_asc ?? true,
       cell_width: panel.cell_width ?? 48,
       cell_height: panel.cell_height ?? 32,
+      grid_offset_x: panel.grid_offset_x ?? 0,
+      grid_offset_y: panel.grid_offset_y ?? 0,
       diagram_scale_x: panel.diagram_scale_x ?? 1.0,
       diagram_scale_y: panel.diagram_scale_y ?? 1.0,
       diagram_offset_x: panel.diagram_offset_x ?? 0,
@@ -323,7 +336,7 @@ export default function Paneles() {
       columns: 5, rows: 5,
       column_start: 1, row_start_letter: "A",
       columns_asc: true, rows_asc: true,
-      cell_width: 48, cell_height: 32,
+      cell_width: 48, cell_height: 32, grid_offset_x: 0, grid_offset_y: 0,
       diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
     });
     setIsOpen(true);
@@ -450,6 +463,8 @@ export default function Paneles() {
                     rowsAsc={viewingGrid.rows_asc ?? true}
                     cellWidth={viewingGrid.cell_width ?? 48}
                     cellHeight={viewingGrid.cell_height ?? 32}
+                    gridOffsetX={viewingGrid.grid_offset_x ?? 0}
+                    gridOffsetY={viewingGrid.grid_offset_y ?? 0}
                     diagramScaleX={viewingGrid.diagram_scale_x ?? 1}
                     diagramScaleY={viewingGrid.diagram_scale_y ?? 1}
                     diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
@@ -656,7 +671,7 @@ export default function Paneles() {
                   )}
                 </div>
 
-                {/* Tamaño de celdas */}
+                {/* Tamaño y posición de celdas */}
                 <div className="pt-4 border-t space-y-3">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Tamaño de Celdas</p>
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
@@ -683,6 +698,43 @@ export default function Paneles() {
                       />
                     </div>
                   </div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide pt-2">Posición de Cuadrícula</p>
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Desplazamiento X</span>
+                        <span>{formGridOffsetX ?? 0}px</span>
+                      </div>
+                      <Slider
+                        min={-500} max={500} step={1}
+                        value={[formGridOffsetX ?? 0]}
+                        onValueChange={([v]) => form.setValue("grid_offset_x", v)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Desplazamiento Y</span>
+                        <span>{formGridOffsetY ?? 0}px</span>
+                      </div>
+                      <Slider
+                        min={-500} max={500} step={1}
+                        value={[formGridOffsetY ?? 0]}
+                        onValueChange={([v]) => form.setValue("grid_offset_y", v)}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground"
+                    onClick={() => {
+                      form.setValue("grid_offset_x", 0);
+                      form.setValue("grid_offset_y", 0);
+                    }}
+                  >
+                    Centrar cuadrícula
+                  </Button>
                 </div>
 
                 {/* Vista previa + ajuste de imagen */}
@@ -791,6 +843,8 @@ export default function Paneles() {
                     rowsAsc={formRowsAsc}
                     cellWidth={formCellWidth ?? 48}
                     cellHeight={formCellHeight ?? 32}
+                    gridOffsetX={formGridOffsetX ?? 0}
+                    gridOffsetY={formGridOffsetY ?? 0}
                     diagramScaleX={formDiagramScaleX ?? 1}
                     diagramScaleY={formDiagramScaleY ?? 1}
                     diagramOffsetX={formDiagramOffsetX ?? 0}

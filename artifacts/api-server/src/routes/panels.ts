@@ -24,6 +24,8 @@ function toJson(row: typeof panelsTable.$inferSelect) {
     diagram_offset_x: row.diagramOffsetX,
     diagram_offset_y: row.diagramOffsetY,
     diagram_opacity: row.diagramOpacity,
+    grid_offset_x: row.gridOffsetX,
+    grid_offset_y: row.gridOffsetY,
     zone_id: row.zoneId,
     side_id: row.sideId,
     visual_zone_id: row.visualZoneId,
@@ -43,6 +45,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     column_start, row_start, columns_asc, rows_asc,
     cell_width, cell_height,
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
+    grid_offset_x, grid_offset_y,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
     name: string; description?: string; diagram_url?: string;
@@ -51,6 +54,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     columns_asc?: boolean; rows_asc?: boolean;
     cell_width?: number; cell_height?: number;
     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
+    grid_offset_x?: number; grid_offset_y?: number;
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
   const [row] = await db.insert(panelsTable).values({
@@ -66,6 +70,8 @@ router.post("/panels", async (req: Request, res: Response) => {
     diagramOffsetX: diagram_offset_x ?? 0.0,
     diagramOffsetY: diagram_offset_y ?? 0.0,
     diagramOpacity: diagram_opacity ?? 0.5,
+    gridOffsetX: grid_offset_x ?? 0,
+    gridOffsetY: grid_offset_y ?? 0,
     zoneId: zone_id, sideId: side_id, visualZoneId: visual_zone_id,
     alphanumericIds: alphanumeric_ids ?? [],
   }).returning();
@@ -86,6 +92,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     column_start, row_start, columns_asc, rows_asc,
     cell_width, cell_height,
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
+    grid_offset_x, grid_offset_y,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
     name?: string; description?: string; diagram_url?: string;
@@ -94,6 +101,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     columns_asc?: boolean; rows_asc?: boolean;
     cell_width?: number; cell_height?: number;
     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
+    grid_offset_x?: number; grid_offset_y?: number;
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
   const updates: Partial<typeof panelsTable.$inferInsert> = {};
@@ -113,6 +121,8 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (diagram_offset_x !== undefined) updates.diagramOffsetX = diagram_offset_x;
   if (diagram_offset_y !== undefined) updates.diagramOffsetY = diagram_offset_y;
   if (diagram_opacity !== undefined) updates.diagramOpacity = diagram_opacity;
+  if (grid_offset_x !== undefined) updates.gridOffsetX = grid_offset_x;
+  if (grid_offset_y !== undefined) updates.gridOffsetY = grid_offset_y;
   if (zone_id !== undefined) updates.zoneId = zone_id;
   if (side_id !== undefined) updates.sideId = side_id;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;

@@ -1302,6 +1302,12 @@ components:
           type: number
           format: float
           default: 0.5
+        grid_offset_x:
+          type: integer
+          default: 0
+        grid_offset_y:
+          type: integer
+          default: 0
         zone_id:
           type: ["integer", "null"]
         side_id:
@@ -1358,6 +1364,10 @@ components:
         diagram_opacity:
           type: number
           format: float
+        grid_offset_x:
+          type: integer
+        grid_offset_y:
+          type: integer
         zone_id:
           type: integer
         side_id:
@@ -1409,6 +1419,10 @@ components:
         diagram_opacity:
           type: number
           format: float
+        grid_offset_x:
+          type: integer
+        grid_offset_y:
+          type: integer
         zone_id:
           type: integer
         side_id:

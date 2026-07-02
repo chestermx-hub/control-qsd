@@ -32,6 +32,8 @@ export interface Panel {
   diagram_offset_x?: number;
   diagram_offset_y?: number;
   diagram_opacity?: number;
+  grid_offset_x?: number;
+  grid_offset_y?: number;
   /** @nullable */
   zone_id?: number | null;
   /** @nullable */

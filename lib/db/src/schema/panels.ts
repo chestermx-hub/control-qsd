@@ -27,6 +27,8 @@ export const panelsTable = pgTable("panels", {
   diagramOffsetX: real("diagram_offset_x").notNull().default(0.0),
   diagramOffsetY: real("diagram_offset_y").notNull().default(0.0),
   diagramOpacity: real("diagram_opacity").notNull().default(0.5),
+  gridOffsetX: integer("grid_offset_x").notNull().default(0),
+  gridOffsetY: integer("grid_offset_y").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
