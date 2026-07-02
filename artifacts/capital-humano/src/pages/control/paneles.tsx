@@ -77,6 +77,7 @@ function PanelGrid({
   diagramOffsetX = 0,
   diagramOffsetY = 0,
   diagramOpacity = 0.5,
+  onImagePositionChange,
 }: {
   columns: number;
   rows: number;
@@ -98,6 +99,7 @@ function PanelGrid({
   diagramOffsetX?: number;
   diagramOffsetY?: number;
   diagramOpacity?: number;
+  onImagePositionChange?: (x: number, y: number) => void;
 }) {
   const HEADER_W = 36;
   const HEADER_H = 24;
@@ -132,6 +134,7 @@ function PanelGrid({
     }
   }, [rows, cellHeight, rowHeightsProp?.length]);
 
+  // ── Column/row resize drag ──────────────────────────────────────────
   const dragging = useRef<{
     type: "col" | "row";
     index: number;
@@ -170,6 +173,44 @@ function PanelGrid({
     };
   }, [onColumnWidthsChange, onRowHeightsChange]);
 
+  // ── Image drag ─────────────────────────────────────────────────────
+  const [imgOffset, setImgOffset] = useState({ x: diagramOffsetX, y: diagramOffsetY });
+  const imgDragging = useRef<{ startClientX: number; startClientY: number; startX: number; startY: number } | null>(null);
+  const [isDraggingImg, setIsDraggingImg] = useState(false);
+
+  // Sync from props when not actively dragging
+  useEffect(() => {
+    if (!imgDragging.current) {
+      setImgOffset({ x: diagramOffsetX, y: diagramOffsetY });
+    }
+  }, [diagramOffsetX, diagramOffsetY]);
+
+  useEffect(() => {
+    if (!onImagePositionChange) return;
+    const onMove = (e: MouseEvent) => {
+      if (!imgDragging.current) return;
+      const { startClientX, startClientY, startX, startY } = imgDragging.current;
+      const newX = Math.max(0, startX + (e.clientX - startClientX));
+      const newY = Math.max(0, startY - (e.clientY - startClientY)); // Y invertido: mouse↓ = imagen↓
+      setImgOffset({ x: newX, y: newY });
+    };
+    const onUp = (e: MouseEvent) => {
+      if (!imgDragging.current) return;
+      const { startClientX, startClientY, startX, startY } = imgDragging.current;
+      const newX = Math.max(0, startX + (e.clientX - startClientX));
+      const newY = Math.max(0, startY - (e.clientY - startClientY));
+      imgDragging.current = null;
+      setIsDraggingImg(false);
+      onImagePositionChange(newX, newY);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [onImagePositionChange]);
+
   const colStart = Number(columnStart) || 1;
   const rowIdx0 = Number(rowStart) || 0;
 
@@ -192,23 +233,38 @@ function PanelGrid({
       className="relative mt-4 border border-gray-300 bg-white overflow-hidden"
       style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200 }}
     >
-      {/* Imagen: origen en borde izquierdo de columnas (X) y base de última fila (Y) */}
+      {/* Imagen: arrastrala para posicionarla */}
       {diagramUrl && (
-        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div
+          className={`absolute inset-0 overflow-hidden ${onImagePositionChange ? "z-20" : "pointer-events-none z-0"}`}
+        >
           <img
             src={diagramUrl}
             alt="Diagrama"
+            draggable={false}
             style={{
               position: "absolute",
-              left: HEADER_W + diagramOffsetX,
-              bottom: diagramOffsetY,
+              left: HEADER_W + imgOffset.x,
+              bottom: imgOffset.y,
               height: `${totalH - HEADER_H}px`,
               width: "auto",
               maxWidth: "none",
               transform: `scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
               transformOrigin: "bottom left",
               opacity: diagramOpacity,
+              cursor: onImagePositionChange ? (isDraggingImg ? "grabbing" : "grab") : "default",
+              userSelect: "none",
             }}
+            onMouseDown={onImagePositionChange ? (e) => {
+              e.preventDefault();
+              imgDragging.current = {
+                startClientX: e.clientX,
+                startClientY: e.clientY,
+                startX: imgOffset.x,
+                startY: imgOffset.y,
+              };
+              setIsDraggingImg(true);
+            } : undefined}
           />
         </div>
       )}
@@ -810,29 +866,8 @@ export default function Paneles() {
                   {formDiagramUrl && (
                     <div className="border rounded-lg p-4 space-y-3 bg-muted/30">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Ajuste de Imagen</p>
+                      <p className="text-xs text-muted-foreground">Arrastra la imagen en la vista previa para posicionarla.</p>
                       <div className="grid grid-cols-2 gap-x-6 gap-y-3">
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Escala X</span>
-                            <span>{(formDiagramScaleX ?? 1).toFixed(2)}x</span>
-                          </div>
-                          <Slider
-                            min={0.2} max={5} step={0.05}
-                            value={[formDiagramScaleX ?? 1]}
-                            onValueChange={([v]) => form.setValue("diagram_scale_x", v)}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Escala Y</span>
-                            <span>{(formDiagramScaleY ?? 1).toFixed(2)}x</span>
-                          </div>
-                          <Slider
-                            min={0.2} max={5} step={0.05}
-                            value={[formDiagramScaleY ?? 1]}
-                            onValueChange={([v]) => form.setValue("diagram_scale_y", v)}
-                          />
-                        </div>
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Opacidad</span>
@@ -844,57 +879,20 @@ export default function Paneles() {
                             onValueChange={([v]) => form.setValue("diagram_opacity", v)}
                           />
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Posición X</span>
-                            <span>{(formDiagramOffsetX ?? 0).toFixed(0)}px</span>
-                          </div>
-                          <Slider
-                            min={0} max={500} step={1}
-                            value={[formDiagramOffsetX ?? 0]}
-                            onValueChange={([v]) => form.setValue("diagram_offset_x", v)}
-                          />
+                        <div className="flex items-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => {
+                              form.setValue("diagram_offset_x", 0);
+                              form.setValue("diagram_offset_y", 0);
+                            }}
+                          >
+                            Reiniciar posición
+                          </Button>
                         </div>
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>Posición Y</span>
-                            <span>{(formDiagramOffsetY ?? 0).toFixed(0)}px</span>
-                          </div>
-                          <Slider
-                            min={0} max={500} step={1}
-                            value={[formDiagramOffsetY ?? 0]}
-                            onValueChange={([v]) => form.setValue("diagram_offset_y", v)}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="text-xs"
-                          onClick={() => {
-                            form.setValue("diagram_offset_x", 0);
-                            form.setValue("diagram_offset_y", 0);
-                          }}
-                        >
-                          Centrar imagen
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs text-muted-foreground"
-                          onClick={() => {
-                            form.setValue("diagram_scale_x", 1);
-                            form.setValue("diagram_scale_y", 1);
-                            form.setValue("diagram_offset_x", 0);
-                            form.setValue("diagram_offset_y", 0);
-                            form.setValue("diagram_opacity", 0.5);
-                          }}
-                        >
-                          Restablecer ajustes
-                        </Button>
                       </div>
                     </div>
                   )}
@@ -916,11 +914,13 @@ export default function Paneles() {
                     onRowHeightsChange={h => form.setValue("row_heights", h)}
                     gridOffsetX={formGridOffsetX ?? 0}
                     gridOffsetY={formGridOffsetY ?? 0}
-                    diagramScaleX={formDiagramScaleX ?? 1}
-                    diagramScaleY={formDiagramScaleY ?? 1}
                     diagramOffsetX={formDiagramOffsetX ?? 0}
                     diagramOffsetY={formDiagramOffsetY ?? 0}
                     diagramOpacity={formDiagramOpacity ?? 0.5}
+                    onImagePositionChange={(x, y) => {
+                      form.setValue("diagram_offset_x", Math.round(x));
+                      form.setValue("diagram_offset_y", Math.round(y));
+                    }}
                   />
                 </div>
 
