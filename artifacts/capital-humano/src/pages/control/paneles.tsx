@@ -105,30 +105,41 @@ function PanelGrid({
   const gridH = rows * CELL_H;
 
   return (
-    <div className="relative mt-4 border rounded-md overflow-auto bg-muted/20">
-      <div className="relative" style={{ width: gridW, height: gridH }}>
-        {diagramUrl && (
-          <img
-            src={diagramUrl}
-            alt="Diagrama"
-            className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-            style={{
-              opacity: diagramOpacity,
-              transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
-              transformOrigin: "center",
-            }}
-          />
-        )}
+    <div
+      className="relative mt-4 border rounded-md bg-muted/20"
+      style={{ height: gridH, overflow: "hidden" }}
+    >
+      {/* Imagen centrada en el área visible del contenedor */}
+      {diagramUrl && (
+        <img
+          src={diagramUrl}
+          alt="Diagrama"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
+          style={{
+            opacity: diagramOpacity,
+            transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
+            transformOrigin: "center",
+          }}
+        />
+      )}
+      {/* Grid scrollable encima de la imagen */}
+      <div className="absolute inset-0 overflow-auto z-10">
         <div
-          className="absolute inset-0 grid"
+          className="grid"
           style={{
             gridTemplateColumns: `repeat(${columns}, ${CELL_W}px)`,
             gridTemplateRows: `repeat(${rows}, ${CELL_H}px)`,
+            width: gridW,
+            height: gridH,
           }}
         >
           {Array.from({ length: rows }).map((_, r) =>
             Array.from({ length: columns }).map((_, c) => (
-              <div key={`${r}-${c}`} className="border border-primary/20 flex items-center justify-center relative" style={{ width: CELL_W, height: CELL_H }}>
+              <div
+                key={`${r}-${c}`}
+                className="border border-primary/30 flex items-center justify-center"
+                style={{ width: CELL_W, height: CELL_H }}
+              >
                 <span className="text-[9px] font-mono text-primary/70 leading-none">
                   {getRowLabel(r)}{getColLabel(c)}
                 </span>
