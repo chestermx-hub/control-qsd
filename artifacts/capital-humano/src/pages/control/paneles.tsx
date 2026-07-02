@@ -287,13 +287,13 @@ function PanelGrid({
           }}
         >
           {/* Corner */}
-          <div className="sticky top-0 left-0 z-30 bg-gray-100 border-r border-b border-gray-400 pointer-events-auto" />
+          <div className="sticky top-0 left-0 z-30 bg-gray-100 border-r border-b border-red-500 pointer-events-auto" />
 
           {/* Column headers */}
           {colWidths.map((w, c) => (
             <div
               key={`hc-${c}`}
-              className="sticky top-0 z-20 bg-gray-100 border-r border-b border-gray-400 flex items-center justify-center relative pointer-events-auto"
+              className="sticky top-0 z-20 bg-gray-100 border-r border-b border-red-500 flex items-center justify-center relative pointer-events-auto"
             >
               <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                 {getColLabel(c)}
@@ -317,7 +317,7 @@ function PanelGrid({
               {/* Row header */}
               <div
                 key={`hr-${r}`}
-                className="sticky left-0 z-10 bg-gray-100 border-r border-gray-400 border-b-2 border-blue-500 flex items-center justify-center relative pointer-events-auto"
+                className="sticky left-0 z-10 bg-gray-100 border-r border-b-2 border-red-500 flex items-center justify-center relative pointer-events-auto"
               >
                 <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                   {getRowLabel(r)}
@@ -338,7 +338,7 @@ function PanelGrid({
               {Array.from({ length: columns }).map((_, c) => (
                 <div
                   key={`cell-${r}-${c}`}
-                  className="border-r border-gray-300 border-b-2 border-blue-500 flex items-center justify-center bg-transparent pointer-events-none"
+                  className="border-r border-b-2 border-red-500 flex items-center justify-center bg-transparent pointer-events-none"
                 >
                   <span className="text-[8px] font-mono text-gray-300 leading-none select-none">
                     {getRowLabel(r)}{getColLabel(c)}
