@@ -191,14 +191,14 @@ function PanelGrid({
       if (!imgDragging.current) return;
       const { startClientX, startClientY, startX, startY } = imgDragging.current;
       const newX = Math.max(0, startX + (e.clientX - startClientX));
-      const newY = Math.max(0, startY - (e.clientY - startClientY)); // Y invertido: mouse↓ = imagen↓
+      const newY = Math.max(0, startY + (e.clientY - startClientY));
       setImgOffset({ x: newX, y: newY });
     };
     const onUp = (e: MouseEvent) => {
       if (!imgDragging.current) return;
       const { startClientX, startClientY, startX, startY } = imgDragging.current;
       const newX = Math.max(0, startX + (e.clientX - startClientX));
-      const newY = Math.max(0, startY - (e.clientY - startClientY));
+      const newY = Math.max(0, startY + (e.clientY - startClientY));
       imgDragging.current = null;
       setIsDraggingImg(false);
       onImagePositionChange(newX, newY);
@@ -248,12 +248,12 @@ function PanelGrid({
             style={{
               position: "absolute",
               left: HEADER_W + imgOffset.x,
-              bottom: imgOffset.y,
+              top: HEADER_H + imgOffset.y,
               height: `${imgHeight}px`,
               width: "auto",
               maxWidth: "none",
               transform: `scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
-              transformOrigin: "bottom left",
+              transformOrigin: "top left",
               opacity: diagramOpacity,
               cursor: onImagePositionChange ? (isDraggingImg ? "grabbing" : "grab") : "default",
               userSelect: "none",
