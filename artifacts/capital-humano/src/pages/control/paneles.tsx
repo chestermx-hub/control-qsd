@@ -295,7 +295,7 @@ function PanelGrid({
               key={`hc-${c}`}
               className="sticky top-0 z-20 bg-gray-100 border-r border-b border-red-500 flex items-center justify-center relative pointer-events-auto"
             >
-              <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
+              <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
                 {getColLabel(c)}
               </span>
               {canResizeCols && (
@@ -319,7 +319,7 @@ function PanelGrid({
                 key={`hr-${r}`}
                 className="sticky left-0 z-10 bg-gray-100 border-r border-b-2 border-red-500 flex items-center justify-center relative pointer-events-auto"
               >
-                <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
+                <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
                   {getRowLabel(r)}
                 </span>
                 {canResizeRows && (
@@ -340,7 +340,7 @@ function PanelGrid({
                   key={`cell-${r}-${c}`}
                   className="border-r border-b-2 border-red-500 flex items-center justify-center bg-transparent pointer-events-none"
                 >
-                  <span className="text-[8px] font-mono text-gray-300 leading-none select-none">
+                  <span className="text-[8px] font-mono font-bold text-blue-700 leading-none select-none">
                     {getRowLabel(r)}{getColLabel(c)}
                   </span>
                 </div>
