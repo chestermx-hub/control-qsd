@@ -271,7 +271,11 @@ function PanelGrid({
       {/* Grid desplazable con encabezados sticky */}
       <div
         className="absolute overflow-auto z-10"
-        style={{ inset: MARGIN + EXTRA, transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)` }}
+        style={{
+          inset: MARGIN + EXTRA,
+          transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)`,
+          pointerEvents: onImagePositionChange ? "none" : undefined,
+        }}
       >
         <div
           style={{
@@ -283,13 +287,13 @@ function PanelGrid({
           }}
         >
           {/* Corner */}
-          <div className="sticky top-0 left-0 z-30 bg-gray-100 border-r border-b border-gray-400" />
+          <div className="sticky top-0 left-0 z-30 bg-gray-100 border-r border-b border-gray-400 pointer-events-auto" />
 
           {/* Column headers */}
           {colWidths.map((w, c) => (
             <div
               key={`hc-${c}`}
-              className="sticky top-0 z-20 bg-gray-100 border-r border-b border-gray-400 flex items-center justify-center relative"
+              className="sticky top-0 z-20 bg-gray-100 border-r border-b border-gray-400 flex items-center justify-center relative pointer-events-auto"
             >
               <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                 {getColLabel(c)}
@@ -313,7 +317,7 @@ function PanelGrid({
               {/* Row header */}
               <div
                 key={`hr-${r}`}
-                className="sticky left-0 z-10 bg-gray-100 border-r border-gray-400 border-b-2 border-blue-500 flex items-center justify-center relative"
+                className="sticky left-0 z-10 bg-gray-100 border-r border-gray-400 border-b-2 border-blue-500 flex items-center justify-center relative pointer-events-auto"
               >
                 <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                   {getRowLabel(r)}
