@@ -192,7 +192,7 @@ function PanelGrid({
       className="relative mt-4 border border-gray-300 bg-white overflow-hidden"
       style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200 }}
     >
-      {/* Imagen: cubre el área completa incluyendo el margen */}
+      {/* Imagen: origen en borde izquierdo de columnas (X) y base de última fila (Y) */}
       {diagramUrl && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <img
@@ -200,12 +200,13 @@ function PanelGrid({
             alt="Diagrama"
             style={{
               position: "absolute",
-              left: "50%",
-              top: "50%",
-              height: "100%",
+              left: HEADER_W + diagramOffsetX,
+              bottom: diagramOffsetY,
+              height: `${totalH - HEADER_H}px`,
               width: "auto",
-              transform: `translate(calc(-50% + ${diagramOffsetX}px), calc(-50% + ${diagramOffsetY}px)) scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
-              transformOrigin: "center",
+              maxWidth: "none",
+              transform: `scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
+              transformOrigin: "bottom left",
               opacity: diagramOpacity,
             }}
           />
