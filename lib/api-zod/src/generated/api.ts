@@ -419,6 +419,8 @@ export const listPanelsResponseDiagramOffsetYDefault = 0;
 export const listPanelsResponseDiagramOpacityDefault = 0.5;
 export const listPanelsResponseGridOffsetXDefault = 0;
 export const listPanelsResponseGridOffsetYDefault = 0;
+export const listPanelsResponseColumnWidthsDefault = [];
+export const listPanelsResponseRowHeightsDefault = [];
 export const listPanelsResponseAlphanumericIdsDefault = [];
 
 export const ListPanelsResponseItem = zod.object({
@@ -441,6 +443,8 @@ export const ListPanelsResponseItem = zod.object({
   "diagram_opacity": zod.number().default(listPanelsResponseDiagramOpacityDefault),
   "grid_offset_x": zod.number().default(listPanelsResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(listPanelsResponseGridOffsetYDefault),
+  "column_widths": zod.array(zod.number()).default(listPanelsResponseColumnWidthsDefault),
+  "row_heights": zod.array(zod.number()).default(listPanelsResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),
@@ -472,6 +476,8 @@ export const CreatePanelBody = zod.object({
   "diagram_opacity": zod.number().optional(),
   "grid_offset_x": zod.number().optional(),
   "grid_offset_y": zod.number().optional(),
+  "column_widths": zod.array(zod.number()).optional(),
+  "row_heights": zod.array(zod.number()).optional(),
   "zone_id": zod.number().optional(),
   "side_id": zod.number().optional(),
   "visual_zone_id": zod.number().optional(),
@@ -491,6 +497,8 @@ export const createPanelResponseDiagramOffsetYDefault = 0;
 export const createPanelResponseDiagramOpacityDefault = 0.5;
 export const createPanelResponseGridOffsetXDefault = 0;
 export const createPanelResponseGridOffsetYDefault = 0;
+export const createPanelResponseColumnWidthsDefault = [];
+export const createPanelResponseRowHeightsDefault = [];
 export const createPanelResponseAlphanumericIdsDefault = [];
 
 export const CreatePanelResponse = zod.object({
@@ -513,6 +521,8 @@ export const CreatePanelResponse = zod.object({
   "diagram_opacity": zod.number().default(createPanelResponseDiagramOpacityDefault),
   "grid_offset_x": zod.number().default(createPanelResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(createPanelResponseGridOffsetYDefault),
+  "column_widths": zod.array(zod.number()).default(createPanelResponseColumnWidthsDefault),
+  "row_heights": zod.array(zod.number()).default(createPanelResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),
@@ -541,6 +551,8 @@ export const getPanelResponseDiagramOffsetYDefault = 0;
 export const getPanelResponseDiagramOpacityDefault = 0.5;
 export const getPanelResponseGridOffsetXDefault = 0;
 export const getPanelResponseGridOffsetYDefault = 0;
+export const getPanelResponseColumnWidthsDefault = [];
+export const getPanelResponseRowHeightsDefault = [];
 export const getPanelResponseAlphanumericIdsDefault = [];
 
 export const GetPanelResponse = zod.object({
@@ -563,6 +575,8 @@ export const GetPanelResponse = zod.object({
   "diagram_opacity": zod.number().default(getPanelResponseDiagramOpacityDefault),
   "grid_offset_x": zod.number().default(getPanelResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(getPanelResponseGridOffsetYDefault),
+  "column_widths": zod.array(zod.number()).default(getPanelResponseColumnWidthsDefault),
+  "row_heights": zod.array(zod.number()).default(getPanelResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),
@@ -597,6 +611,8 @@ export const UpdatePanelBody = zod.object({
   "diagram_opacity": zod.number().optional(),
   "grid_offset_x": zod.number().optional(),
   "grid_offset_y": zod.number().optional(),
+  "column_widths": zod.array(zod.number()).optional(),
+  "row_heights": zod.array(zod.number()).optional(),
   "zone_id": zod.number().optional(),
   "side_id": zod.number().optional(),
   "visual_zone_id": zod.number().optional(),
@@ -616,6 +632,8 @@ export const updatePanelResponseDiagramOffsetYDefault = 0;
 export const updatePanelResponseDiagramOpacityDefault = 0.5;
 export const updatePanelResponseGridOffsetXDefault = 0;
 export const updatePanelResponseGridOffsetYDefault = 0;
+export const updatePanelResponseColumnWidthsDefault = [];
+export const updatePanelResponseRowHeightsDefault = [];
 export const updatePanelResponseAlphanumericIdsDefault = [];
 
 export const UpdatePanelResponse = zod.object({
@@ -638,6 +656,8 @@ export const UpdatePanelResponse = zod.object({
   "diagram_opacity": zod.number().default(updatePanelResponseDiagramOpacityDefault),
   "grid_offset_x": zod.number().default(updatePanelResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(updatePanelResponseGridOffsetYDefault),
+  "column_widths": zod.array(zod.number()).default(updatePanelResponseColumnWidthsDefault),
+  "row_heights": zod.array(zod.number()).default(updatePanelResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
   "visual_zone_id": zod.number().nullish(),

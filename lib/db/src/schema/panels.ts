@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, boolean, real, json } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { zonesTable } from "./zones";
@@ -29,6 +29,8 @@ export const panelsTable = pgTable("panels", {
   diagramOpacity: real("diagram_opacity").notNull().default(0.5),
   gridOffsetX: integer("grid_offset_x").notNull().default(0),
   gridOffsetY: integer("grid_offset_y").notNull().default(0),
+  columnWidths: integer("column_widths").array().notNull().default([]),
+  rowHeights: integer("row_heights").array().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -1308,6 +1308,16 @@ components:
         grid_offset_y:
           type: integer
           default: 0
+        column_widths:
+          type: array
+          items:
+            type: integer
+          default: []
+        row_heights:
+          type: array
+          items:
+            type: integer
+          default: []
         zone_id:
           type: ["integer", "null"]
         side_id:
@@ -1368,6 +1378,14 @@ components:
           type: integer
         grid_offset_y:
           type: integer
+        column_widths:
+          type: array
+          items:
+            type: integer
+        row_heights:
+          type: array
+          items:
+            type: integer
         zone_id:
           type: integer
         side_id:
@@ -1423,6 +1441,14 @@ components:
           type: integer
         grid_offset_y:
           type: integer
+        column_widths:
+          type: array
+          items:
+            type: integer
+        row_heights:
+          type: array
+          items:
+            type: integer
         zone_id:
           type: integer
         side_id:

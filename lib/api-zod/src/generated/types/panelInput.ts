@@ -25,6 +25,8 @@ export interface PanelInput {
   diagram_opacity?: number;
   grid_offset_x?: number;
   grid_offset_y?: number;
+  column_widths?: number[];
+  row_heights?: number[];
   zone_id?: number;
   side_id?: number;
   visual_zone_id?: number;

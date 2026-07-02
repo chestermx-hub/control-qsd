@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   useListPanels, useCreatePanel, useUpdatePanel, useDeletePanel, getListPanelsQueryKey,
   useListZones, useListSides, useListVisualZones, useListAlphanumeric,
@@ -42,6 +42,8 @@ const panelSchema = z.object({
   side_id: z.coerce.number().optional(),
   visual_zone_id: z.coerce.number().optional(),
   alphanumeric_ids: z.array(z.number()).optional(),
+  column_widths: z.array(z.number()).default([]),
+  row_heights: z.array(z.number()).default([]),
 });
 
 type PanelFormValues = z.infer<typeof panelSchema>;
@@ -64,6 +66,10 @@ function PanelGrid({
   rowsAsc = true,
   cellWidth = 48,
   cellHeight = 32,
+  columnWidths: columnWidthsProp,
+  rowHeights: rowHeightsProp,
+  onColumnWidthsChange,
+  onRowHeightsChange,
   gridOffsetX = 0,
   gridOffsetY = 0,
   diagramScaleX = 1,
@@ -81,6 +87,10 @@ function PanelGrid({
   rowsAsc?: boolean;
   cellWidth?: number;
   cellHeight?: number;
+  columnWidths?: number[];
+  rowHeights?: number[];
+  onColumnWidthsChange?: (widths: number[]) => void;
+  onRowHeightsChange?: (heights: number[]) => void;
   gridOffsetX?: number;
   gridOffsetY?: number;
   diagramScaleX?: number;
@@ -89,32 +99,97 @@ function PanelGrid({
   diagramOffsetY?: number;
   diagramOpacity?: number;
 }) {
+  const HEADER_W = 32;
+  const HEADER_H = 22;
+  const MARGIN = 16;
+
+  const [colWidths, setColWidths] = useState<number[]>(() =>
+    columnWidthsProp?.length === columns
+      ? [...columnWidthsProp]
+      : Array(columns).fill(cellWidth)
+  );
+  const [rowHeights, setRowHeights] = useState<number[]>(() =>
+    rowHeightsProp?.length === rows
+      ? [...rowHeightsProp]
+      : Array(rows).fill(cellHeight)
+  );
+
+  // Sync when uniform slider resets (arrays become empty) or grid size changes
+  useEffect(() => {
+    if (!columnWidthsProp || columnWidthsProp.length !== columns) {
+      setColWidths(Array(columns).fill(cellWidth));
+    } else {
+      setColWidths([...columnWidthsProp]);
+    }
+  }, [columns, cellWidth, columnWidthsProp?.length]);
+
+  useEffect(() => {
+    if (!rowHeightsProp || rowHeightsProp.length !== rows) {
+      setRowHeights(Array(rows).fill(cellHeight));
+    } else {
+      setRowHeights([...rowHeightsProp]);
+    }
+  }, [rows, cellHeight, rowHeightsProp?.length]);
+
+  const dragging = useRef<{
+    type: "col" | "row";
+    index: number;
+    startPos: number;
+    startSize: number;
+  } | null>(null);
+  const colWidthsRef = useRef(colWidths);
+  const rowHeightsRef = useRef(rowHeights);
+  useEffect(() => { colWidthsRef.current = colWidths; }, [colWidths]);
+  useEffect(() => { rowHeightsRef.current = rowHeights; }, [rowHeights]);
+
+  useEffect(() => {
+    if (!onColumnWidthsChange && !onRowHeightsChange) return;
+    const onMove = (e: MouseEvent) => {
+      if (!dragging.current) return;
+      const { type, index, startPos, startSize } = dragging.current;
+      if (type === "col") {
+        const newW = Math.max(20, startSize + e.clientX - startPos);
+        setColWidths(prev => { const n = [...prev]; n[index] = newW; return n; });
+      } else {
+        const newH = Math.max(12, startSize + e.clientY - startPos);
+        setRowHeights(prev => { const n = [...prev]; n[index] = newH; return n; });
+      }
+    };
+    const onUp = () => {
+      if (!dragging.current) return;
+      dragging.current = null;
+      onColumnWidthsChange?.(colWidthsRef.current);
+      onRowHeightsChange?.(rowHeightsRef.current);
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [onColumnWidthsChange, onRowHeightsChange]);
+
   const colStart = Number(columnStart) || 1;
   const rowIdx0 = Number(rowStart) || 0;
 
   const getColLabel = (colIdx: number) => {
-    const label = columnsAsc
-      ? colStart + colIdx
-      : colStart + columns - 1 - colIdx;
+    const label = columnsAsc ? colStart + colIdx : colStart + columns - 1 - colIdx;
     return label.toString();
   };
   const getRowLabel = (rowIdx: number) => {
-    const idx = rowsAsc
-      ? rowIdx0 + rowIdx
-      : rowIdx0 + rows - 1 - rowIdx;
+    const idx = rowsAsc ? rowIdx0 + rowIdx : rowIdx0 + rows - 1 - rowIdx;
     return indexToLetter(idx);
   };
 
-  const CELL_W = cellWidth;
-  const CELL_H = cellHeight;
-  const gridW = columns * CELL_W;
-  const gridH = rows * CELL_H;
-  const MARGIN = 16;
+  const totalW = HEADER_W + colWidths.reduce((s, w) => s + w, 0);
+  const totalH = HEADER_H + rowHeights.reduce((s, h) => s + h, 0);
+  const canResizeCols = !!onColumnWidthsChange;
+  const canResizeRows = !!onRowHeightsChange;
 
   return (
     <div
       className="relative mt-4 border rounded-md bg-muted/20"
-      style={{ height: gridH + MARGIN * 2 }}
+      style={{ height: totalH + MARGIN * 2 }}
     >
       {/* Imagen: cubre el área completa incluyendo el margen */}
       {diagramUrl && (
@@ -135,36 +210,81 @@ function PanelGrid({
           />
         </div>
       )}
-      {/* Grid con margen interior, desplazable sobre la imagen */}
+      {/* Grid desplazable con encabezados sticky */}
       <div
         className="absolute overflow-auto z-10"
-        style={{
-          inset: MARGIN,
-          transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)`,
-        }}
+        style={{ inset: MARGIN, transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)` }}
       >
         <div
-          className="grid"
           style={{
-            gridTemplateColumns: `repeat(${columns}, ${CELL_W}px)`,
-            gridTemplateRows: `repeat(${rows}, ${CELL_H}px)`,
-            width: gridW,
-            height: gridH,
+            display: "grid",
+            gridTemplateColumns: `${HEADER_W}px ${colWidths.map(w => `${w}px`).join(" ")}`,
+            gridTemplateRows: `${HEADER_H}px ${rowHeights.map(h => `${h}px`).join(" ")}`,
+            width: totalW,
+            userSelect: (canResizeCols || canResizeRows) ? "none" : undefined,
           }}
         >
-          {Array.from({ length: rows }).map((_, r) =>
-            Array.from({ length: columns }).map((_, c) => (
+          {/* Corner */}
+          <div className="sticky top-0 left-0 z-30 bg-card border-r border-b border-border/60" />
+
+          {/* Column headers */}
+          {colWidths.map((w, c) => (
+            <div
+              key={`hc-${c}`}
+              className="sticky top-0 z-20 bg-card border-r border-b border-border/60 flex items-center justify-center relative"
+            >
+              <span className="text-[9px] font-mono font-semibold text-muted-foreground leading-none select-none">
+                {getColLabel(c)}
+              </span>
+              {canResizeCols && (
+                <div
+                  className="absolute right-0 top-0 w-[3px] h-full bg-border/40 hover:bg-primary/60 transition-colors"
+                  style={{ cursor: "col-resize" }}
+                  onMouseDown={e => {
+                    e.preventDefault();
+                    dragging.current = { type: "col", index: c, startPos: e.clientX, startSize: w };
+                  }}
+                />
+              )}
+            </div>
+          ))}
+
+          {/* Rows: header + cells */}
+          {Array.from({ length: rows }).map((_, r) => (
+            <>
+              {/* Row header */}
               <div
-                key={`${r}-${c}`}
-                className="border border-primary/30 flex items-center justify-center bg-transparent"
-                style={{ width: CELL_W, height: CELL_H }}
+                key={`hr-${r}`}
+                className="sticky left-0 z-10 bg-card border-r border-b border-border/60 flex items-center justify-center relative"
               >
-                <span className="text-[9px] font-mono text-primary/70 leading-none">
-                  {getRowLabel(r)}{getColLabel(c)}
+                <span className="text-[9px] font-mono font-semibold text-muted-foreground leading-none select-none">
+                  {getRowLabel(r)}
                 </span>
+                {canResizeRows && (
+                  <div
+                    className="absolute bottom-0 left-0 w-full h-[3px] bg-border/40 hover:bg-primary/60 transition-colors"
+                    style={{ cursor: "row-resize" }}
+                    onMouseDown={e => {
+                      e.preventDefault();
+                      dragging.current = { type: "row", index: r, startPos: e.clientY, startSize: rowHeights[r] };
+                    }}
+                  />
+                )}
               </div>
-            ))
-          )}
+
+              {/* Body cells */}
+              {Array.from({ length: columns }).map((_, c) => (
+                <div
+                  key={`cell-${r}-${c}`}
+                  className="border-r border-b border-primary/25 flex items-center justify-center bg-transparent"
+                >
+                  <span className="text-[8px] font-mono text-primary/35 leading-none select-none">
+                    {getRowLabel(r)}{getColLabel(c)}
+                  </span>
+                </div>
+              ))}
+            </>
+          ))}
         </div>
       </div>
     </div>
@@ -301,6 +421,8 @@ export default function Paneles() {
   const formDiagramOffsetX = form.watch("diagram_offset_x");
   const formDiagramOffsetY = form.watch("diagram_offset_y");
   const formDiagramOpacity = form.watch("diagram_opacity");
+  const formColumnWidths = form.watch("column_widths");
+  const formRowHeights = form.watch("row_heights");
 
   const handleEdit = (panel: any) => {
     setEditingId(panel.id);
@@ -320,6 +442,8 @@ export default function Paneles() {
       cell_height: panel.cell_height ?? 32,
       grid_offset_x: panel.grid_offset_x ?? 0,
       grid_offset_y: panel.grid_offset_y ?? 0,
+      column_widths: panel.column_widths ?? [],
+      row_heights: panel.row_heights ?? [],
       diagram_scale_x: panel.diagram_scale_x ?? 1.0,
       diagram_scale_y: panel.diagram_scale_y ?? 1.0,
       diagram_offset_x: panel.diagram_offset_x ?? 0,
@@ -340,7 +464,7 @@ export default function Paneles() {
       columns: 5, rows: 5,
       column_start: 1, row_start_letter: "A",
       columns_asc: true, rows_asc: true,
-      cell_width: 48, cell_height: 32, grid_offset_x: 0, grid_offset_y: 0,
+      cell_width: 48, cell_height: 32, grid_offset_x: 0, grid_offset_y: 0, column_widths: [], row_heights: [],
       diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
     });
     setIsOpen(true);
@@ -467,6 +591,8 @@ export default function Paneles() {
                     rowsAsc={viewingGrid.rows_asc ?? true}
                     cellWidth={viewingGrid.cell_width ?? 48}
                     cellHeight={viewingGrid.cell_height ?? 32}
+                    columnWidths={viewingGrid.column_widths ?? []}
+                    rowHeights={viewingGrid.row_heights ?? []}
                     gridOffsetX={viewingGrid.grid_offset_x ?? 0}
                     gridOffsetY={viewingGrid.grid_offset_y ?? 0}
                     diagramScaleX={viewingGrid.diagram_scale_x ?? 1}
@@ -687,7 +813,10 @@ export default function Paneles() {
                       <Slider
                         min={20} max={200} step={2}
                         value={[formCellWidth ?? 48]}
-                        onValueChange={([v]) => form.setValue("cell_width", v)}
+                        onValueChange={([v]) => {
+                          form.setValue("cell_width", v);
+                          form.setValue("column_widths", []);
+                        }}
                       />
                     </div>
                     <div className="space-y-1">
@@ -698,7 +827,10 @@ export default function Paneles() {
                       <Slider
                         min={12} max={120} step={2}
                         value={[formCellHeight ?? 32]}
-                        onValueChange={([v]) => form.setValue("cell_height", v)}
+                        onValueChange={([v]) => {
+                          form.setValue("cell_height", v);
+                          form.setValue("row_heights", []);
+                        }}
                       />
                     </div>
                   </div>
@@ -838,6 +970,7 @@ export default function Paneles() {
                   )}
 
                   <PanelGrid
+                    key={editingId ?? "new"}
                     columns={formColumns || 1}
                     rows={formRows || 1}
                     diagramUrl={formDiagramUrl}
@@ -847,6 +980,10 @@ export default function Paneles() {
                     rowsAsc={formRowsAsc}
                     cellWidth={formCellWidth ?? 48}
                     cellHeight={formCellHeight ?? 32}
+                    columnWidths={formColumnWidths}
+                    rowHeights={formRowHeights}
+                    onColumnWidthsChange={w => form.setValue("column_widths", w)}
+                    onRowHeightsChange={h => form.setValue("row_heights", h)}
                     gridOffsetX={formGridOffsetX ?? 0}
                     gridOffsetY={formGridOffsetY ?? 0}
                     diagramScaleX={formDiagramScaleX ?? 1}
