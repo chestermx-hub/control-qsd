@@ -233,10 +233,10 @@ function PanelGrid({
       className="relative mt-4 border border-gray-300 bg-white overflow-hidden"
       style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200 }}
     >
-      {/* Imagen: arrastrala para posicionarla */}
+      {/* Imagen: arrastrala para posicionarla (siempre debajo de la cuadrícula) */}
       {diagramUrl && (
         <div
-          className={`absolute inset-0 overflow-hidden ${onImagePositionChange ? "z-20" : "pointer-events-none z-0"}`}
+          className={`absolute inset-0 overflow-hidden z-0 ${onImagePositionChange ? "" : "pointer-events-none"}`}
         >
           <img
             src={diagramUrl}
@@ -313,7 +313,7 @@ function PanelGrid({
               {/* Row header */}
               <div
                 key={`hr-${r}`}
-                className="sticky left-0 z-10 bg-gray-100 border-r border-b border-gray-400 flex items-center justify-center relative"
+                className="sticky left-0 z-10 bg-gray-100 border-r border-gray-400 border-b-2 border-blue-500 flex items-center justify-center relative"
               >
                 <span className="text-[9px] font-mono font-semibold text-gray-500 leading-none select-none">
                   {getRowLabel(r)}
@@ -334,7 +334,7 @@ function PanelGrid({
               {Array.from({ length: columns }).map((_, c) => (
                 <div
                   key={`cell-${r}-${c}`}
-                  className="border-r border-b border-gray-300 flex items-center justify-center bg-transparent"
+                  className="border-r border-gray-300 border-b-2 border-blue-500 flex items-center justify-center bg-transparent pointer-events-none"
                 >
                   <span className="text-[8px] font-mono text-gray-300 leading-none select-none">
                     {getRowLabel(r)}{getColLabel(c)}
