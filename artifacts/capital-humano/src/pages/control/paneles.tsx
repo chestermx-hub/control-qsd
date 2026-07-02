@@ -33,8 +33,8 @@ const panelSchema = z.object({
   cell_height: z.number().min(12).max(120).default(32),
   diagram_scale_x: z.number().min(0.2).max(5).default(1.0),
   diagram_scale_y: z.number().min(0.2).max(5).default(1.0),
-  diagram_offset_x: z.number().min(-200).max(200).default(0),
-  diagram_offset_y: z.number().min(-200).max(200).default(0),
+  diagram_offset_x: z.number().min(-500).max(500).default(0),
+  diagram_offset_y: z.number().min(-500).max(500).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
   zone_id: z.coerce.number().optional(),
   side_id: z.coerce.number().optional(),
@@ -107,22 +107,28 @@ function PanelGrid({
   return (
     <div
       className="relative mt-4 border rounded-md bg-muted/20"
-      style={{ height: gridH, overflow: "hidden" }}
+      style={{ height: gridH }}
     >
-      {/* Imagen centrada en el área visible del contenedor */}
+      {/* Imagen independiente: centrada en el área visible, desplazable en px */}
       {diagramUrl && (
-        <img
-          src={diagramUrl}
-          alt="Diagrama"
-          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
-          style={{
-            opacity: diagramOpacity,
-            transform: `translate(${diagramOffsetX}%, ${diagramOffsetY}%) scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
-            transformOrigin: "center",
-          }}
-        />
+        <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+          <img
+            src={diagramUrl}
+            alt="Diagrama"
+            style={{
+              position: "absolute",
+              left: "50%",
+              top: "50%",
+              height: "100%",
+              width: "auto",
+              transform: `translate(calc(-50% + ${diagramOffsetX}px), calc(-50% + ${diagramOffsetY}px)) scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
+              transformOrigin: "center",
+              opacity: diagramOpacity,
+            }}
+          />
+        </div>
       )}
-      {/* Grid scrollable encima de la imagen */}
+      {/* Grid scrollable encima, con fondo transparente */}
       <div className="absolute inset-0 overflow-auto z-10">
         <div
           className="grid"
@@ -137,7 +143,7 @@ function PanelGrid({
             Array.from({ length: columns }).map((_, c) => (
               <div
                 key={`${r}-${c}`}
-                className="border border-primary/30 flex items-center justify-center"
+                className="border border-primary/30 flex items-center justify-center bg-transparent"
                 style={{ width: CELL_W, height: CELL_H }}
               >
                 <span className="text-[9px] font-mono text-primary/70 leading-none">
@@ -723,10 +729,10 @@ export default function Paneles() {
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Posición X</span>
-                            <span>{(formDiagramOffsetX ?? 0).toFixed(0)}%</span>
+                            <span>{(formDiagramOffsetX ?? 0).toFixed(0)}px</span>
                           </div>
                           <Slider
-                            min={-200} max={200} step={1}
+                            min={-500} max={500} step={1}
                             value={[formDiagramOffsetX ?? 0]}
                             onValueChange={([v]) => form.setValue("diagram_offset_x", v)}
                           />
@@ -734,10 +740,10 @@ export default function Paneles() {
                         <div className="space-y-1">
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>Posición Y</span>
-                            <span>{(formDiagramOffsetY ?? 0).toFixed(0)}%</span>
+                            <span>{(formDiagramOffsetY ?? 0).toFixed(0)}px</span>
                           </div>
                           <Slider
-                            min={-200} max={200} step={1}
+                            min={-500} max={500} step={1}
                             value={[formDiagramOffsetY ?? 0]}
                             onValueChange={([v]) => form.setValue("diagram_offset_y", v)}
                           />
