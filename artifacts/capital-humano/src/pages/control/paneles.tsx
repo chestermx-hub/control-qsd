@@ -109,13 +109,14 @@ function PanelGrid({
   const CELL_H = cellHeight;
   const gridW = columns * CELL_W;
   const gridH = rows * CELL_H;
+  const MARGIN = 16;
 
   return (
     <div
       className="relative mt-4 border rounded-md bg-muted/20"
-      style={{ height: gridH }}
+      style={{ height: gridH + MARGIN * 2 }}
     >
-      {/* Imagen independiente: centrada en el área visible, desplazable en px */}
+      {/* Imagen: cubre el área completa incluyendo el margen */}
       {diagramUrl && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
           <img
@@ -134,10 +135,13 @@ function PanelGrid({
           />
         </div>
       )}
-      {/* Grid desplazable e independiente sobre la imagen */}
+      {/* Grid con margen interior, desplazable sobre la imagen */}
       <div
-        className="absolute inset-0 overflow-auto z-10"
-        style={{ transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)` }}
+        className="absolute overflow-auto z-10"
+        style={{
+          inset: MARGIN,
+          transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)`,
+        }}
       >
         <div
           className="grid"
