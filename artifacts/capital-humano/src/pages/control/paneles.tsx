@@ -242,7 +242,7 @@ export function PanelGrid({
   return (
     <div
       className={`relative border border-gray-300 bg-white overflow-hidden${className !== undefined ? ` ${className}` : " mt-4"}`}
-      style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200 }}
+      style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200, width: totalW }}
     >
       {/* Imagen: arrastrala para posicionarla (siempre debajo de la cuadrícula) */}
       {diagramUrl && (
