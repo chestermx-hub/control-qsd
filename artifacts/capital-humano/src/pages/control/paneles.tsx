@@ -898,7 +898,7 @@ export default function Paneles() {
                             onValueChange={([v]) => form.setValue("diagram_opacity", v)}
                           />
                         </div>
-                        <div className="flex items-end gap-2">
+                        <div className="flex items-end gap-2 flex-wrap">
                           <Button
                             type="button"
                             variant="outline"
@@ -910,6 +910,30 @@ export default function Paneles() {
                             }}
                           >
                             Reiniciar posición
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            disabled={!naturalImgSize}
+                            onClick={() => {
+                              if (!naturalImgSize) return;
+                              const cols = formColumns || 1;
+                              const rows = formRows || 1;
+                              const newCellW = Math.round(naturalImgSize.w / cols);
+                              const newCellH = Math.round(naturalImgSize.h / rows);
+                              form.setValue("cell_width", newCellW);
+                              form.setValue("cell_height", newCellH);
+                              form.setValue("column_widths", []);
+                              form.setValue("row_heights", []);
+                              form.setValue("diagram_scale_x", 1.0);
+                              form.setValue("diagram_scale_y", 1.0);
+                              form.setValue("diagram_offset_x", 0);
+                              form.setValue("diagram_offset_y", 0);
+                            }}
+                          >
+                            Ajustar cuadrícula a la imagen
                           </Button>
                           <Button
                             type="button"
@@ -935,7 +959,7 @@ export default function Paneles() {
                               form.setValue("diagram_offset_y", 0);
                             }}
                           >
-                            Ajustar a la cuadrícula
+                            Ajustar imagen a la cuadrícula
                           </Button>
                         </div>
                       </div>
