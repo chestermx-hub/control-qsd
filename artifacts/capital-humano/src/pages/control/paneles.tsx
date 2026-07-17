@@ -237,26 +237,30 @@ export function PanelGrid({
   const canResizeRows = !!onRowHeightsChange;
 
   // Tamaño de la imagen: tamaño natural real del archivo, estable sin importar cambios de la cuadrícula
+  const [naturalImgWidth, setNaturalImgWidth] = useState<number | null>(null);
   const [naturalImgHeight, setNaturalImgHeight] = useState<number | null>(null);
+
+  const imgLoaded = naturalImgWidth !== null && naturalImgHeight !== null;
 
   return (
     <div
       className={`relative border border-gray-300 bg-white overflow-hidden${className !== undefined ? ` ${className}` : " mt-4"}`}
       style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200, width: totalW }}
     >
-      {/* Imagen: arrastrala para posicionarla (siempre debajo de la cuadrícula) */}
+      {/* Imagen: debajo de la cuadrícula */}
       {diagramUrl && (
         <div
-          className={`absolute inset-0 overflow-hidden z-0 ${onImagePositionChange ? "" : "pointer-events-none"}`}
+          className={`absolute inset-0 z-0 ${onImagePositionChange ? "" : "pointer-events-none"}`}
         >
           <img
             src={diagramUrl}
-            alt="Diagrama"
+            alt=""
             draggable={false}
             onLoad={(e) => {
               const img = e.currentTarget;
-              setNaturalImgHeight(img.naturalHeight || null);
               if (img.naturalWidth && img.naturalHeight) {
+                setNaturalImgWidth(img.naturalWidth);
+                setNaturalImgHeight(img.naturalHeight);
                 onImageNaturalSize?.(img.naturalWidth, img.naturalHeight);
               }
             }}
@@ -264,12 +268,10 @@ export function PanelGrid({
               position: "absolute",
               left: HEADER_W + imgOffset.x,
               top: HEADER_H + imgOffset.y,
-              height: naturalImgHeight ? `${naturalImgHeight}px` : "auto",
-              width: "auto",
+              width: imgLoaded ? `${Math.round(naturalImgWidth! * diagramScaleX)}px` : 0,
+              height: imgLoaded ? `${Math.round(naturalImgHeight! * diagramScaleY)}px` : 0,
               maxWidth: "none",
-              transform: `scaleX(${diagramScaleX}) scaleY(${diagramScaleY})`,
-              transformOrigin: "top left",
-              opacity: diagramOpacity,
+              opacity: imgLoaded ? diagramOpacity : 0,
               cursor: onImagePositionChange ? (isDraggingImg ? "grabbing" : "grab") : "default",
               userSelect: "none",
             }}
@@ -286,9 +288,9 @@ export function PanelGrid({
           />
         </div>
       )}
-      {/* Grid desplazable con encabezados sticky */}
+      {/* Grid con encabezados sticky */}
       <div
-        className="absolute overflow-auto z-10"
+        className="absolute overflow-hidden z-10"
         style={{
           inset: MARGIN + EXTRA,
           transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)`,
