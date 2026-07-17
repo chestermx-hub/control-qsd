@@ -292,29 +292,36 @@ export default function NuevoRegistro() {
               </p>
             </div>
 
-            <PanelGrid
-              key={selectedPanel.id}
-              columns={selectedPanel.columns}
-              rows={selectedPanel.rows}
-              diagramUrl={selectedPanel.diagram_url ?? undefined}
-              columnStart={selectedPanel.column_start ?? 1}
-              rowStart={selectedPanel.row_start ?? 0}
-              columnsAsc={selectedPanel.columns_asc ?? true}
-              rowsAsc={selectedPanel.rows_asc ?? true}
-              cellWidth={selectedPanel.cell_width ?? 48}
-              cellHeight={selectedPanel.cell_height ?? 32}
-              columnWidths={selectedPanel.column_widths ?? undefined}
-              rowHeights={selectedPanel.row_heights ?? undefined}
-              gridOffsetX={selectedPanel.grid_offset_x ?? 0}
-              gridOffsetY={selectedPanel.grid_offset_y ?? 0}
-              diagramScaleX={selectedPanel.diagram_scale_x ?? 1}
-              diagramScaleY={selectedPanel.diagram_scale_y ?? 1}
-              diagramOffsetX={selectedPanel.diagram_offset_x ?? 0}
-              diagramOffsetY={selectedPanel.diagram_offset_y ?? 0}
-              diagramOpacity={selectedPanel.diagram_opacity ?? 0.5}
-              onCellDoubleClick={handleCellDoubleClick}
-              highlightedCells={capturedCells}
-            />
+            <div className="overflow-x-auto">
+              <div style={{ display: "inline-block", minWidth: "100%" }}>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <PanelGrid
+                    key={selectedPanel.id}
+                    columns={selectedPanel.columns}
+                    rows={selectedPanel.rows}
+                    diagramUrl={selectedPanel.diagram_url ?? undefined}
+                    columnStart={selectedPanel.column_start ?? 1}
+                    rowStart={selectedPanel.row_start ?? 0}
+                    columnsAsc={selectedPanel.columns_asc ?? true}
+                    rowsAsc={selectedPanel.rows_asc ?? true}
+                    cellWidth={selectedPanel.cell_width ?? 48}
+                    cellHeight={selectedPanel.cell_height ?? 32}
+                    columnWidths={selectedPanel.column_widths ?? undefined}
+                    rowHeights={selectedPanel.row_heights ?? undefined}
+                    gridOffsetX={selectedPanel.grid_offset_x ?? 0}
+                    gridOffsetY={selectedPanel.grid_offset_y ?? 0}
+                    diagramScaleX={selectedPanel.diagram_scale_x ?? 1}
+                    diagramScaleY={selectedPanel.diagram_scale_y ?? 1}
+                    diagramOffsetX={selectedPanel.diagram_offset_x ?? 0}
+                    diagramOffsetY={selectedPanel.diagram_offset_y ?? 0}
+                    diagramOpacity={selectedPanel.diagram_opacity ?? 0.5}
+                    onCellDoubleClick={handleCellDoubleClick}
+                    highlightedCells={capturedCells}
+                    className=""
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         )}
 

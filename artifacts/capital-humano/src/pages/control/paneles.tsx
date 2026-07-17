@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   useListPanels, useCreatePanel, useUpdatePanel, useDeletePanel, getListPanelsQueryKey,
   useListZones, useListSides, useListVisualZones, useListAlphanumeric,
@@ -81,6 +81,7 @@ export function PanelGrid({
   onImageNaturalSize,
   onCellDoubleClick,
   highlightedCells,
+  className,
 }: {
   columns: number;
   rows: number;
@@ -106,6 +107,7 @@ export function PanelGrid({
   onImageNaturalSize?: (w: number, h: number) => void;
   onCellDoubleClick?: (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => void;
   highlightedCells?: { col: number; row: number; count?: number }[];
+  className?: string;
 }) {
   const HEADER_W = 36;
   const HEADER_H = 24;
@@ -239,7 +241,7 @@ export function PanelGrid({
 
   return (
     <div
-      className="relative mt-4 border border-gray-300 bg-white overflow-hidden"
+      className={`relative border border-gray-300 bg-white overflow-hidden${className !== undefined ? ` ${className}` : " mt-4"}`}
       style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200 }}
     >
       {/* Imagen: arrastrala para posicionarla (siempre debajo de la cuadrícula) */}
@@ -329,10 +331,9 @@ export function PanelGrid({
 
           {/* Rows: header + cells */}
           {Array.from({ length: rows }).map((_, r) => (
-            <>
+            <React.Fragment key={`row-${r}`}>
               {/* Row header */}
               <div
-                key={`hr-${r}`}
                 className="sticky left-0 z-10 bg-gray-100 border-r border-b-2 border-red-500 flex items-center justify-center relative pointer-events-auto"
               >
                 <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
@@ -375,7 +376,7 @@ export function PanelGrid({
                   </div>
                 );
               })}
-            </>
+            </React.Fragment>
           ))}
         </div>
       </div>
