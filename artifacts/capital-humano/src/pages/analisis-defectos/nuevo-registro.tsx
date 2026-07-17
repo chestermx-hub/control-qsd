@@ -11,32 +11,27 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, CheckCircle2, X } from "lucide-react";
+import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { PanelGrid } from "@/pages/control/paneles";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function getRowLabel(index: number) {
-  return String.fromCharCode(65 + index);
-}
+type DialogCell = {
+  colIndex: number;
+  rowIndex: number;
+  colLabel: string;
+  rowLabel: string;
+};
 
 type SavedCapture = {
   id: number;
-  gridCol: number;
-  gridRow: string;
+  cellLabel: string;
   defectLabel: string;
-  quantity: number;
-};
-
-type CellDefect = {
-  gridCol: number;
-  gridRow: string;
-  defectId?: number;
-  defectOther?: string;
   quantity: number;
 };
 
@@ -69,7 +64,7 @@ export default function NuevoRegistro() {
     return alphanumericList.filter((a) => ids.includes(a.id));
   }, [selectedPanel, alphanumericList]);
 
-  const [dialogCell, setDialogCell] = useState<{ col: number; row: number } | null>(null);
+  const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState<string>("");
   const [dialogDefectOther, setDialogDefectOther] = useState("");
   const [dialogQuantity, setDialogQuantity] = useState("1");
@@ -90,25 +85,25 @@ export default function NuevoRegistro() {
           defectLabel = d ? `${d.code} — ${d.name}` : `#${dialogDefectId}`;
         }
 
+        const cell = dialogCell!;
         setSavedCaptures((prev) => [
           ...prev,
           {
             id: data.id,
-            gridCol: dialogCell!.col + 1,
-            gridRow: getRowLabel(dialogCell!.row),
+            cellLabel: `${cell.rowLabel}${cell.colLabel}`,
             defectLabel,
             quantity: Number(dialogQuantity),
           },
         ]);
 
         setCapturedCells((prev) => {
-          const existing = prev.find((c) => c.col === dialogCell!.col && c.row === dialogCell!.row);
+          const existing = prev.find((c) => c.col === cell.colIndex && c.row === cell.rowIndex);
           if (existing) {
             return prev.map((c) =>
-              c.col === dialogCell!.col && c.row === dialogCell!.row ? { ...c, count: c.count + 1 } : c
+              c.col === cell.colIndex && c.row === cell.rowIndex ? { ...c, count: c.count + 1 } : c
             );
           }
-          return [...prev, { col: dialogCell!.col, row: dialogCell!.row, count: 1 }];
+          return [...prev, { col: cell.colIndex, row: cell.rowIndex, count: 1 }];
         });
 
         setDialogCell(null);
@@ -120,12 +115,12 @@ export default function NuevoRegistro() {
     },
   });
 
-  const handleCellDoubleClick = (col: number, row: number) => {
+  const handleCellDoubleClick = (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => {
     if (!panelId || !skillNumber || !date) {
       toast({ title: "Complete los campos del encabezado primero", variant: "destructive" });
       return;
     }
-    setDialogCell({ col, row });
+    setDialogCell({ colIndex, rowIndex, colLabel, rowLabel });
     setDialogDefectId("");
     setDialogDefectOther("");
     setDialogQuantity("1");
@@ -158,19 +153,14 @@ export default function NuevoRegistro() {
         side_id: selectedPanel?.side_id ?? undefined,
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
         alphanumeric_id: selectedAlphanumericId ?? undefined,
-        grid_col: dialogCell.col + 1,
-        grid_row: getRowLabel(dialogCell.row),
+        grid_col: Number(dialogCell.colLabel),
+        grid_row: dialogCell.rowLabel,
         defect_id: dialogDefectId !== "otro" && dialogDefectId ? Number(dialogDefectId) : undefined,
         defect_other: dialogDefectId === "otro" ? dialogDefectOther : undefined,
         quantity: qty,
       },
     });
   };
-
-  const cellHasCaptures = (col: number, row: number) =>
-    capturedCells.find((c) => c.col === col && c.row === row);
-
-  const headerComplete = date && skillNumber && zoneId && panelId;
 
   return (
     <AppLayout>
@@ -233,7 +223,15 @@ export default function NuevoRegistro() {
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Panel</Label>
-              <Select onValueChange={(val) => { setPanelId(Number(val)); setSelectedAlphanumericId(null); }} value={panelId?.toString() || ""}>
+              <Select
+                onValueChange={(val) => {
+                  setPanelId(Number(val));
+                  setSelectedAlphanumericId(null);
+                  setSavedCaptures([]);
+                  setCapturedCells([]);
+                }}
+                value={panelId?.toString() || ""}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecciona un panel" /></SelectTrigger>
                 <SelectContent>
                   {panels?.map((p) => (
@@ -294,49 +292,29 @@ export default function NuevoRegistro() {
               </p>
             </div>
 
-            <div
-              className="relative border rounded-md overflow-hidden bg-muted/20"
-              style={{ minHeight: "400px" }}
-            >
-              {selectedPanel.diagram_url && (
-                <img
-                  src={selectedPanel.diagram_url}
-                  alt="Diagrama"
-                  className="absolute inset-0 w-full h-full object-contain opacity-40"
-                />
-              )}
-              <div
-                className="absolute inset-0 grid"
-                style={{
-                  gridTemplateColumns: `repeat(${selectedPanel.columns}, minmax(0, 1fr))`,
-                  gridTemplateRows: `repeat(${selectedPanel.rows}, minmax(0, 1fr))`,
-                }}
-              >
-                {Array.from({ length: selectedPanel.rows }).map((_, r) =>
-                  Array.from({ length: selectedPanel.columns }).map((_, c) => {
-                    const captured = cellHasCaptures(c, r);
-                    return (
-                      <div
-                        key={`${r}-${c}`}
-                        className={`border flex flex-col items-center justify-center relative cursor-pointer transition-colors select-none
-                          ${captured ? "bg-destructive/20 border-destructive/50" : "border-primary/20 hover:bg-primary/10"}`}
-                        onDoubleClick={() => handleCellDoubleClick(c, r)}
-                        title={`${getRowLabel(r)}${c + 1} — doble clic para registrar defecto`}
-                      >
-                        <span className="text-[10px] font-mono text-primary/70 bg-background/80 px-1 rounded-sm absolute top-1 left-1">
-                          {getRowLabel(r)}{c + 1}
-                        </span>
-                        {captured && (
-                          <span className="text-xs font-bold text-destructive">
-                            {captured.count}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            </div>
+            <PanelGrid
+              key={selectedPanel.id}
+              columns={selectedPanel.columns}
+              rows={selectedPanel.rows}
+              diagramUrl={selectedPanel.diagram_url ?? undefined}
+              columnStart={selectedPanel.column_start ?? 1}
+              rowStart={selectedPanel.row_start ?? 0}
+              columnsAsc={selectedPanel.columns_asc ?? true}
+              rowsAsc={selectedPanel.rows_asc ?? true}
+              cellWidth={selectedPanel.cell_width ?? 48}
+              cellHeight={selectedPanel.cell_height ?? 32}
+              columnWidths={selectedPanel.column_widths ?? undefined}
+              rowHeights={selectedPanel.row_heights ?? undefined}
+              gridOffsetX={selectedPanel.grid_offset_x ?? 0}
+              gridOffsetY={selectedPanel.grid_offset_y ?? 0}
+              diagramScaleX={selectedPanel.diagram_scale_x ?? 1}
+              diagramScaleY={selectedPanel.diagram_scale_y ?? 1}
+              diagramOffsetX={selectedPanel.diagram_offset_x ?? 0}
+              diagramOffsetY={selectedPanel.diagram_offset_y ?? 0}
+              diagramOpacity={selectedPanel.diagram_opacity ?? 0.5}
+              onCellDoubleClick={handleCellDoubleClick}
+              highlightedCells={capturedCells}
+            />
           </div>
         )}
 
@@ -351,10 +329,10 @@ export default function NuevoRegistro() {
           <div className="border rounded-lg bg-card p-4 space-y-3">
             <h2 className="font-semibold text-base">Defectos Registrados en esta Sesión</h2>
             <div className="space-y-2">
-              {savedCaptures.map((cap, i) => (
+              {savedCaptures.map((cap) => (
                 <div key={cap.id} className="flex items-center gap-3 text-sm p-2 rounded bg-muted/40">
                   <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                  <span className="font-mono font-medium w-10">{cap.gridRow}{cap.gridCol}</span>
+                  <span className="font-mono font-medium w-10">{cap.cellLabel}</span>
                   <span className="flex-1">{cap.defectLabel}</span>
                   <Badge variant="secondary">Cant: {cap.quantity}</Badge>
                 </div>
@@ -375,7 +353,7 @@ export default function NuevoRegistro() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              Registrar Defecto — Celda {dialogCell ? `${getRowLabel(dialogCell.row)}${dialogCell.col + 1}` : ""}
+              Registrar Defecto — Celda {dialogCell ? `${dialogCell.rowLabel}${dialogCell.colLabel}` : ""}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">

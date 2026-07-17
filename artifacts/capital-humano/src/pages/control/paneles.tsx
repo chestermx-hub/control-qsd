@@ -56,7 +56,7 @@ function indexToLetter(index: number): string {
   return String.fromCharCode(65 + Math.max(0, index));
 }
 
-function PanelGrid({
+export function PanelGrid({
   columns,
   rows,
   diagramUrl,
@@ -79,6 +79,8 @@ function PanelGrid({
   diagramOpacity = 0.5,
   onImagePositionChange,
   onImageNaturalSize,
+  onCellDoubleClick,
+  highlightedCells,
 }: {
   columns: number;
   rows: number;
@@ -102,6 +104,8 @@ function PanelGrid({
   diagramOpacity?: number;
   onImagePositionChange?: (x: number, y: number) => void;
   onImageNaturalSize?: (w: number, h: number) => void;
+  onCellDoubleClick?: (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => void;
+  highlightedCells?: { col: number; row: number; count?: number }[];
 }) {
   const HEADER_W = 36;
   const HEADER_H = 24;
@@ -347,16 +351,30 @@ function PanelGrid({
               </div>
 
               {/* Body cells */}
-              {Array.from({ length: columns }).map((_, c) => (
-                <div
-                  key={`cell-${r}-${c}`}
-                  className="border-r border-b-2 border-red-500 flex items-center justify-center bg-transparent pointer-events-none"
-                >
-                  <span className="text-[8px] font-mono font-bold text-blue-700 leading-none select-none">
-                    {getRowLabel(r)}{getColLabel(c)}
-                  </span>
-                </div>
-              ))}
+              {Array.from({ length: columns }).map((_, c) => {
+                const colLabel = getColLabel(c);
+                const rowLabel = getRowLabel(r);
+                const highlighted = highlightedCells?.find(h => h.col === c && h.row === r);
+                return (
+                  <div
+                    key={`cell-${r}-${c}`}
+                    className={`border-r border-b-2 border-red-500 flex items-center justify-center relative
+                      ${onCellDoubleClick ? "pointer-events-auto cursor-pointer select-none hover:bg-primary/10" : "pointer-events-none bg-transparent"}
+                      ${highlighted ? "bg-destructive/20" : ""}`}
+                    onDoubleClick={onCellDoubleClick ? () => onCellDoubleClick(c, r, colLabel, rowLabel) : undefined}
+                    title={onCellDoubleClick ? `${rowLabel}${colLabel} — doble clic para registrar defecto` : undefined}
+                  >
+                    <span className="text-[8px] font-mono font-bold text-blue-700 leading-none select-none absolute top-0.5 left-0.5">
+                      {rowLabel}{colLabel}
+                    </span>
+                    {highlighted && (highlighted.count ?? 0) > 0 && (
+                      <span className="text-xs font-bold text-destructive">
+                        {highlighted.count}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </>
           ))}
         </div>
