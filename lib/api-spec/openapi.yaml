@@ -1335,7 +1335,7 @@ components:
 
     PanelInput:
       type: object
-      required: [name, columns, rows]
+      required: [name, columns, rows, diagram_url]
       properties:
         name:
           type: string

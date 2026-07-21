@@ -51,7 +51,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     column_widths, row_heights,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
-    name: string; description?: string; diagram_url?: string;
+    name: string; description?: string; diagram_url: string;
     columns: number; rows: number;
     column_start?: number; row_start?: number;
     columns_asc?: boolean; rows_asc?: boolean;

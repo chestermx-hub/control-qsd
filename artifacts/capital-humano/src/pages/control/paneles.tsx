@@ -22,7 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 const panelSchema = z.object({
   name: z.string().min(1, "Requerido"),
   description: z.string().optional(),
-  diagram_url: z.string().optional(),
+  diagram_url: z.string().min(1, "El diagrama es obligatorio"),
   columns: z.coerce.number().min(1, "Debe ser mayor a 0"),
   rows: z.coerce.number().min(1, "Debe ser mayor a 0"),
   column_start: z.coerce.number().min(1, "Mínimo 1").default(1),
@@ -603,6 +603,7 @@ export default function Paneles() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-[80px]">Diagrama</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Zona</TableHead>
                 <TableHead>Lado</TableHead>
@@ -614,12 +615,23 @@ export default function Paneles() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
               ) : panels?.map((panel) => (
                 <TableRow key={panel.id}>
+                  <TableCell>
+                    {panel.diagram_url ? (
+                      <img
+                        src={panel.diagram_url}
+                        alt={panel.name}
+                        className="w-16 h-10 object-contain rounded border bg-gray-50"
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Sin imagen</span>
+                    )}
+                  </TableCell>
                   <TableCell className="font-medium">
                     {panel.name}
                     {panel.description && <p className="text-xs text-muted-foreground">{panel.description}</p>}
@@ -748,7 +760,7 @@ export default function Paneles() {
                   )} />
                   <FormField control={form.control} name="diagram_url" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Diagrama (opcional)</FormLabel>
+                      <FormLabel>Diagrama <span className="text-destructive">*</span></FormLabel>
                       <div className="space-y-2">
                         <div className="flex gap-2">
                           <FormControl>

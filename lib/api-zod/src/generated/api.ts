@@ -460,7 +460,7 @@ export const ListPanelsResponse = zod.array(ListPanelsResponseItem)
 export const CreatePanelBody = zod.object({
   "name": zod.string(),
   "description": zod.string().optional(),
-  "diagram_url": zod.string().optional(),
+  "diagram_url": zod.string(),
   "columns": zod.number(),
   "rows": zod.number(),
   "column_start": zod.number().optional(),

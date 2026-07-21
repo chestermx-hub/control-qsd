@@ -9,7 +9,7 @@
 export interface PanelInput {
   name: string;
   description?: string;
-  diagram_url?: string;
+  diagram_url: string;
   columns: number;
   rows: number;
   column_start?: number;
