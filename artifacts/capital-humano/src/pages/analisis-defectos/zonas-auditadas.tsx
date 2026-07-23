@@ -685,12 +685,10 @@ export default function AnalisisZonasAuditadas() {
               Mostrar todos
             </Button>
           )}
-          {(captures as AuditCapture[] | undefined)?.length ? (
-            <Button variant="outline" size="sm" onClick={() => setShowDetail(true)}>
-              <FileText className="mr-2 h-4 w-4" />
-              Mostrar Detalle
-            </Button>
-          ) : null}
+          <Button variant="outline" size="sm" onClick={() => setShowDetail(!showDetail)}>
+            <FileText className="mr-2 h-4 w-4" />
+            {showDetail ? "Mostrar Resumen" : "Mostrar Detalle"}
+          </Button>
           <Button variant="outline" size="sm" onClick={exportToExcel}>
             <Download className="mr-2 h-4 w-4" />
             Exportar Excel
@@ -704,6 +702,69 @@ export default function AnalisisZonasAuditadas() {
         ) : unitGroups.length === 0 ? (
           <div className="border rounded-lg bg-muted/30 p-8 text-center text-muted-foreground">
             Sin registros para la fecha seleccionada.
+          </div>
+        ) : showDetail ? (
+          /* ── VISTA DETALLE (inline) ── */
+          <div className="border rounded-lg bg-card overflow-hidden flex flex-col">
+            <div className="flex items-center gap-6 px-4 py-3 bg-muted/40 border-b text-sm text-muted-foreground">
+              <span>Total defectos: <strong className="text-foreground">{detailStats.total}</strong></span>
+              <span>Unidades: <strong className="text-foreground">{detailStats.uniqueUnits}</strong></span>
+              <span>DPU Día: <strong className="text-foreground">{detailStats.dpuDia.toFixed(1)}</strong></span>
+              <span>R1000: <strong className="text-foreground">{detailStats.r1000.toFixed(0)}</strong></span>
+            </div>
+            <div className="overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-nowrap">Unidad</TableHead>
+                    <TableHead className="whitespace-nowrap">Semana</TableHead>
+                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                    <TableHead className="whitespace-nowrap">SK</TableHead>
+                    <TableHead className="whitespace-nowrap">Panel</TableHead>
+                    <TableHead className="whitespace-nowrap">Lado</TableHead>
+                    <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
+                    <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
+                    <TableHead className="whitespace-nowrap">Defecto</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Cantidad</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">Total</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">DPU Día</TableHead>
+                    <TableHead className="whitespace-nowrap text-right">R1000</TableHead>
+                    <TableHead className="whitespace-nowrap">Analista</TableHead>
+                    <TableHead className="whitespace-nowrap">Turno</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailRows.map((row, i) => {
+                    const isFirst = i === 0;
+                    return (
+                      <TableRow key={row.capture.id}>
+                        <TableCell className="font-medium">{row.capture.unit_number}</TableCell>
+                        <TableCell>{row.capture.week_number}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.capture.date}</TableCell>
+                        <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
+                        <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
+                        <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
+                        <TableCell className="text-right">{row.capture.quantity}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {isFirst ? detailStats.total : ""}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isFirst ? detailStats.dpuDia.toFixed(1) : ""}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isFirst ? detailStats.r1000.toFixed(0) : ""}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{user?.name ?? "—"}</TableCell>
+                        <TableCell>1ro</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         ) : (
           <div className="space-y-3">
@@ -910,80 +971,6 @@ export default function AnalisisZonasAuditadas() {
         </Dialog>
       )}
 
-      {/* Diálogo: Mostrar Detalle */}
-      {showDetail && (
-        <Dialog open onOpenChange={() => setShowDetail(false)}>
-          <DialogContent className="max-w-[95vw] w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <DialogHeader className="shrink-0">
-              <DialogTitle>
-                Detalle de Capturas{filterDate ? ` — ${filterDate}` : ""}
-              </DialogTitle>
-              <div className="flex gap-6 text-sm text-muted-foreground pt-1">
-                <span>Total defectos: <strong className="text-foreground">{detailStats.total}</strong></span>
-                <span>Unidades: <strong className="text-foreground">{detailStats.uniqueUnits}</strong></span>
-                <span>DPU Día: <strong className="text-foreground">{detailStats.dpuDia.toFixed(1)}</strong></span>
-                <span>R1000: <strong className="text-foreground">{detailStats.r1000.toFixed(0)}</strong></span>
-              </div>
-            </DialogHeader>
-            <div className="overflow-auto flex-1">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Unidad</TableHead>
-                    <TableHead className="whitespace-nowrap">Semana</TableHead>
-                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                    <TableHead className="whitespace-nowrap">SK</TableHead>
-                    <TableHead className="whitespace-nowrap">Panel</TableHead>
-                    <TableHead className="whitespace-nowrap">Lado</TableHead>
-                    <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
-                    <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
-                    <TableHead className="whitespace-nowrap">Defecto</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Cantidad</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Total</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">DPU Día</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">R1000</TableHead>
-                    <TableHead className="whitespace-nowrap">Analista</TableHead>
-                    <TableHead className="whitespace-nowrap">Turno</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailRows.map((row, i) => {
-                    const isFirst = i === 0;
-                    return (
-                      <TableRow key={row.capture.id}>
-                        <TableCell className="font-medium">{row.capture.unit_number}</TableCell>
-                        <TableCell>{row.capture.week_number}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.capture.date}</TableCell>
-                        <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
-                        <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
-                        <TableCell className="text-right">{row.capture.quantity}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          {isFirst ? detailStats.total : ""}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isFirst ? detailStats.dpuDia.toFixed(1) : ""}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isFirst ? detailStats.r1000.toFixed(0) : ""}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{user?.name ?? "—"}</TableCell>
-                        <TableCell>1ro</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-            <DialogFooter className="shrink-0">
-              <Button variant="outline" onClick={() => setShowDetail(false)}>Cerrar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </AppLayout>
   );
 }
