@@ -453,6 +453,7 @@ export default function AnalisisZonasAuditadas() {
 
   const params = filterDate ? { date: filterDate } : undefined;
   const { data: captures, isLoading } = useListAuditCaptures(params);
+  const { data: allCaptures } = useListAuditCaptures({});
   const { data: panels } = useListPanels();
   const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
@@ -545,13 +546,14 @@ export default function AnalisisZonasAuditadas() {
   /* ── Estadísticas para Mostrar Detalle ── */
   const detailStats = useMemo(() => {
     if (!captures) return { total: 0, uniqueUnits: 0, dpuDia: 0, r1000: 0 };
-    const allCaptures = captures as AuditCapture[];
-    const total = allCaptures.reduce((sum, c) => sum + (c.quantity ?? 1), 0);
-    const uniqueUnits = new Set(allCaptures.map((c) => c.unit_number)).size;
+    const dayCaptures = captures as AuditCapture[];
+    const everyCapture = (allCaptures as AuditCapture[] | undefined) ?? dayCaptures;
+    const total = everyCapture.reduce((sum, c) => sum + (c.quantity ?? 1), 0);
+    const uniqueUnits = new Set(dayCaptures.map((c) => c.unit_number)).size;
     const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
     const r1000 = dpuDia * 1000;
     return { total, uniqueUnits, dpuDia, r1000 };
-  }, [captures]);
+  }, [captures, allCaptures]);
 
   /* Filas planas para la tabla de detalle */
   const detailRows = useMemo(() => {
