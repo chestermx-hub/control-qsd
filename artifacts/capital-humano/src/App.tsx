@@ -25,6 +25,8 @@ import NuevoRegistro from "@/pages/analisis-defectos/nuevo-registro";
 // Operation Module Pages
 import ChecklistOperacion from "@/pages/checklist-operacion";
 
+import PanelFormPage from "@/pages/control/panel-form";
+
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -57,6 +59,8 @@ function AppRouter() {
       <Route path="/control/defectos" component={() => <ProtectedRoute component={Defectos} />} />
       <Route path="/control/lados" component={() => <ProtectedRoute component={Lados} />} />
       <Route path="/control/alfanumerico" component={() => <ProtectedRoute component={Alfanumerico} />} />
+      <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} />} />
+      <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} />} />
       
       {/* Analisis Defectos Module */}
       <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} />} />
