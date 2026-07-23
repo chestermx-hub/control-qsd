@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import * as XLSX from "xlsx";
 import {
   useListAuditCaptures, useDeleteAuditCapture, useUpdateAuditCapture,
   useCreateAuditCapture, getListAuditCapturesQueryKey,
@@ -15,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Loader2, Plus, Trash2, Calendar, Grid3X3, Pencil, ChevronDown, ChevronRight,
-  FileText, CheckCircle2,
+  FileText, CheckCircle2, Download,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -453,6 +454,7 @@ export default function AnalisisZonasAuditadas() {
 
   const params = filterDate ? { date: filterDate } : undefined;
   const { data: captures, isLoading } = useListAuditCaptures(params);
+  const { data: historicalCaptures } = useListAuditCaptures({});
   const { data: panels } = useListPanels();
   const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
@@ -542,6 +544,68 @@ export default function AnalisisZonasAuditadas() {
   const getSide = (id: number | null | undefined) => sides?.find((s) => s.id === id);
   const getVisualZone = (id: number | null | undefined) => visualZones?.find((v) => v.id === id);
 
+  const exportToExcel = () => {
+    const all = (historicalCaptures as AuditCapture[] | undefined) ?? [];
+    if (!all.length) { toast({ title: "Sin datos para exportar", variant: "destructive" }); return; }
+
+    const sorted = [...all].sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      if (a.unit_number !== b.unit_number) return a.unit_number - b.unit_number;
+      return a.id - b.id;
+    });
+
+    // Stats por fecha
+    const statsByDate = new Map<string, { total: number; uniqueUnits: number; dpuDia: number; r1000: number }>();
+    const groupedByDate = new Map<string, AuditCapture[]>();
+    for (const c of sorted) {
+      if (!groupedByDate.has(c.date)) groupedByDate.set(c.date, []);
+      groupedByDate.get(c.date)!.push(c);
+    }
+    for (const [date, caps] of groupedByDate) {
+      const total = caps.reduce((s, c) => s + (c.quantity ?? 1), 0);
+      const uniqueUnits = new Set(caps.map((c) => c.unit_number)).size;
+      const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
+      statsByDate.set(date, { total, uniqueUnits, dpuDia, r1000: dpuDia * 1000 });
+    }
+
+    // Registrar primera fila por fecha para saber dónde mostrar totales
+    const firstRowByDate = new Map<string, number>();
+    sorted.forEach((c, i) => { if (!firstRowByDate.has(c.date)) firstRowByDate.set(c.date, i); });
+
+    const rows = sorted.map((c, i) => {
+      const panel = panels?.find((p) => p.id === c.panel_id);
+      const side = sides?.find((s) => s.id === c.side_id);
+      const vz = visualZones?.find((v) => v.id === c.visual_zone_id);
+      const defect = defects?.find((d) => d.id === c.defect_id);
+      const defectLabel = c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—";
+      const isFirstOfDay = firstRowByDate.get(c.date) === i;
+      const stats = statsByDate.get(c.date);
+      return {
+        Unidad: c.unit_number,
+        Semana: c.week_number,
+        Fecha: c.date,
+        SK: c.skill_number ?? "",
+        Panel: panel?.name ?? "",
+        Lado: side?.name ?? "",
+        "Zona Vista": vz?.name ?? "",
+        "Clave Alfa Numérica": `${c.grid_row}${c.grid_col}`,
+        Defecto: defectLabel,
+        Cantidad: c.quantity,
+        Total: isFirstOfDay && stats ? stats.total : "",
+        "DPU Día": isFirstOfDay && stats ? Number(stats.dpuDia.toFixed(1)) : "",
+        R1000: isFirstOfDay && stats ? Number(stats.r1000.toFixed(0)) : "",
+        Analista: user?.name ?? "",
+        Turno: "1ro",
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Capturas");
+    const year = new Date().getFullYear();
+    XLSX.writeFile(wb, `capturas_auditoria_${year}.xlsx`);
+  };
+
   /* ── Estadísticas para Mostrar Detalle ── */
   const detailStats = useMemo(() => {
     if (!captures) return { total: 0, uniqueUnits: 0, dpuDia: 0, r1000: 0 };
@@ -613,6 +677,10 @@ export default function AnalisisZonasAuditadas() {
               Mostrar Detalle
             </Button>
           ) : null}
+          <Button variant="outline" size="sm" onClick={exportToExcel}>
+            <Download className="mr-2 h-4 w-4" />
+            Exportar Excel
+          </Button>
         </div>
 
         {isLoading ? (
