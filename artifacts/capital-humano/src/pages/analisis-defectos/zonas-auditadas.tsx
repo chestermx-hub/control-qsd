@@ -382,7 +382,12 @@ function AgregarDefectosDialog({
                 <div key={cap.id} className="flex items-center gap-3 py-1.5 text-sm px-1">
                   <span className="font-mono font-medium w-10 shrink-0 text-muted-foreground">{cap.grid_row}{cap.grid_col}</span>
                   <span className="flex-1 text-muted-foreground">
-                    {cap.defect_other ? `Otro: ${cap.defect_other}` : cap.defect_id ? `#${cap.defect_id}` : "—"}
+                    {cap.defect_other ? `Otro: ${cap.defect_other}` : cap.defect_id ? (
+                      (() => {
+                        const d = defects?.find((def) => def.id === cap.defect_id);
+                        return d ? `${d.code} — ${d.name}` : `#${cap.defect_id}`;
+                      })()
+                    ) : "—"}
                   </span>
                   <Badge variant="outline" className="text-xs">Cant: {cap.quantity}</Badge>
                 </div>
