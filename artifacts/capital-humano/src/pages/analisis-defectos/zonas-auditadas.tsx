@@ -144,8 +144,8 @@ function AgregarDefectosDialog({
 
   const [skillInput, setSkillInput] = useState(group.skill_number ?? "");
   const [skillSaving, setSkillSaving] = useState(false);
-  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
-  const [selectedAlphaId, setSelectedAlphaId] = useState<number | null>(null);
+  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(group.captures[0]?.zone_id ?? null);
+  const [selectedAlphaId, setSelectedAlphaId] = useState<number | null>(group.captures[0]?.alphanumeric_id ?? null);
 
   const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState("");
@@ -310,12 +310,18 @@ function AgregarDefectosDialog({
               {zones && zones.length > 0 && (
                 <div className="space-y-1">
                   <Label className="text-xs">Zona Auditada</Label>
-                  <Select onValueChange={(v) => setSelectedZoneId(Number(v))} value={selectedZoneId?.toString() || ""}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecciona" /></SelectTrigger>
-                    <SelectContent>
-                      {zones.map((z) => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  {group.captures.length > 0 ? (
+                    <div className="h-8 text-sm flex items-center px-2.5 border rounded-md bg-muted text-muted-foreground">
+                      {zones.find((z) => z.id === selectedZoneId)?.name ?? "Sin zona"}
+                    </div>
+                  ) : (
+                    <Select onValueChange={(v) => setSelectedZoneId(Number(v))} value={selectedZoneId?.toString() || ""}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                      <SelectContent>
+                        {zones.map((z) => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
 
@@ -323,12 +329,18 @@ function AgregarDefectosDialog({
               {panelAlphaOptions.length > 0 && (
                 <div className="space-y-1">
                   <Label className="text-xs">Alfanumérico</Label>
-                  <Select onValueChange={(v) => setSelectedAlphaId(Number(v))} value={selectedAlphaId?.toString() || ""}>
-                    <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecciona" /></SelectTrigger>
-                    <SelectContent>
-                      {panelAlphaOptions.map((a) => <SelectItem key={a.id} value={a.id.toString()}>{a.code} — {a.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  {group.captures.length > 0 ? (
+                    <div className="h-8 text-sm flex items-center px-2.5 border rounded-md bg-muted text-muted-foreground">
+                      {panelAlphaOptions.find((a) => a.id === selectedAlphaId)?.code ?? "Sin selección"}
+                    </div>
+                  ) : (
+                    <Select onValueChange={(v) => setSelectedAlphaId(Number(v))} value={selectedAlphaId?.toString() || ""}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecciona" /></SelectTrigger>
+                      <SelectContent>
+                        {panelAlphaOptions.map((a) => <SelectItem key={a.id} value={a.id.toString()}>{a.code} — {a.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
             </div>
