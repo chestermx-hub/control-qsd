@@ -1,12 +1,19 @@
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, profilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
 
-function userToJson(user: typeof usersTable.$inferSelect) {
+async function enrichUser(user: typeof usersTable.$inferSelect) {
+  const permissions: string[] = [];
+  if (user.profileId) {
+    const [profile] = await db.select().from(profilesTable).where(eq(profilesTable.id, user.profileId));
+    if (profile && Array.isArray(profile.permissions)) {
+      permissions.push(...profile.permissions);
+    }
+  }
   return {
     id: user.id,
     name: user.name,
@@ -16,6 +23,7 @@ function userToJson(user: typeof usersTable.$inferSelect) {
     profile_id: user.profileId,
     udn_id: user.udnId,
     role: user.role,
+    permissions,
     created_at: user.createdAt,
   };
 }
@@ -40,7 +48,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   }
 
   (req.session as unknown as Record<string, unknown>).userId = user.id;
-  res.json({ user: userToJson(user) });
+  res.json({ user: await enrichUser(user) });
 });
 
 router.post("/auth/logout", (req: Request, res: Response) => {
@@ -60,7 +68,7 @@ router.get("/auth/me", async (req: Request, res: Response) => {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
-  res.json(userToJson(user));
+  res.json(await enrichUser(user));
 });
 
 export default router;

@@ -21,27 +21,46 @@ import {
   ChevronRight,
   X,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const controlModuloZA = {
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  permission: string;
+};
+
+type NavSection = {
+  key: string;
+  title: string;
+  items: NavItem[];
+  subSection?: {
+    key: string;
+    title: string;
+    items: NavItem[];
+  };
+};
+
+const controlModuloZA: { key: string; title: string; items: NavItem[] } = {
   key: "control-modulo",
   title: "Control Modulo ZA",
   items: [
-    { href: "/control/zonas-auditadas", label: "Zonas", icon: Map },
-    { href: "/control/zona-visual", label: "Vista", icon: Eye },
-    { href: "/control/paneles", label: "Paneles", icon: LayoutGrid },
-    { href: "/control/defectos", label: "Defectos", icon: AlertTriangle },
-    { href: "/control/lados", label: "Lados", icon: BoxSelect },
-    { href: "/control/alfanumerico", label: "Alfanumérico", icon: Type },
+    { href: "/control/zonas-auditadas", label: "Zonas", icon: Map, permission: "zonas_auditadas" },
+    { href: "/control/zona-visual", label: "Vista", icon: Eye, permission: "zona_visual" },
+    { href: "/control/paneles", label: "Paneles", icon: LayoutGrid, permission: "paneles" },
+    { href: "/control/defectos", label: "Defectos", icon: AlertTriangle, permission: "defectos" },
+    { href: "/control/lados", label: "Lados", icon: BoxSelect, permission: "lados" },
+    { href: "/control/alfanumerico", label: "Alfanumérico", icon: Type, permission: "alfanumerico" },
   ],
 };
 
-const navigation = [
+const navigation: NavSection[] = [
   {
     key: "analisis",
     title: "Análisis de Defectos",
     items: [
-      { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3 },
-      { href: "/analisis-defectos/zonas-auditadas", label: "Capturas de Auditoría", icon: Map },
+      { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3, permission: "analisis_defectos" },
+      { href: "/analisis-defectos/zonas-auditadas", label: "Capturas de Auditoría", icon: Map, permission: "analisis_defectos" },
     ],
     subSection: controlModuloZA,
   },
@@ -49,31 +68,33 @@ const navigation = [
     key: "operacion",
     title: "Operación",
     items: [
-      { href: "/checklist-operacion", label: "Checklist de Operación", icon: ClipboardCheck },
+      { href: "/checklist-operacion", label: "Checklist de Operación", icon: ClipboardCheck, permission: "checklist_operacion" },
     ],
   },
   {
     key: "panel-control",
     title: "Panel de Control",
     items: [
-      { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck },
-      { href: "/control/usuarios", label: "Usuarios", icon: Users },
-      { href: "/control/udns", label: "UDN", icon: Building2 },
+      { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck, permission: "perfiles" },
+      { href: "/control/usuarios", label: "Usuarios", icon: Users, permission: "usuarios" },
+      { href: "/control/udns", label: "UDN", icon: Building2, permission: "udns" },
     ],
   },
-] as const;
+];
 
-type NavSection = (typeof navigation)[number];
-
-function allHrefs(section: { items: readonly { href: string }[]; subSection?: { items: { href: string }[] } }) {
+function allHrefs(section: NavSection) {
   const hrefs = section.items.map((i) => i.href);
   if (section.subSection) hrefs.push(...section.subSection.items.map((i) => i.href));
   return hrefs;
 }
 
+function filterItems(items: NavItem[], can: (p: string) => boolean): NavItem[] {
+  return items.filter((item) => can(item.permission));
+}
+
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const [location] = useLocation();
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -128,6 +149,11 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
         {/* Top-level sections */}
         {navigation.map((section) => {
+          const filteredItems = filterItems(section.items, can);
+          const filteredSubItems = section.subSection ? filterItems(section.subSection.items, can) : [];
+          const hasVisible = filteredItems.length > 0 || filteredSubItems.length > 0;
+          if (!hasVisible) return null;
+
           const isOpen = openSections[section.key] ?? false;
           const subOpen = openSections["control-modulo"] ?? false;
 
@@ -145,7 +171,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
               {isOpen && (
                 <div className="space-y-0.5 mt-0.5">
                   {/* Regular items */}
-                  {section.items.map((item) => {
+                  {filteredItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = location === item.href;
                     return (
@@ -167,7 +193,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                   })}
 
                   {/* Nested subsection */}
-                  {"subSection" in section && section.subSection && (
+                  {filteredSubItems.length > 0 && section.subSection && (
                     <div className="mt-1 pl-2 border-l border-sidebar-border/50">
                       <button
                         onClick={() => toggle("control-modulo")}
@@ -179,7 +205,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
                       {subOpen && (
                         <div className="space-y-0.5 mt-0.5">
-                          {section.subSection.items.map((item) => {
+                          {filteredSubItems.map((item) => {
                             const Icon = item.icon;
                             const isActive = location === item.href;
                             return (

@@ -34,6 +34,7 @@ export const LoginResponse = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 })
 })
@@ -57,6 +58,7 @@ export const GetMeResponse = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 })
 
@@ -73,6 +75,7 @@ export const ListUsersResponseItem = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
@@ -101,6 +104,7 @@ export const CreateUserResponse = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 })
 
@@ -121,6 +125,7 @@ export const GetUserResponse = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 })
 
@@ -152,6 +157,7 @@ export const UpdateUserResponse = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 })
 
@@ -1184,6 +1190,7 @@ export const GetDashboardStatsResponse = zod.object({
   "profile_id": zod.number().nullish(),
   "udn_id": zod.number().nullable(),
   "role": zod.enum(['superadmin', 'admin', 'user']),
+  "permissions": zod.array(zod.string()).optional(),
   "created_at": zod.coerce.date()
 }))
 })

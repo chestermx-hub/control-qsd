@@ -31,11 +31,14 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ component: Component, ...rest }: any) {
-  const { user, isLoading } = useAuth();
+function ProtectedRoute({ component: Component, permission, ...rest }: any) {
+  const { user, isLoading, can } = useAuth();
   if (isLoading) return null;
   if (!user) {
     return <Login />;
+  }
+  if (permission && !can(permission)) {
+    return <NotFound />;
   }
   return <Component {...rest} />;
 }
@@ -44,32 +47,32 @@ function AppRouter() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      
+
       {/* Root & Dashboard */}
       <Route path="/" component={() => <ProtectedRoute component={Dashboard} />} />
       <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-      
+
       {/* Control Module */}
-      <Route path="/control/perfiles" component={() => <ProtectedRoute component={Perfiles} />} />
-      <Route path="/control/usuarios" component={() => <ProtectedRoute component={Usuarios} />} />
-      <Route path="/control/udns" component={() => <ProtectedRoute component={Udns} />} />
-      <Route path="/control/zonas-auditadas" component={() => <ProtectedRoute component={ZonasAuditadas} />} />
-      <Route path="/control/zona-visual" component={() => <ProtectedRoute component={ZonaVisual} />} />
-      <Route path="/control/paneles" component={() => <ProtectedRoute component={Paneles} />} />
-      <Route path="/control/defectos" component={() => <ProtectedRoute component={Defectos} />} />
-      <Route path="/control/lados" component={() => <ProtectedRoute component={Lados} />} />
-      <Route path="/control/alfanumerico" component={() => <ProtectedRoute component={Alfanumerico} />} />
-      <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} />} />
-      <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} />} />
-      
+      <Route path="/control/perfiles" component={() => <ProtectedRoute component={Perfiles} permission="perfiles" />} />
+      <Route path="/control/usuarios" component={() => <ProtectedRoute component={Usuarios} permission="usuarios" />} />
+      <Route path="/control/udns" component={() => <ProtectedRoute component={Udns} permission="udns" />} />
+      <Route path="/control/zonas-auditadas" component={() => <ProtectedRoute component={ZonasAuditadas} permission="zonas_auditadas" />} />
+      <Route path="/control/zona-visual" component={() => <ProtectedRoute component={ZonaVisual} permission="zona_visual" />} />
+      <Route path="/control/paneles" component={() => <ProtectedRoute component={Paneles} permission="paneles" />} />
+      <Route path="/control/defectos" component={() => <ProtectedRoute component={Defectos} permission="defectos" />} />
+      <Route path="/control/lados" component={() => <ProtectedRoute component={Lados} permission="lados" />} />
+      <Route path="/control/alfanumerico" component={() => <ProtectedRoute component={Alfanumerico} permission="alfanumerico" />} />
+      <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
+      <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
+
       {/* Analisis Defectos Module */}
-      <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} />} />
-      <Route path="/analisis-defectos/zonas-auditadas" component={() => <ProtectedRoute component={AnalisisZonasAuditadas} />} />
-      <Route path="/analisis-defectos/nuevo-registro" component={() => <ProtectedRoute component={NuevoRegistro} />} />
-      
+      <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} permission="analisis_defectos" />} />
+      <Route path="/analisis-defectos/zonas-auditadas" component={() => <ProtectedRoute component={AnalisisZonasAuditadas} permission="analisis_defectos" />} />
+      <Route path="/analisis-defectos/nuevo-registro" component={() => <ProtectedRoute component={NuevoRegistro} permission="analisis_defectos" />} />
+
       {/* Operacion */}
-      <Route path="/checklist-operacion" component={() => <ProtectedRoute component={ChecklistOperacion} />} />
-      
+      <Route path="/checklist-operacion" component={() => <ProtectedRoute component={ChecklistOperacion} permission="checklist_operacion" />} />
+
       {/* Fallback */}
       <Route component={NotFound} />
     </Switch>

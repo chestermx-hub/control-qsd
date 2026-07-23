@@ -1114,6 +1114,10 @@ components:
         role:
           type: string
           enum: [superadmin, admin, user]
+        permissions:
+          type: array
+          items:
+            type: string
         created_at:
           type: string
           format: date-time

@@ -34,6 +34,7 @@ export interface User {
   /** @nullable */
   udn_id: number | null;
   role: UserRole;
+  permissions?: string[];
   created_at: string;
 }
 
