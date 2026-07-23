@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
-  useListPanels, useListZones, useListSides, useListVisualZones, useListAlphanumeric,
+  useListPanels, useListSides, useListVisualZones, useListAlphanumeric,
   useCreatePanel, useUpdatePanel, useGetPanel,
   getListPanelsQueryKey, getGetPanelQueryKey,
 } from "@workspace/api-client-react";
@@ -39,7 +39,6 @@ const panelSchema = z.object({
   diagram_offset_x: z.number().min(0).max(500).default(0),
   diagram_offset_y: z.number().min(0).max(500).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
-  zone_id: z.coerce.number().optional(),
   side_id: z.coerce.number().optional(),
   visual_zone_id: z.coerce.number().optional(),
   column_widths: z.array(z.number()).default([]),
@@ -95,7 +94,6 @@ export default function PanelFormPage() {
   const { toast } = useToast();
 
   const { data: panels } = useListPanels();
-  const { data: zones } = useListZones();
   const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const { data: alphanumericList } = useListAlphanumeric();
@@ -147,7 +145,6 @@ export default function PanelFormPage() {
         diagram_offset_x: existingPanel.diagram_offset_x ?? 0,
         diagram_offset_y: existingPanel.diagram_offset_y ?? 0,
         diagram_opacity: existingPanel.diagram_opacity ?? 0.5,
-        zone_id: existingPanel.zone_id || undefined,
         side_id: existingPanel.side_id || undefined,
         visual_zone_id: existingPanel.visual_zone_id || undefined,
       });
@@ -283,17 +280,6 @@ export default function PanelFormPage() {
                       <SelectContent>
                         <SelectItem value="none">Sin zona visual</SelectItem>
                         {visualZones?.map((v) => <SelectItem key={v.id} value={v.id.toString()}>{v.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )} />
-                <FormField control={form.control} name="zone_id" render={({ field }) => (
-                  <FormItem><FormLabel>Zona Auditada</FormLabel>
-                    <Select onValueChange={(val) => field.onChange(val ? Number(val) : undefined)} value={field.value?.toString() || ""}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Selecciona una zona" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {zones?.map((z) => <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                     <FormMessage />
