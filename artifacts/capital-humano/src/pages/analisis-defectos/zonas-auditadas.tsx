@@ -85,9 +85,23 @@ function buildHighlighted(captures: AuditCapture[], panel: Panel) {
     const colStart = panel.column_start ?? 1;
     const rowStart = panel.row_start ?? 0;
     const colsAsc = panel.columns_asc ?? true;
-    const colIndex = colsAsc ? c.grid_col - colStart : colStart - c.grid_col;
-    const baseCode = c.grid_row.toUpperCase().charCodeAt(0) - 65;
-    const rowIndex = baseCode - rowStart;
+    const rowsAsc = panel.rows_asc ?? true;
+
+    // Inverse of PanelGrid getColLabel:
+    //   ascending:  label = colStart + colIdx  → colIdx = label - colStart
+    //   descending: label = colStart + cols - 1 - colIdx → colIdx = colStart + cols - 1 - label
+    const colIndex = colsAsc
+      ? c.grid_col - colStart
+      : colStart + panel.columns - 1 - c.grid_col;
+
+    // Inverse of PanelGrid getRowLabel:
+    //   ascending:  idx = rowStart + rowIdx  → rowIdx = idx - rowStart
+    //   descending: idx = rowStart + rows - 1 - rowIdx → rowIdx = rowStart + rows - 1 - idx
+    const letterIdx = c.grid_row.toUpperCase().charCodeAt(0) - 65;
+    const rowIndex = rowsAsc
+      ? letterIdx - rowStart
+      : rowStart + panel.rows - 1 - letterIdx;
+
     return { col: colIndex, row: rowIndex, count: c.quantity };
   }).filter((h) => h.col >= 0 && h.col < panel.columns && h.row >= 0 && h.row < panel.rows);
 }
