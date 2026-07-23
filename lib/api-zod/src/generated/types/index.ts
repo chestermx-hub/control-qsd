@@ -34,6 +34,8 @@ export * from './sideUpdate';
 export * from './udn';
 export * from './udnInput';
 export * from './udnUpdate';
+export * from './uploadUrlRequest';
+export * from './uploadUrlResponse';
 export * from './user';
 export * from './userInput';
 export * from './userInputRole';

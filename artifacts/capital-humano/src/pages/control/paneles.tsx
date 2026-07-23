@@ -447,12 +447,22 @@ export default function Paneles() {
     if (!file) return;
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", credentials: "include", body: formData });
-      if (!res.ok) throw new Error("Error al subir");
-      const { url } = await res.json() as { url: string };
-      form.setValue("diagram_url", url, { shouldDirty: true });
+      const urlRes = await fetch("/api/storage/uploads/request-url", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      });
+      if (!urlRes.ok) throw new Error("Error al solicitar URL");
+      const { uploadURL, objectPath } = await urlRes.json() as { uploadURL: string; objectPath: string };
+      const putRes = await fetch(uploadURL, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!putRes.ok) throw new Error("Error al subir archivo");
+      const serveUrl = `/api/storage${objectPath}`;
+      form.setValue("diagram_url", serveUrl, { shouldDirty: true });
       toast({ title: "Imagen cargada correctamente" });
     } catch {
       toast({ title: "No se pudo cargar la imagen", variant: "destructive" });

@@ -33,6 +33,8 @@ tags:
     description: Capturas de Auditoría
   - name: dashboard
     description: Dashboard stats
+  - name: Storage
+    description: Object storage upload and serving endpoints.
 
 paths:
   /healthz:
@@ -1009,6 +1011,45 @@ paths:
         "204":
           description: Deleted
 
+  # STORAGE
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadUrlRequest'
+      responses:
+        '200':
+          description: Presigned upload URL generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadUrlResponse'
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      summary: Serve an object entity from PRIVATE_OBJECT_DIR
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Object content streamed.
+          content:
+            '*/*':
+              schema:
+                type: string
+                format: binary
+
   # DASHBOARD
   /dashboard/stats:
     get:
@@ -1463,7 +1504,7 @@ components:
     # AUDIT CAPTURE
     AuditCapture:
       type: object
-      required: [id, unit_number, week_number, date, skill_number, grid_col, grid_row, quantity, created_at]
+      required: [id, unit_number, week_number, date, grid_col, grid_row, quantity, created_at]
       properties:
         id:
           type: integer
@@ -1502,7 +1543,7 @@ components:
 
     AuditCaptureInput:
       type: object
-      required: [unit_number, week_number, date, skill_number, grid_col, grid_row, quantity]
+      required: [unit_number, week_number, date, grid_col, grid_row, quantity]
       properties:
         unit_number:
           type: integer
@@ -1710,6 +1751,26 @@ components:
         code:
           type: string
         description:
+          type: string
+
+    # STORAGE
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
           type: string
 
     # DASHBOARD

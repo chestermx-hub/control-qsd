@@ -26,7 +26,7 @@ const controlModuloZA = {
   key: "control-modulo",
   title: "Control Modulo ZA",
   items: [
-    { href: "/control/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
+    { href: "/control/zonas-auditadas", label: "Zonas", icon: Map },
     { href: "/control/zona-visual", label: "Vista", icon: Eye },
     { href: "/control/paneles", label: "Paneles", icon: LayoutGrid },
     { href: "/control/defectos", label: "Defectos", icon: AlertTriangle },
@@ -41,7 +41,7 @@ const navigation = [
     title: "Análisis de Defectos",
     items: [
       { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3 },
-      { href: "/analisis-defectos/zonas-auditadas", label: "Zonas Auditadas", icon: Map },
+      { href: "/analisis-defectos/zonas-auditadas", label: "Capturas de Auditoría", icon: Map },
     ],
     subSection: controlModuloZA,
   },

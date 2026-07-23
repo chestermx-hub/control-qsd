@@ -11,7 +11,7 @@ export interface AuditCapture {
   unit_number: number;
   week_number: number;
   date: Date;
-  skill_number: string;
+  skill_number?: string;
   /** @nullable */
   zone_id?: number | null;
   /** @nullable */

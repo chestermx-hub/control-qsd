@@ -914,7 +914,7 @@ export const ListAuditCapturesResponseItem = zod.object({
   "unit_number": zod.number(),
   "week_number": zod.number(),
   "date": zod.coerce.date(),
-  "skill_number": zod.string(),
+  "skill_number": zod.string().optional(),
   "zone_id": zod.number().nullish(),
   "panel_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
@@ -937,7 +937,7 @@ export const CreateAuditCaptureBody = zod.object({
   "unit_number": zod.number(),
   "week_number": zod.number(),
   "date": zod.coerce.date(),
-  "skill_number": zod.string(),
+  "skill_number": zod.string().optional(),
   "zone_id": zod.number().optional(),
   "panel_id": zod.number().optional(),
   "side_id": zod.number().optional(),
@@ -955,7 +955,7 @@ export const CreateAuditCaptureResponse = zod.object({
   "unit_number": zod.number(),
   "week_number": zod.number(),
   "date": zod.coerce.date(),
-  "skill_number": zod.string(),
+  "skill_number": zod.string().optional(),
   "zone_id": zod.number().nullish(),
   "panel_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
@@ -996,7 +996,7 @@ export const GetAuditCaptureResponse = zod.object({
   "unit_number": zod.number(),
   "week_number": zod.number(),
   "date": zod.coerce.date(),
-  "skill_number": zod.string(),
+  "skill_number": zod.string().optional(),
   "zone_id": zod.number().nullish(),
   "panel_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
@@ -1037,7 +1037,7 @@ export const UpdateAuditCaptureResponse = zod.object({
   "unit_number": zod.number(),
   "week_number": zod.number(),
   "date": zod.coerce.date(),
-  "skill_number": zod.string(),
+  "skill_number": zod.string().optional(),
   "zone_id": zod.number().nullish(),
   "panel_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
@@ -1139,6 +1139,31 @@ export const DeleteAlphanumericParams = zod.object({
 })
 
 export const DeleteAlphanumericResponse = zod.void()
+
+
+/**
+ * @summary Request a presigned URL for file upload
+ */
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "contentType": zod.string()
+})
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string(),
+  "objectPath": zod.string()
+})
+
+
+/**
+ * @summary Serve an object entity from PRIVATE_OBJECT_DIR
+ */
+export const GetStorageObjectParams = zod.object({
+  "objectPath": zod.coerce.string()
+})
+
+export const GetStorageObjectResponse = zod.unknown()
 
 
 /**

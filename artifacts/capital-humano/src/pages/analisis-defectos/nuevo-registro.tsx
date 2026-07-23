@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { PanelGrid } from "@/pages/control/paneles";
@@ -38,6 +38,14 @@ type SavedCapture = {
 export default function NuevoRegistro() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const searchString = useSearch();
+
+  const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  const existingUnitNumber = searchParams.get("unitNumber") ? Number(searchParams.get("unitNumber")) : null;
+  const existingDate = searchParams.get("date") || null;
+  const existingPanelId = searchParams.get("panelId") ? Number(searchParams.get("panelId")) : null;
+  const existingSkillNumber = searchParams.get("skillNumber") || "";
+  const isContinuing = existingUnitNumber !== null;
 
   const { data: panels } = useListPanels();
   const { data: sides } = useListSides();
@@ -46,13 +54,15 @@ export default function NuevoRegistro() {
   const { data: defects } = useListDefects();
   const { data: zones } = useListZones();
 
-  const [date, setDate] = useState(todayStr());
-  const [skillNumber, setSkillNumber] = useState("");
+  const [date, setDate] = useState(existingDate ?? todayStr());
+  const [skillNumber, setSkillNumber] = useState(existingSkillNumber);
   const [zoneId, setZoneId] = useState<number | null>(null);
-  const [panelId, setPanelId] = useState<number | null>(null);
+  const [panelId, setPanelId] = useState<number | null>(existingPanelId);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
 
   const { data: dailyCounter } = useGetAuditDailyCounter({ date: date || todayStr() });
+
+  const resolvedUnitNumber = isContinuing ? existingUnitNumber! : (dailyCounter?.next_unit_number ?? 1);
 
   const selectedPanel = useMemo(() => panels?.find((p) => p.id === panelId), [panels, panelId]);
   const panelSide = useMemo(() => sides?.find((s) => s.id === selectedPanel?.side_id), [sides, selectedPanel]);
@@ -116,8 +126,8 @@ export default function NuevoRegistro() {
   });
 
   const handleCellDoubleClick = (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => {
-    if (!panelId || !skillNumber || !date) {
-      toast({ title: "Complete los campos del encabezado primero", variant: "destructive" });
+    if (!panelId || !date) {
+      toast({ title: "Selecciona un panel y una fecha primero", variant: "destructive" });
       return;
     }
     setDialogCell({ colIndex, rowIndex, colLabel, rowLabel });
@@ -144,10 +154,10 @@ export default function NuevoRegistro() {
 
     createCapture.mutate({
       data: {
-        unit_number: dailyCounter?.next_unit_number ?? 1,
+        unit_number: resolvedUnitNumber,
         week_number: dailyCounter?.week_number ?? 1,
         date,
-        skill_number: skillNumber,
+        skill_number: skillNumber || undefined,
         zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
@@ -173,8 +183,14 @@ export default function NuevoRegistro() {
             </Button>
           </Link>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Nuevo Registro de Auditoría</h1>
-            <p className="text-muted-foreground">Complete los datos y seleccione las celdas con defectos.</p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isContinuing ? `Agregar Defectos — Unidad #${existingUnitNumber}` : "Nuevo Registro de Auditoría"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isContinuing
+                ? "Agrega defectos a la unidad existente."
+                : "Complete los datos y seleccione las celdas con defectos."}
+            </p>
           </div>
         </div>
 
@@ -184,13 +200,19 @@ export default function NuevoRegistro() {
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <div className="space-y-1">
               <Label>Fecha</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                readOnly={isContinuing}
+                className={isContinuing ? "bg-muted text-muted-foreground" : ""}
+              />
             </div>
             <div className="space-y-1">
-              <Label>Unidad (auto)</Label>
+              <Label>Unidad {isContinuing ? "(existente)" : "(auto)"}</Label>
               <Input
                 readOnly
-                value={dailyCounter ? `${dailyCounter.next_unit_number}` : "..."}
+                value={isContinuing ? `${existingUnitNumber}` : (dailyCounter ? `${dailyCounter.next_unit_number}` : "...")}
                 className="bg-muted text-muted-foreground"
               />
             </div>
@@ -207,7 +229,7 @@ export default function NuevoRegistro() {
               <Input
                 value={skillNumber}
                 onChange={(e) => setSkillNumber(e.target.value)}
-                placeholder="Ej. 12345"
+                placeholder="Ej. 12345 (opcional)"
               />
             </div>
             <div className="space-y-1">
@@ -227,10 +249,13 @@ export default function NuevoRegistro() {
                 onValueChange={(val) => {
                   setPanelId(Number(val));
                   setSelectedAlphanumericId(null);
-                  setSavedCaptures([]);
-                  setCapturedCells([]);
+                  if (!isContinuing) {
+                    setSavedCaptures([]);
+                    setCapturedCells([]);
+                  }
                 }}
                 value={panelId?.toString() || ""}
+                disabled={isContinuing && existingPanelId !== null}
               >
                 <SelectTrigger><SelectValue placeholder="Selecciona un panel" /></SelectTrigger>
                 <SelectContent>
@@ -334,7 +359,9 @@ export default function NuevoRegistro() {
         {/* Saved Records */}
         {savedCaptures.length > 0 && (
           <div className="border rounded-lg bg-card p-4 space-y-3">
-            <h2 className="font-semibold text-base">Defectos Registrados en esta Sesión</h2>
+            <h2 className="font-semibold text-base">
+              Defectos Registrados en esta Sesión
+            </h2>
             <div className="space-y-2">
               {savedCaptures.map((cap) => (
                 <div key={cap.id} className="flex items-center gap-3 text-sm p-2 rounded bg-muted/40">

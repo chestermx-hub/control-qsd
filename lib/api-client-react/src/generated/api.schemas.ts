@@ -248,7 +248,7 @@ export interface AuditCapture {
   unit_number: number;
   week_number: number;
   date: string;
-  skill_number: string;
+  skill_number?: string;
   /** @nullable */
   zone_id?: number | null;
   /** @nullable */
@@ -273,7 +273,7 @@ export interface AuditCaptureInput {
   unit_number: number;
   week_number: number;
   date: string;
-  skill_number: string;
+  skill_number?: string;
   zone_id?: number;
   panel_id?: number;
   side_id?: number;
@@ -382,6 +382,17 @@ export interface AlphanumericUpdate {
   name?: string;
   code?: string;
   description?: string;
+}
+
+export interface UploadUrlRequest {
+  name: string;
+  size: number;
+  contentType: string;
+}
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
 }
 
 export interface DashboardStats {

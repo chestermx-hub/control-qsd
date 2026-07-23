@@ -13,6 +13,7 @@ import alphanumericRouter from "./alphanumeric";
 import auditCapturesRouter from "./auditCaptures";
 import dashboardRouter from "./dashboard";
 import uploadRouter from "./upload";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(alphanumericRouter);
 router.use(auditCapturesRouter);
 router.use(dashboardRouter);
 router.use(uploadRouter);
+router.use(storageRouter);
 
 export default router;

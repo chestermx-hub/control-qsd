@@ -71,7 +71,7 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
     grid_col, grid_row, defect_id, defect_other, quantity,
   } = req.body as {
-    unit_number: number; week_number: number; date: string; skill_number: string;
+    unit_number: number; week_number: number; date: string; skill_number?: string;
     zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     grid_col: number; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
   };

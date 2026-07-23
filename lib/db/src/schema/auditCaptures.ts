@@ -12,7 +12,7 @@ export const auditCapturesTable = pgTable("audit_captures", {
   unitNumber: integer("unit_number").notNull(),
   weekNumber: integer("week_number").notNull(),
   date: date("date").notNull(),
-  skillNumber: text("skill_number").notNull(),
+  skillNumber: text("skill_number"),
   zoneId: integer("zone_id").references(() => zonesTable.id, { onDelete: "set null" }),
   panelId: integer("panel_id").references(() => panelsTable.id, { onDelete: "set null" }),
   sideId: integer("side_id").references(() => sidesTable.id, { onDelete: "set null" }),
