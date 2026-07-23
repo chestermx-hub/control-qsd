@@ -41,7 +41,7 @@ router.get("/audit-captures/daily-counter", async (req: Request, res: Response) 
     return;
   }
   const result = await db
-    .select({ count: sql<number>`count(*)::int` })
+    .select({ count: sql<number>`count(DISTINCT ${auditCapturesTable.unitNumber})::int` })
     .from(auditCapturesTable)
     .where(eq(auditCapturesTable.date, dateStr));
   const count = result[0]?.count ?? 0;
