@@ -732,7 +732,7 @@ export default function Paneles() {
 
         {/* Create/Edit Modal */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-3xl w-full max-h-[90vh] overflow-y-auto overflow-x-hidden">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Panel" : "Nuevo Panel"}</DialogTitle>
             </DialogHeader>
@@ -769,7 +769,7 @@ export default function Paneles() {
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="diagram_url" render={({ field }) => (
-                    <FormItem>
+                    <FormItem className="col-span-2">
                       <FormLabel>Diagrama <span className="text-destructive">*</span></FormLabel>
                       <div className="space-y-2">
                         <div className="flex gap-2">
