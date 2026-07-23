@@ -362,8 +362,8 @@ export function PanelGrid({
                   <div
                     key={`cell-${r}-${c}`}
                     className={`border-r border-b-2 border-red-500 flex items-center justify-center relative
-                      ${onCellDoubleClick ? "pointer-events-auto cursor-pointer select-none hover:bg-primary/10" : "pointer-events-none bg-transparent"}
-                      ${highlighted ? "bg-destructive/20" : ""}`}
+                      ${onCellDoubleClick ? "pointer-events-auto cursor-pointer select-none hover:bg-primary/10" : "pointer-events-none"}
+                      ${highlighted ? "bg-destructive/40" : "bg-transparent"}`}
                     onDoubleClick={onCellDoubleClick ? () => onCellDoubleClick(c, r, colLabel, rowLabel) : undefined}
                     title={onCellDoubleClick ? `${rowLabel}${colLabel} — doble clic para registrar defecto` : undefined}
                   >
