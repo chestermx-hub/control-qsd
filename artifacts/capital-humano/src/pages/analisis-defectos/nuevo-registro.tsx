@@ -402,15 +402,17 @@ export default function NuevoRegistro() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Defecto</Label>
-              <Select onValueChange={setDialogDefectId} value={dialogDefectId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona un defecto" /></SelectTrigger>
-                <SelectContent>
-                  {defects?.map((d) => (
-                    <SelectItem key={d.id} value={d.id.toString()}>{d.code} — {d.name}</SelectItem>
-                  ))}
-                  <SelectItem value="otro">Otro (especificar)</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                value={dialogDefectId}
+                onChange={(e) => setDialogDefectId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+              >
+                <option value="">Selecciona un defecto</option>
+                {defects?.map((d) => (
+                  <option key={d.id} value={d.id.toString()}>{d.code} — {d.name}</option>
+                ))}
+                <option value="otro">Otro (especificar)</option>
+              </select>
             </div>
 
             {dialogDefectId === "otro" && (
