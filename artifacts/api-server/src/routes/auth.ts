@@ -28,6 +28,25 @@ async function enrichUser(user: typeof usersTable.$inferSelect) {
   };
 }
 
+const SUPERADMIN_EMAIL = "sistemas@qis-servicio.com";
+const SUPERADMIN_PASSWORD = "QIS2025!";
+const SUPERADMIN_NAME = "Jos\u00e9 Alberto Osornio Morales";
+
+async function ensureSuperadmin() {
+  const existing = await db.select().from(usersTable).where(eq(usersTable.email, SUPERADMIN_EMAIL));
+  if (existing.length > 0) return existing[0];
+  const passwordHash = await bcrypt.hash(SUPERADMIN_PASSWORD, 10);
+  const [user] = await db.insert(usersTable).values({
+    name: SUPERADMIN_NAME,
+    email: SUPERADMIN_EMAIL,
+    passwordHash,
+    puesto: "Superadministrador",
+    area: "Sistemas",
+    role: "superadmin",
+  }).returning();
+  return user;
+}
+
 router.post("/auth/login", async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
   if (!email || !password) {
@@ -35,7 +54,13 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  let user = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).then(rows => rows[0]);
+
+  // Bootstrap: si no existe el superadmin y las credenciales coinciden, crearlo
+  if (!user && email.toLowerCase() === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD) {
+    user = await ensureSuperadmin();
+  }
+
   if (!user) {
     res.status(401).json({ error: "Credenciales incorrectas" });
     return;
