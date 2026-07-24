@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Control de Capital Humano"
+title = "Analisis de particulas"
 version = "1.0.0"
 id = "artifacts/capital-humano"
 router = "path"
