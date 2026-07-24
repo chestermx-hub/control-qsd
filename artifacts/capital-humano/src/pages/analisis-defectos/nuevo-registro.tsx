@@ -234,15 +234,23 @@ export default function NuevoRegistro() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Zona Auditada</Label>
-              <Select onValueChange={(val) => setZoneId(Number(val))} value={zoneId?.toString() || ""}>
-                <SelectTrigger><SelectValue placeholder="Selecciona una zona" /></SelectTrigger>
-                <SelectContent>
-                  {zones?.map((z) => (
-                    <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Zona Auditada {isContinuing && existingZoneId ? "(existente)" : ""}</Label>
+              {isContinuing && existingZoneId ? (
+                <Input
+                  readOnly
+                  value={zones?.find((z) => z.id === existingZoneId)?.name || "..."}
+                  className="bg-muted text-muted-foreground"
+                />
+              ) : (
+                <Select onValueChange={(val) => setZoneId(Number(val))} value={zoneId?.toString() || ""}>
+                  <SelectTrigger><SelectValue placeholder="Selecciona una zona" /></SelectTrigger>
+                  <SelectContent>
+                    {zones?.map((z) => (
+                      <SelectItem key={z.id} value={z.id.toString()}>{z.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div className="space-y-1 sm:col-span-2">
               <Label>Panel</Label>
