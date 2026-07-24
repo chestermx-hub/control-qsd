@@ -16,9 +16,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Loader2, Plus, Trash2, Calendar, Grid3X3, Pencil, ChevronDown, ChevronRight,
-  FileText, CheckCircle2, Download,
+  FileText, CheckCircle2, Download, MapPin,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { PanelGrid } from "@/pages/control/paneles";
@@ -491,7 +492,7 @@ export default function AnalisisZonasAuditadas() {
   const { data: visualZones } = useListVisualZones();
   const { data: defects } = useListDefects();
   const { data: alphanumericList } = useListAlphanumeric();
-  const { data: zones } = useListZones();
+  const { data: zones, isLoading: isLoadingZones } = useListZones();
 
   const deleteCapture = useDeleteAuditCapture({
     mutation: {
@@ -675,223 +676,253 @@ export default function AnalisisZonasAuditadas() {
   return (
     <AppLayout>
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Capturas de Auditoría</h1>
-            <p className="text-muted-foreground">Registros de defectos agrupados por número de unidad.</p>
-          </div>
-          <Button onClick={() => {
-            window.location.href = "/analisis-defectos/nuevo-registro";
-          }}>
-            <Plus className="mr-2 h-4 w-4" />
-            Nuevo Registro
-          </Button>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Capturas de Auditoría</h1>
+          <p className="text-muted-foreground">Registros de defectos agrupados por número de unidad.</p>
         </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <label className="text-sm font-medium">Filtrar por fecha:</label>
-          <Input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="w-44"
-          />
-          {filterDate && (
-            <Button variant="ghost" size="sm" onClick={() => setFilterDate("")}>
-              Mostrar todos
-            </Button>
-          )}
-          <Button variant="outline" size="sm" onClick={() => setShowDetail(!showDetail)}>
-            <FileText className="mr-2 h-4 w-4" />
-            {showDetail ? "Mostrar Resumen" : "Mostrar Detalle"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportToExcel}>
-            <Download className="mr-2 h-4 w-4" />
-            Exportar Excel
-          </Button>
-        </div>
+        <Tabs defaultValue="nuevo" className="w-full">
+          <TabsList className="grid w-full grid-cols-2 h-12">
+            <TabsTrigger value="nuevo" className="text-base">Nuevo Registro</TabsTrigger>
+            <TabsTrigger value="capturados" className="text-base">Registros Capturados</TabsTrigger>
+          </TabsList>
 
-        {isLoading ? (
-          <div className="flex justify-center py-12">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : unitGroups.length === 0 ? (
-          <div className="border rounded-lg bg-muted/30 p-8 text-center text-muted-foreground">
-            Sin registros para la fecha seleccionada.
-          </div>
-        ) : showDetail ? (
-          /* ── VISTA DETALLE (inline) ── */
-          <div className="border rounded-lg bg-card overflow-hidden flex flex-col">
-            <div className="flex items-center gap-6 px-4 py-3 bg-muted/40 border-b text-sm text-muted-foreground">
-              <span>Total defectos: <strong className="text-foreground">{detailStats.total}</strong></span>
-              <span>Unidades: <strong className="text-foreground">{detailStats.uniqueUnits}</strong></span>
-              <span>DPU Día: <strong className="text-foreground">{detailStats.dpuDia.toFixed(1)}</strong></span>
-              <span>R1000: <strong className="text-foreground">{detailStats.r1000.toFixed(0)}</strong></span>
+          {/* ─── PESTAÑA: NUEVO REGISTRO ─── */}
+          <TabsContent value="nuevo" className="mt-4">
+            {isLoadingZones ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : !zones || zones.length === 0 ? (
+              <div className="border rounded-lg bg-muted/30 p-8 text-center text-muted-foreground">
+                No hay zonas auditadas configuradas. Ve a Control Módulo → Zonas Auditadas para configurarlas.
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                {zones.map((zone) => (
+                  <button
+                    key={zone.id}
+                    onClick={() => {
+                      window.location.href = `/analisis-defectos/nuevo-registro?zoneId=${zone.id}`;
+                    }}
+                    className="flex flex-col items-center justify-center gap-3 border rounded-xl bg-card p-6 hover:bg-accent hover:border-primary/50 transition-all active:scale-[0.98] min-h-[140px]"
+                  >
+                    <MapPin className="h-8 w-8 text-primary" />
+                    <span className="text-base font-semibold text-center leading-tight">{zone.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          {/* ─── PESTAÑA: REGISTROS CAPTURADOS ─── */}
+          <TabsContent value="capturados" className="mt-4 space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <label className="text-sm font-medium">Filtrar por fecha:</label>
+              <Input
+                type="date"
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-44"
+              />
+              {filterDate && (
+                <Button variant="ghost" size="sm" onClick={() => setFilterDate("")}>
+                  Mostrar todos
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={() => setShowDetail(!showDetail)}>
+                <FileText className="mr-2 h-4 w-4" />
+                {showDetail ? "Mostrar Resumen" : "Mostrar Detalle"}
+              </Button>
+              <Button variant="outline" size="sm" onClick={exportToExcel}>
+                <Download className="mr-2 h-4 w-4" />
+                Exportar Excel
+              </Button>
             </div>
-            <div className="overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="whitespace-nowrap">Unidad</TableHead>
-                    <TableHead className="whitespace-nowrap">Semana</TableHead>
-                    <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                    <TableHead className="whitespace-nowrap">SK</TableHead>
-                    <TableHead className="whitespace-nowrap">Panel</TableHead>
-                    <TableHead className="whitespace-nowrap">Lado</TableHead>
-                    <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
-                    <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
-                    <TableHead className="whitespace-nowrap">Defecto</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Cantidad</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">Total</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">DPU Día</TableHead>
-                    <TableHead className="whitespace-nowrap text-right">R1000</TableHead>
-                    <TableHead className="whitespace-nowrap">Analista</TableHead>
-                    <TableHead className="whitespace-nowrap">Turno</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {detailRows.map((row, i) => {
-                    const isFirst = i === 0;
-                    return (
-                      <TableRow key={row.capture.id}>
-                        <TableCell className="font-medium">{row.capture.unit_number}</TableCell>
-                        <TableCell>{row.capture.week_number}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.capture.date}</TableCell>
-                        <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
-                        <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
-                        <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
-                        <TableCell className="text-right">{row.capture.quantity}</TableCell>
-                        <TableCell className="text-right font-medium">
-                          {isFirst ? detailStats.total : ""}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isFirst ? detailStats.dpuDia.toFixed(1) : ""}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {isFirst ? detailStats.r1000.toFixed(0) : ""}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{user?.name ?? "—"}</TableCell>
-                        <TableCell>1ro</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {unitGroups.map((group) => {
-              const key = `${group.unit_number}__${group.date}`;
-              const isExpanded = expandedUnits.has(key);
-              const panel = getPanel(group.panel_id);
-              const side = panel ? getSide(panel.side_id) : null;
-              const visualZone = panel ? getVisualZone(panel.visual_zone_id) : null;
 
-              return (
-                <div key={key} className="border rounded-lg bg-card overflow-hidden">
-                  {/* Unit header */}
-                  <div className="flex items-center gap-3 px-4 py-3 bg-muted/40">
-                    <button
-                      onClick={() => toggleUnit(key)}
-                      className="flex items-center gap-2 flex-1 text-left min-w-0"
-                    >
-                      {isExpanded ? (
-                        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="font-bold text-base shrink-0">Unidad #{group.unit_number}</span>
-                      <span className="text-sm text-muted-foreground shrink-0">{group.date}</span>
-                      <span className="text-sm text-muted-foreground shrink-0">· Semana {group.week_number}</span>
-                      {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
-                      {side && <span className="text-sm text-muted-foreground shrink-0">· {side.name}</span>}
-                      {visualZone && <span className="text-sm text-muted-foreground shrink-0">· {visualZone.name}</span>}
-                    </button>
-
-                    <div className="flex items-center gap-2 shrink-0">
-                      {/* Skill badge + lápiz inline si no tiene Skill */}
-                      {group.skill_number ? (
-                        <Badge variant="secondary" className="font-mono">
-                          Skill: {group.skill_number}
-                        </Badge>
-                      ) : (
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-muted-foreground">
-                            Sin Skill
-                          </Badge>
-                          <button
-                            title="Asignar No. de Skill"
-                            onClick={() => handleOpenSkillDialog(group)}
-                            className="text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      )}
-
-                      <Badge variant="outline">{group.captures.length} defecto(s)</Badge>
-
-                      {panel && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Ver cuadrícula"
-                          onClick={() => setGridDialog(group)}
-                        >
-                          <Grid3X3 className="h-4 w-4" />
-                        </Button>
-                      )}
-
-                      {panel && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setAddDialog(group)}
-                        >
-                          <Plus className="mr-1 h-3 w-3" />
-                          Agregar defectos
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Defects list */}
-                  {isExpanded && (
-                    <div className="divide-y">
-                      {group.captures.map((cap) => (
-                        <div key={cap.id} className="flex items-center gap-3 px-6 py-2 text-sm hover:bg-muted/20">
-                          <span className="font-mono font-medium w-10 shrink-0">
-                            {cap.grid_row}{cap.grid_col}
-                          </span>
-                          <span className="flex-1 text-muted-foreground">{getDefectLabel(cap)}</span>
-                          <Badge variant="secondary" className="shrink-0">
-                            Cant: {cap.quantity}
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-destructive shrink-0"
-                            onClick={() => {
-                              if (confirm("¿Eliminar este defecto?"))
-                                deleteCapture.mutate({ id: cap.id });
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {isLoading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : unitGroups.length === 0 ? (
+              <div className="border rounded-lg bg-muted/30 p-8 text-center text-muted-foreground">
+                Sin registros para la fecha seleccionada.
+              </div>
+            ) : showDetail ? (
+              /* ── VISTA DETALLE (inline) ── */
+              <div className="border rounded-lg bg-card overflow-hidden flex flex-col">
+                <div className="flex items-center gap-6 px-4 py-3 bg-muted/40 border-b text-sm text-muted-foreground">
+                  <span>Total defectos: <strong className="text-foreground">{detailStats.total}</strong></span>
+                  <span>Unidades: <strong className="text-foreground">{detailStats.uniqueUnits}</strong></span>
+                  <span>DPU Día: <strong className="text-foreground">{detailStats.dpuDia.toFixed(1)}</strong></span>
+                  <span>R1000: <strong className="text-foreground">{detailStats.r1000.toFixed(0)}</strong></span>
                 </div>
-              );
-            })}
-          </div>
-        )}
+                <div className="overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="whitespace-nowrap">Unidad</TableHead>
+                        <TableHead className="whitespace-nowrap">Semana</TableHead>
+                        <TableHead className="whitespace-nowrap">Fecha</TableHead>
+                        <TableHead className="whitespace-nowrap">SK</TableHead>
+                        <TableHead className="whitespace-nowrap">Panel</TableHead>
+                        <TableHead className="whitespace-nowrap">Lado</TableHead>
+                        <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
+                        <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
+                        <TableHead className="whitespace-nowrap">Defecto</TableHead>
+                        <TableHead className="whitespace-nowrap text-right">Cantidad</TableHead>
+                        <TableHead className="whitespace-nowrap text-right">Total</TableHead>
+                        <TableHead className="whitespace-nowrap text-right">DPU Día</TableHead>
+                        <TableHead className="whitespace-nowrap text-right">R1000</TableHead>
+                        <TableHead className="whitespace-nowrap">Analista</TableHead>
+                        <TableHead className="whitespace-nowrap">Turno</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {detailRows.map((row, i) => {
+                        const isFirst = i === 0;
+                        return (
+                          <TableRow key={row.capture.id}>
+                            <TableCell className="font-medium">{row.capture.unit_number}</TableCell>
+                            <TableCell>{row.capture.week_number}</TableCell>
+                            <TableCell className="whitespace-nowrap">{row.capture.date}</TableCell>
+                            <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
+                            <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
+                            <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
+                            <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
+                            <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
+                            <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
+                            <TableCell className="text-right">{row.capture.quantity}</TableCell>
+                            <TableCell className="text-right font-medium">
+                              {isFirst ? detailStats.total : ""}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {isFirst ? detailStats.dpuDia.toFixed(1) : ""}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {isFirst ? detailStats.r1000.toFixed(0) : ""}
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">{user?.name ?? "—"}</TableCell>
+                            <TableCell>1ro</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {unitGroups.map((group) => {
+                  const key = `${group.unit_number}__${group.date}`;
+                  const isExpanded = expandedUnits.has(key);
+                  const panel = getPanel(group.panel_id);
+                  const side = panel ? getSide(panel.side_id) : null;
+                  const visualZone = panel ? getVisualZone(panel.visual_zone_id) : null;
+
+                  return (
+                    <div key={key} className="border rounded-lg bg-card overflow-hidden">
+                      {/* Unit header */}
+                      <div className="flex items-center gap-3 px-4 py-3 bg-muted/40">
+                        <button
+                          onClick={() => toggleUnit(key)}
+                          className="flex items-center gap-2 flex-1 text-left min-w-0"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          )}
+                          <span className="font-bold text-base shrink-0">Unidad #{group.unit_number}</span>
+                          <span className="text-sm text-muted-foreground shrink-0">{group.date}</span>
+                          <span className="text-sm text-muted-foreground shrink-0">· Semana {group.week_number}</span>
+                          {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
+                          {side && <span className="text-sm text-muted-foreground shrink-0">· {side.name}</span>}
+                          {visualZone && <span className="text-sm text-muted-foreground shrink-0">· {visualZone.name}</span>}
+                        </button>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {/* Skill badge + lápiz inline si no tiene Skill */}
+                          {group.skill_number ? (
+                            <Badge variant="secondary" className="font-mono">
+                              Skill: {group.skill_number}
+                            </Badge>
+                          ) : (
+                            <div className="flex items-center gap-1">
+                              <Badge variant="outline" className="text-muted-foreground">
+                                Sin Skill
+                              </Badge>
+                              <button
+                                title="Asignar No. de Skill"
+                                onClick={() => handleOpenSkillDialog(group)}
+                                className="text-muted-foreground hover:text-foreground transition-colors"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          )}
+
+                          <Badge variant="outline">{group.captures.length} defecto(s)</Badge>
+
+                          {panel && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Ver cuadrícula"
+                              onClick={() => setGridDialog(group)}
+                            >
+                              <Grid3X3 className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          {panel && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setAddDialog(group)}
+                            >
+                              <Plus className="mr-1 h-3 w-3" />
+                              Agregar defectos
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Defects list */}
+                      {isExpanded && (
+                        <div className="divide-y">
+                          {group.captures.map((cap) => (
+                            <div key={cap.id} className="flex items-center gap-3 px-6 py-2 text-sm hover:bg-muted/20">
+                              <span className="font-mono font-medium w-10 shrink-0">
+                                {cap.grid_row}{cap.grid_col}
+                              </span>
+                              <span className="flex-1 text-muted-foreground">{getDefectLabel(cap)}</span>
+                              <Badge variant="secondary" className="shrink-0">
+                                Cant: {cap.quantity}
+                              </Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive shrink-0"
+                                onClick={() => {
+                                  if (confirm("¿Eliminar este defecto?"))
+                                    deleteCapture.mutate({ id: cap.id });
+                                }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Diálogo: Agregar defectos */}

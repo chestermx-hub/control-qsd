@@ -45,6 +45,7 @@ export default function NuevoRegistro() {
   const existingDate = searchParams.get("date") || null;
   const existingPanelId = searchParams.get("panelId") ? Number(searchParams.get("panelId")) : null;
   const existingSkillNumber = searchParams.get("skillNumber") || "";
+  const existingZoneId = searchParams.get("zoneId") ? Number(searchParams.get("zoneId")) : null;
   const isContinuing = existingUnitNumber !== null;
 
   const { data: panels } = useListPanels();
@@ -56,7 +57,7 @@ export default function NuevoRegistro() {
 
   const [date, setDate] = useState(existingDate ?? todayStr());
   const [skillNumber, setSkillNumber] = useState(existingSkillNumber);
-  const [zoneId, setZoneId] = useState<number | null>(null);
+  const [zoneId, setZoneId] = useState<number | null>(existingZoneId);
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
 
