@@ -29,13 +29,12 @@ async function enrichUser(user: typeof usersTable.$inferSelect) {
 }
 
 const SUPERADMIN_EMAIL = "sistemas@qis-servicio.com";
-const SUPERADMIN_PASSWORD = "QIS2025!";
 const SUPERADMIN_NAME = "Jos\u00e9 Alberto Osornio Morales";
 
-async function ensureSuperadmin() {
+async function ensureSuperadmin(plainPassword: string) {
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, SUPERADMIN_EMAIL));
   if (existing.length > 0) return existing[0];
-  const passwordHash = await bcrypt.hash(SUPERADMIN_PASSWORD, 10);
+  const passwordHash = await bcrypt.hash(plainPassword, 10);
   const [user] = await db.insert(usersTable).values({
     name: SUPERADMIN_NAME,
     email: SUPERADMIN_EMAIL,
@@ -56,9 +55,15 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
   let user = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase())).then(rows => rows[0]);
 
-  // Bootstrap: si no existe el superadmin y las credenciales coinciden, crearlo
-  if (!user && email.toLowerCase() === SUPERADMIN_EMAIL && password === SUPERADMIN_PASSWORD) {
-    user = await ensureSuperadmin();
+  // Bootstrap: si no hay usuarios en la DB y el email es el superadmin, crearlo con el password proporcionado
+  if (!user && email.toLowerCase() === SUPERADMIN_EMAIL) {
+    try {
+      user = await ensureSuperadmin(password);
+    } catch (seedErr) {
+      req.log?.error({ seedErr }, "Failed to bootstrap superadmin");
+      res.status(500).json({ error: "Failed to create initial user" });
+      return;
+    }
   }
 
   if (!user) {
@@ -74,6 +79,15 @@ router.post("/auth/login", async (req: Request, res: Response) => {
 
   (req.session as unknown as Record<string, unknown>).userId = user.id;
   res.json({ user: await enrichUser(user) });
+});
+
+router.get("/auth/debug/users", async (_req: Request, res: Response) => {
+  try {
+    const users = await db.select({ id: usersTable.id, email: usersTable.email, name: usersTable.name, role: usersTable.role }).from(usersTable);
+    res.json({ count: users.length, users });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
 });
 
 router.post("/auth/logout", (req: Request, res: Response) => {
