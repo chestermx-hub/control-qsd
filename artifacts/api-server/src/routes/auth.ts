@@ -110,4 +110,38 @@ router.get("/auth/me", async (req: Request, res: Response) => {
   res.json(await enrichUser(user));
 });
 
+// Emergency password reset for superadmin (run locally or in prod when locked out)
+router.post("/auth/reset-superadmin", async (req: Request, res: Response) => {
+  const { secret, password } = req.body as { secret?: string; password?: string };
+  const expected = process.env.SESSION_SECRET;
+  if (!expected || !secret || secret !== expected) {
+    res.status(403).json({ error: "Acceso denegado" });
+    return;
+  }
+  if (!password || password.length < 4) {
+    res.status(400).json({ error: "La contrasena debe tener al menos 4 caracteres" });
+    return;
+  }
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    const existing = await db.select().from(usersTable).where(eq(usersTable.email, SUPERADMIN_EMAIL));
+    if (existing.length > 0) {
+      await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.email, SUPERADMIN_EMAIL));
+      res.json({ message: "Contrasena actualizada" });
+    } else {
+      const [user] = await db.insert(usersTable).values({
+        name: SUPERADMIN_NAME,
+        email: SUPERADMIN_EMAIL,
+        passwordHash,
+        puesto: "Superadministrador",
+        area: "Sistemas",
+        role: "superadmin",
+      }).returning();
+      res.json({ message: "Superadmin creado", userId: user.id });
+    }
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 export default router;

@@ -8,6 +8,11 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
+// Trust proxy in production so secure cookies and req.ip work correctly
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(
   pinoHttp({
     logger,
@@ -42,14 +47,17 @@ if (!process.env.SESSION_SECRET) {
   throw new Error("SESSION_SECRET environment variable is required");
 }
 
+const isProduction = process.env.NODE_ENV === "production";
+
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: false,
+      secure: isProduction,
       httpOnly: true,
+      sameSite: isProduction ? "none" : "lax",
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
   }),
