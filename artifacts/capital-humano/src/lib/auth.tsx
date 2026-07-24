@@ -30,9 +30,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const loginMutation = useLogin({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         refetch();
-        setLocation("/dashboard");
+        const permissions = data.user?.permissions ?? [];
+        const role = data.user?.role;
+
+        // Superadmin always goes to the module selector dashboard
+        if (role === "superadmin") {
+          setLocation("/dashboard");
+          return;
+        }
+
+        // Regular users go to their first accessible module
+        const moduleRoutes: { permission: string; route: string }[] = [
+          { permission: "analisis_defectos", route: "/analisis-defectos/dashboard" },
+          { permission: "checklist_operacion", route: "/checklist-operacion" },
+          { permission: "perfiles", route: "/control/perfiles" },
+          { permission: "usuarios", route: "/control/usuarios" },
+          { permission: "udns", route: "/control/udns" },
+          { permission: "zonas_auditadas", route: "/control/zonas-auditadas" },
+          { permission: "zona_visual", route: "/control/zona-visual" },
+          { permission: "paneles", route: "/control/paneles" },
+          { permission: "defectos", route: "/control/defectos" },
+          { permission: "lados", route: "/control/lados" },
+          { permission: "alfanumerico", route: "/control/alfanumerico" },
+        ];
+
+        const firstAccessible = moduleRoutes.find((m) =>
+          permissions.includes(m.permission)
+        );
+
+        if (firstAccessible) {
+          setLocation(firstAccessible.route);
+        } else {
+          setLocation("/dashboard");
+        }
       }
     }
   });

@@ -260,20 +260,12 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
   );
 }
 
-export function Sidebar() {
-  return (
-    <aside className="w-64 bg-sidebar border-r h-screen hidden lg:flex flex-col shrink-0">
-      <SidebarContent />
-    </aside>
-  );
-}
-
-export function MobileSidebar({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+export function SidebarOverlay({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   if (!isOpen) return null;
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onClose} />
-      <div className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-xl lg:hidden">
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-y-0 left-0 z-50 w-72 bg-sidebar shadow-xl">
         <SidebarContent onClose={onClose} />
       </div>
     </>

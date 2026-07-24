@@ -1,92 +1,159 @@
-import { useGetDashboardStats } from "@workspace/api-client-react";
+import { useAuth } from "@/lib/auth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building2, Map, AlertTriangle, LayoutGrid } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { format } from "date-fns";
+import { Link } from "wouter";
+import {
+  LayoutDashboard,
+  BarChart3,
+  Map,
+  ClipboardCheck,
+  ShieldCheck,
+  Users,
+  Building2,
+  Eye,
+  LayoutGrid,
+  AlertTriangle,
+  BoxSelect,
+  Type,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+type ModuleCard = {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  href: string;
+  permission: string;
+};
+
+const modules: ModuleCard[] = [
+  {
+    title: "Análisis de Defectos",
+    description: "Dashboard, capturas y reportes de auditoría",
+    icon: BarChart3,
+    href: "/analisis-defectos/dashboard",
+    permission: "analisis_defectos",
+  },
+  {
+    title: "Checklist de Operación",
+    description: "Registro y seguimiento de operaciones",
+    icon: ClipboardCheck,
+    href: "/checklist-operacion",
+    permission: "checklist_operacion",
+  },
+  {
+    title: "Perfiles",
+    description: "Gestión de perfiles de acceso",
+    icon: ShieldCheck,
+    href: "/control/perfiles",
+    permission: "perfiles",
+  },
+  {
+    title: "Usuarios",
+    description: "Administración de usuarios del sistema",
+    icon: Users,
+    href: "/control/usuarios",
+    permission: "usuarios",
+  },
+  {
+    title: "UDN",
+    description: "Unidades de negocio",
+    icon: Building2,
+    href: "/control/udns",
+    permission: "udns",
+  },
+  {
+    title: "Zonas Auditadas",
+    description: "Catálogo de zonas de auditoría",
+    icon: Map,
+    href: "/control/zonas-auditadas",
+    permission: "zonas_auditadas",
+  },
+  {
+    title: "Zona Visual",
+    description: "Configuración de zonas visuales",
+    icon: Eye,
+    href: "/control/zona-visual",
+    permission: "zona_visual",
+  },
+  {
+    title: "Paneles",
+    description: "Gestión de paneles y cuadrículas",
+    icon: LayoutGrid,
+    href: "/control/paneles",
+    permission: "paneles",
+  },
+  {
+    title: "Defectos",
+    description: "Catálogo de defectos",
+    icon: AlertTriangle,
+    href: "/control/defectos",
+    permission: "defectos",
+  },
+  {
+    title: "Lados",
+    description: "Configuración de lados de panel",
+    icon: BoxSelect,
+    href: "/control/lados",
+    permission: "lados",
+  },
+  {
+    title: "Alfanumérico",
+    description: "Códigos alfanuméricos",
+    icon: Type,
+    href: "/control/alfanumerico",
+    permission: "alfanumerico",
+  },
+];
 
 export default function Dashboard() {
-  const { data: stats, isLoading } = useGetDashboardStats();
+  const { can, user } = useAuth();
+  const isSuperadmin = user?.role === "superadmin";
 
-  if (isLoading) {
+  const accessibleModules = modules.filter((m) => can(m.permission));
+
+  if (accessibleModules.length === 0) {
     return (
       <AppLayout>
         <div className="h-full flex items-center justify-center">
-          <p className="text-muted-foreground">Cargando datos...</p>
+          <p className="text-muted-foreground">No tiene acceso a ningún módulo. Contacte al administrador.</p>
         </div>
       </AppLayout>
     );
   }
 
-  const kpis = [
-    { title: "Usuarios", value: stats?.totalUsers || 0, icon: Users },
-    { title: "UDNs", value: stats?.totalUdns || 0, icon: Building2 },
-    { title: "Zonas", value: stats?.totalZones || 0, icon: Map },
-    { title: "Defectos", value: stats?.totalDefects || 0, icon: AlertTriangle },
-    { title: "Paneles", value: stats?.totalPanels || 0, icon: LayoutGrid },
-  ];
-
   return (
     <AppLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Resumen General</h1>
-          <p className="text-muted-foreground">Vista general del sistema de control.</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isSuperadmin ? "Seleccione un Modulo" : "Mis Modulos"}
+          </h1>
+          <p className="text-muted-foreground">
+            {isSuperadmin
+              ? "Haga clic en un módulo para administrarlo."
+              : "Módulos a los que tiene acceso."}
+          </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-          {kpis.map((kpi, i) => {
-            const Icon = kpi.icon;
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {accessibleModules.map((mod) => {
+            const Icon = mod.icon;
             return (
-              <Card key={i}>
-                <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">{kpi.title}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{kpi.value}</div>
-                </CardContent>
-              </Card>
+              <Link key={mod.href} href={mod.href}>
+                <Card className="cursor-pointer hover:border-primary hover:shadow-sm transition-all h-full">
+                  <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
+                    <CardTitle className="text-base font-medium">{mod.title}</CardTitle>
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">{mod.description}</p>
+                  </CardContent>
+                </Card>
+              </Link>
             );
           })}
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Usuarios Recientes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Puesto</TableHead>
-                  <TableHead>Rol</TableHead>
-                  <TableHead>Fecha</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats?.recentUsers?.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.puesto}</TableCell>
-                    <TableCell className="capitalize">{user.role}</TableCell>
-                    <TableCell>{format(new Date(user.created_at), "dd/MM/yyyy")}</TableCell>
-                  </TableRow>
-                ))}
-                {(!stats?.recentUsers || stats.recentUsers.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-6">
-                      No hay usuarios recientes.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
       </div>
     </AppLayout>
   );
