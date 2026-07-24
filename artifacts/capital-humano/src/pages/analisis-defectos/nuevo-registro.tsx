@@ -234,8 +234,8 @@ export default function NuevoRegistro() {
               />
             </div>
             <div className="space-y-1">
-              <Label>Zona Auditada {isContinuing && existingZoneId ? "(existente)" : ""}</Label>
-              {isContinuing && existingZoneId ? (
+              <Label>Zona Auditada {existingZoneId ? "(bloqueada)" : ""}</Label>
+              {existingZoneId ? (
                 <Input
                   readOnly
                   value={zones?.find((z) => z.id === existingZoneId)?.name || "..."}
