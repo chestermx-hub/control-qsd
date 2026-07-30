@@ -819,6 +819,11 @@ paths:
           in: query
           schema:
             type: integer
+        - name: zone_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by audited zone
       responses:
         "200":
           description: List of audit captures
@@ -858,6 +863,11 @@ paths:
           schema:
             type: string
             format: date
+        - name: zone_id
+          in: query
+          schema:
+            type: integer
+          description: Audited zone for the independent unit counter
       responses:
         "200":
           description: Daily counter info

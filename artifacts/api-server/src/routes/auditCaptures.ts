@@ -36,28 +36,34 @@ function getWeekNumber(dateStr: string): number {
 
 router.get("/audit-captures/daily-counter", async (req: Request, res: Response) => {
   const dateStr = req.query.date as string;
+  const zoneId = req.query.zone_id ? parseInt(req.query.zone_id as string, 10) : undefined;
   if (!dateStr) {
     res.status(400).json({ error: "date query param required" });
     return;
   }
+  const conditions = [eq(auditCapturesTable.date, dateStr)];
+  if (zoneId !== undefined && !Number.isNaN(zoneId)) {
+    conditions.push(eq(auditCapturesTable.zoneId, zoneId));
+  }
   const result = await db
-    .select({ count: sql<number>`count(DISTINCT ${auditCapturesTable.unitNumber})::int` })
+    .select({ maxUnit: sql<number>`coalesce(max(${auditCapturesTable.unitNumber}), 0)::int` })
     .from(auditCapturesTable)
-    .where(eq(auditCapturesTable.date, dateStr));
-  const count = result[0]?.count ?? 0;
+    .where(and(...conditions));
+  const maxUnit = result[0]?.maxUnit ?? 0;
   res.json({
     date: dateStr,
-    next_unit_number: count + 1,
+    next_unit_number: maxUnit + 1,
     week_number: getWeekNumber(dateStr),
   });
 });
 
 router.get("/audit-captures", async (req: Request, res: Response) => {
-  const { date, panel_id } = req.query as { date?: string; panel_id?: string };
+  const { date, panel_id, zone_id } = req.query as { date?: string; panel_id?: string; zone_id?: string };
   let query = db.select().from(auditCapturesTable).$dynamic();
   const conditions = [];
   if (date) conditions.push(eq(auditCapturesTable.date, date));
   if (panel_id) conditions.push(eq(auditCapturesTable.panelId, parseInt(panel_id)));
+  if (zone_id) conditions.push(eq(auditCapturesTable.zoneId, parseInt(zone_id)));
   if (conditions.length > 0) {
     query = query.where(and(...conditions));
   }
@@ -75,6 +81,10 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     grid_col: number; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
   };
+  if (date !== new Date().toISOString().slice(0, 10)) {
+    res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
+    return;
+  }
   const [row] = await db.insert(auditCapturesTable).values({
     unitNumber: unit_number,
     weekNumber: week_number,
@@ -103,6 +113,12 @@ router.get("/audit-captures/:id", async (req: Request, res: Response) => {
 
 router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
+  const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (existing.date !== new Date().toISOString().slice(0, 10)) {
+    res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
+    return;
+  }
   const {
     skill_number, zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
     grid_col, grid_row, defect_id, defect_other, quantity,
@@ -123,12 +139,17 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   if (defect_other !== undefined) updates.defectOther = defect_other;
   if (quantity !== undefined) updates.quantity = quantity;
   const [row] = await db.update(auditCapturesTable).set(updates).where(eq(auditCapturesTable.id, id)).returning();
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toJson(row));
 });
 
 router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
+  const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
+  if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (existing.date !== new Date().toISOString().slice(0, 10)) {
+    res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
+    return;
+  }
   await db.delete(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   res.status(204).send();
 });

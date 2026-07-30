@@ -411,9 +411,17 @@ export type ListAuditCapturesParams = {
  */
 date?: string;
 panel_id?: number;
+/**
+ * Filter by audited zone
+ */
+zone_id?: number;
 };
 
 export type GetAuditDailyCounterParams = {
 date: string;
+/**
+ * Audited zone for the independent unit counter
+ */
+zone_id?: number;
 };
 

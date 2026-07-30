@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Loader2, Plus, Trash2, Calendar, Grid3X3, Pencil, ChevronDown, ChevronRight,
-  FileText, CheckCircle2, Download, MapPin,
+  FileText, CheckCircle2, Download, MapPin, Lock,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -26,6 +26,10 @@ import { PanelGrid } from "@/pages/control/paneles";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function isCurrentDay(date: string) {
+  return date === todayStr();
 }
 
 type AuditCapture = {
@@ -50,6 +54,7 @@ type UnitGroup = {
   unit_number: number;
   date: string;
   week_number: number;
+  zone_id: number | null;
   panel_id: number | null;
   skill_number: string | null;
   captures: AuditCapture[];
@@ -472,6 +477,7 @@ function AgregarDefectosDialog({
 ────────────────────────────────────────────── */
 export default function AnalisisZonasAuditadas() {
   const [filterDate, setFilterDate] = useState(todayStr());
+  const [filterZoneId, setFilterZoneId] = useState<string>("all");
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [gridDialog, setGridDialog] = useState<UnitGroup | null>(null);
   const [skillDialog, setSkillDialog] = useState<UnitGroup | null>(null);
@@ -484,7 +490,10 @@ export default function AnalisisZonasAuditadas() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const params = filterDate ? { date: filterDate } : undefined;
+  const params = {
+    ...(filterDate ? { date: filterDate } : {}),
+    ...(filterZoneId !== "all" ? { zone_id: Number(filterZoneId) } : {}),
+  };
   const { data: captures, isLoading } = useListAuditCaptures(params);
   const { data: historicalCaptures } = useListAuditCaptures({});
   const { data: panels } = useListPanels();
@@ -524,12 +533,13 @@ export default function AnalisisZonasAuditadas() {
     if (!captures) return [];
     const map = new Map<string, UnitGroup>();
     for (const c of captures as AuditCapture[]) {
-      const key = `${c.unit_number}__${c.date}`;
+       const key = `${c.zone_id ?? "none"}__${c.unit_number}__${c.date}`;
       if (!map.has(key)) {
         map.set(key, {
           unit_number: c.unit_number,
           date: c.date,
           week_number: c.week_number,
+           zone_id: c.zone_id ?? null,
           panel_id: c.panel_id ?? null,
           skill_number: c.skill_number ?? null,
           captures: [],
@@ -537,7 +547,9 @@ export default function AnalisisZonasAuditadas() {
       }
       map.get(key)!.captures.push(c);
     }
-    return Array.from(map.values()).sort((a, b) => a.unit_number - b.unit_number);
+    return Array.from(map.values()).sort((a, b) =>
+      (a.date !== b.date ? a.date.localeCompare(b.date) : a.unit_number - b.unit_number)
+    );
   }, [captures]);
 
   const toggleUnit = (key: string) => {
@@ -582,6 +594,7 @@ export default function AnalisisZonasAuditadas() {
 
     const sorted = [...all].sort((a, b) => {
       if (a.date !== b.date) return a.date.localeCompare(b.date);
+      if ((a.zone_id ?? 0) !== (b.zone_id ?? 0)) return (a.zone_id ?? 0) - (b.zone_id ?? 0);
       if (a.unit_number !== b.unit_number) return a.unit_number - b.unit_number;
       return a.id - b.id;
     });
@@ -643,7 +656,7 @@ export default function AnalisisZonasAuditadas() {
     if (!captures) return { total: 0, uniqueUnits: 0, dpuDia: 0, r1000: 0 };
     const dayCaptures = captures as AuditCapture[];
     const total = dayCaptures.reduce((sum, c) => sum + (c.quantity ?? 1), 0);
-    const uniqueUnits = new Set(dayCaptures.map((c) => c.unit_number)).size;
+      const uniqueUnits = new Set(dayCaptures.map((c) => `${c.zone_id ?? "none"}__${c.unit_number}`)).size;
     const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
     const r1000 = dpuDia * 1000;
     return { total, uniqueUnits, dpuDia, r1000 };
@@ -726,6 +739,20 @@ export default function AnalisisZonasAuditadas() {
                 onChange={(e) => setFilterDate(e.target.value)}
                 className="w-44"
               />
+              <label className="text-sm font-medium">Zona:</label>
+              <Select value={filterZoneId} onValueChange={setFilterZoneId}>
+                <SelectTrigger className="w-56">
+                  <SelectValue placeholder="Todas las zonas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las zonas</SelectItem>
+                  {zones?.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id.toString()}>
+                      {zone.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {filterDate && (
                 <Button variant="ghost" size="sm" onClick={() => setFilterDate("")}>
                   Mostrar todos
@@ -815,11 +842,13 @@ export default function AnalisisZonasAuditadas() {
             ) : (
               <div className="space-y-3">
                 {unitGroups.map((group) => {
-                  const key = `${group.unit_number}__${group.date}`;
+                  const key = `${group.zone_id ?? "none"}__${group.unit_number}__${group.date}`;
                   const isExpanded = expandedUnits.has(key);
+                  const editable = isCurrentDay(group.date);
                   const panel = getPanel(group.panel_id);
                   const side = panel ? getSide(panel.side_id) : null;
                   const visualZone = panel ? getVisualZone(panel.visual_zone_id) : null;
+                  const auditedZone = zones?.find((zone) => zone.id === group.zone_id);
 
                   return (
                     <div key={key} className="border rounded-lg bg-card overflow-hidden">
@@ -837,6 +866,7 @@ export default function AnalisisZonasAuditadas() {
                           <span className="font-bold text-base shrink-0">Unidad #{group.unit_number}</span>
                           <span className="text-sm text-muted-foreground shrink-0">{group.date}</span>
                           <span className="text-sm text-muted-foreground shrink-0">· Semana {group.week_number}</span>
+                           {auditedZone && <span className="text-sm font-medium text-foreground shrink-0">· {auditedZone.name}</span>}
                           {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
                           {side && <span className="text-sm text-muted-foreground shrink-0">· {side.name}</span>}
                           {visualZone && <span className="text-sm text-muted-foreground shrink-0">· {visualZone.name}</span>}
@@ -853,19 +883,25 @@ export default function AnalisisZonasAuditadas() {
                               <Badge variant="outline" className="text-muted-foreground">
                                 Sin Skill
                               </Badge>
-                              <button
+                              {editable && <button
                                 title="Asignar No. de Skill"
                                 onClick={() => handleOpenSkillDialog(group)}
                                 className="text-muted-foreground hover:text-foreground transition-colors"
                               >
                                 <Pencil className="h-3.5 w-3.5" />
-                              </button>
+                              </button>}
                             </div>
                           )}
 
                           <Badge variant="outline">{group.captures.length} defecto(s)</Badge>
+                          {!editable && (
+                            <Badge variant="secondary" className="gap-1 text-muted-foreground">
+                              <Lock className="h-3 w-3" />
+                              Solo lectura
+                            </Badge>
+                          )}
 
-                          {panel && (
+                          {panel && editable && (
                             <Button
                               variant="ghost"
                               size="icon"
@@ -901,7 +937,7 @@ export default function AnalisisZonasAuditadas() {
                               <Badge variant="secondary" className="shrink-0">
                                 Cant: {cap.quantity}
                               </Badge>
-                              <Button
+                              {editable && <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive shrink-0"
@@ -911,7 +947,7 @@ export default function AnalisisZonasAuditadas() {
                                 }}
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
+                              </Button>}
                             </div>
                           ))}
                         </div>

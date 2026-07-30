@@ -8,4 +8,8 @@
 
 export type GetAuditDailyCounterParams = {
 date: Date;
+/**
+ * Audited zone for the independent unit counter
+ */
+zone_id?: number;
 };

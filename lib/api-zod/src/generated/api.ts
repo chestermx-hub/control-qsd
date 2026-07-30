@@ -912,7 +912,8 @@ export const DeleteVisualZoneResponse = zod.void()
  */
 export const ListAuditCapturesQueryParams = zod.object({
   "date": zod.date().optional().describe('Filter by date (YYYY-MM-DD)'),
-  "panel_id": zod.coerce.number().optional()
+  "panel_id": zod.coerce.number().optional(),
+  "zone_id": zod.coerce.number().optional().describe('Filter by audited zone')
 })
 
 export const ListAuditCapturesResponseItem = zod.object({
@@ -980,7 +981,8 @@ export const CreateAuditCaptureResponse = zod.object({
  * @summary Get next unit number for a given date
  */
 export const GetAuditDailyCounterQueryParams = zod.object({
-  "date": zod.date()
+  "date": zod.date(),
+  "zone_id": zod.coerce.number().optional().describe('Audited zone for the independent unit counter')
 })
 
 export const GetAuditDailyCounterResponse = zod.object({

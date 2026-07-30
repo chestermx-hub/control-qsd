@@ -12,4 +12,8 @@ export type ListAuditCapturesParams = {
  */
 date?: Date;
 panel_id?: number;
+/**
+ * Filter by audited zone
+ */
+zone_id?: number;
 };

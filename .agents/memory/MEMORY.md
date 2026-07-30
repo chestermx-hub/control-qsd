@@ -2,3 +2,4 @@
 - [Draggable image sizing in dynamic containers](draggable-image-sizing.md) — never derive a draggable/positioned element's size from a sibling layout's mutable total (e.g. grid totalH); use its own natural/intrinsic size instead.
 - [Panel diagram uploads use Object Storage](panel-diagram-uploads.md) — diagrams use presigned GCS upload (not multer/disk); serve URL is /api/storage/objects/... stored in panel.diagram_url.
 - [audit_captures skill_number is nullable](audit-captures-schema.md) — skill_number column is nullable (no .notNull()); frontend and backend treat it as optional.
+- [Audit capture rules](audit-capture-rules.md) — unit numbering is scoped by date and audited zone; previous dates are immutable.

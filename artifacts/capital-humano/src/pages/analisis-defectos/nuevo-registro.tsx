@@ -61,7 +61,10 @@ export default function NuevoRegistro() {
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
 
-  const { data: dailyCounter } = useGetAuditDailyCounter({ date: date || todayStr() });
+  const { data: dailyCounter } = useGetAuditDailyCounter({
+    date: date || todayStr(),
+    zone_id: zoneId ?? undefined,
+  });
 
   const resolvedUnitNumber = isContinuing ? existingUnitNumber! : (dailyCounter?.next_unit_number ?? 1);
 
