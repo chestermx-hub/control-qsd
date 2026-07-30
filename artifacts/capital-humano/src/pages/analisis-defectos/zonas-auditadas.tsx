@@ -739,20 +739,6 @@ export default function AnalisisZonasAuditadas() {
                 onChange={(e) => setFilterDate(e.target.value)}
                 className="w-44"
               />
-              <label className="text-sm font-medium">Zona:</label>
-              <Select value={filterZoneId} onValueChange={setFilterZoneId}>
-                <SelectTrigger className="w-56">
-                  <SelectValue placeholder="Todas las zonas" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las zonas</SelectItem>
-                  {zones?.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id.toString()}>
-                      {zone.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               {filterDate && (
                 <Button variant="ghost" size="sm" onClick={() => setFilterDate("")}>
                   Mostrar todos
@@ -766,6 +752,39 @@ export default function AnalisisZonasAuditadas() {
                 <Download className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap border-t pt-3">
+              <span className="text-sm font-medium text-muted-foreground">Zonas:</span>
+              <button
+                type="button"
+                aria-pressed={filterZoneId === "all"}
+                onClick={() => setFilterZoneId("all")}
+              >
+                <Badge
+                  variant={filterZoneId === "all" ? "default" : "outline"}
+                  className="cursor-pointer px-3 py-1 transition-colors hover:bg-primary/10"
+                >
+                  Todas
+                </Badge>
+              </button>
+              {zones?.map((zone) => {
+                const selected = filterZoneId === zone.id.toString();
+                return (
+                  <button
+                    key={zone.id}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => setFilterZoneId(zone.id.toString())}
+                  >
+                    <Badge
+                      variant={selected ? "default" : "outline"}
+                      className="cursor-pointer px-3 py-1 transition-colors hover:bg-primary/10"
+                    >
+                      {zone.name}
+                    </Badge>
+                  </button>
+                );
+              })}
             </div>
 
             {isLoading ? (
