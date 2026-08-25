@@ -62,15 +62,6 @@ const navigation: NavSection[] = [
     items: [
       { href: "/limpiezas-icmx", label: "Checklist de limpieza", icon: Sparkles, permission: "limpiezas_icmx" },
     ],
-    subSection: {
-      key: "control-limpiezas",
-      title: "Panel de Control",
-      items: [
-        { href: "/control/limpiezas-clientes", label: "Clientes", icon: Users, permission: "limpiezas_icmx" },
-        { href: "/control/limpiezas-areas", label: "Áreas", icon: Building2, permission: "limpiezas_icmx" },
-        { href: "/control/limpiezas-tipos", label: "Tipos de limpieza", icon: ClipboardCheck, permission: "limpiezas_icmx" },
-      ],
-    },
   },
   {
     key: "analisis",
@@ -92,6 +83,9 @@ const navigation: NavSection[] = [
     key: "panel-control",
     title: "Panel de Control",
     items: [
+      { href: "/control/limpiezas-clientes", label: "Clientes", icon: Users, permission: "limpiezas_icmx" },
+      { href: "/control/limpiezas-areas", label: "Áreas", icon: Building2, permission: "limpiezas_icmx" },
+      { href: "/control/limpiezas-tipos", label: "Tipos de limpieza", icon: ClipboardCheck, permission: "limpiezas_icmx" },
       { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck, permission: "perfiles" },
       { href: "/control/usuarios", label: "Usuarios", icon: Users, permission: "usuarios" },
       { href: "/control/udns", label: "UDN", icon: Building2, permission: "udns" },
