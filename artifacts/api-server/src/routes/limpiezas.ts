@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { and, asc, eq } from "drizzle-orm";
-import { db, udnsTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable } from "@workspace/db";
+import { db, udnsTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
 import type { Request, Response } from "express";
 
 const router = Router();
@@ -89,8 +89,11 @@ async function executionJson(id: number) {
   if (!execution) return null;
   const [client] = await db.select().from(cleaningClientsTable).where(eq(cleaningClientsTable.id, execution.clientId));
   const [type] = await db.select().from(cleaningTypesTable).where(eq(cleaningTypesTable.id, execution.cleaningTypeId));
-  const activities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, id)).orderBy(asc(cleaningExecutionActivitiesTable.sortOrder));
-  return { ...json(execution), client: client ? json(client) : null, cleaning_type: type ? json(type) : null, activities: activities.map(json) };
+  const [activities, areas] = await Promise.all([
+    db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, id)).orderBy(asc(cleaningExecutionActivitiesTable.sortOrder)),
+    db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, id)).orderBy(asc(cleaningExecutionAreasTable.sortOrder)),
+  ]);
+  return { ...json(execution), client: client ? json(client) : null, cleaning_type: type ? json(type) : null, areas: areas.map(json), activities: activities.map(json) };
 }
 router.get("/limpiezas/ejecuciones", async (_req, res) => { const rows = await db.select().from(cleaningExecutionsTable).orderBy(asc(cleaningExecutionsTable.executionDate)); res.json(await Promise.all(rows.map((r) => executionJson(r.id)))); });
 router.post("/limpiezas/ejecuciones", async (req, res) => {
@@ -101,20 +104,34 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   if (!activities.length) { res.status(400).json({ error: "El flujo no tiene actividades" }); return; }
   const [execution] = await db.insert(cleaningExecutionsTable).values({ clientId: Number(client_id), cleaningTypeId: type.id, executionDate: execution_date || new Date().toISOString().slice(0, 10) }).returning();
   for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, areaName: activity.areaName, sortOrder: activity.sortOrder });
+  const areaNames = Array.from(new Set(activities.map((activity) => activity.areaName || "Área general")));
+  for (const [index, areaName] of areaNames.entries()) await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: index });
   res.status(201).json(await executionJson(execution.id));
 });
 router.get("/limpiezas/ejecuciones/:id", async (req, res) => { const data = await executionJson(Number(req.params.id)); if (!data) { res.status(404).json({ error: "Ejecución no encontrada" }); return; } res.json(data); });
 router.delete("/limpiezas/ejecuciones/:id", async (req, res) => { await db.delete(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, Number(req.params.id))); res.status(204).send(); });
+router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
+  const executionId = Number(req.params.id); const areaId = Number(req.params.areaId);
+  const [current] = await db.select().from(cleaningExecutionAreasTable).where(and(eq(cleaningExecutionAreasTable.id, areaId), eq(cleaningExecutionAreasTable.executionId, executionId)));
+  if (!current) { res.status(404).json({ error: "Área de ejecución no encontrada" }); return; }
+  const initialPhoto = req.body.initial_photo ?? current.initialPhoto;
+  const finalPhoto = req.body.final_photo ?? current.finalPhoto;
+  const ready = req.body.ready ?? current.ready;
+  if (ready && (!initialPhoto || !finalPhoto)) { res.status(400).json({ error: "El área requiere foto inicial y final antes de marcarla como lista" }); return; }
+  const [updated] = await db.update(cleaningExecutionAreasTable).set({ initialPhoto, finalPhoto, ready }).where(eq(cleaningExecutionAreasTable.id, areaId)).returning();
+  res.json(json(updated));
+});
 router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, res) => {
   const executionId = Number(req.params.id); const activityId = Number(req.params.activityId);
-  const { initial_photo, final_photo, completed } = req.body;
+  const { initial_photo, final_photo, completed, not_applicable } = req.body;
   const [current] = await db.select().from(cleaningExecutionActivitiesTable).where(and(eq(cleaningExecutionActivitiesTable.id, activityId), eq(cleaningExecutionActivitiesTable.executionId, executionId)));
   if (!current) { res.status(404).json({ error: "Actividad no encontrada" }); return; }
-  const nextInitial = initial_photo ?? current.initialPhoto; const nextFinal = final_photo ?? current.finalPhoto; const nextCompleted = completed ?? current.completed;
-  if (nextCompleted && (!nextInitial || !nextFinal)) { res.status(400).json({ error: "Cada actividad requiere foto inicial y final" }); return; }
-  const [updated] = await db.update(cleaningExecutionActivitiesTable).set({ initialPhoto: nextInitial, finalPhoto: nextFinal, completed: nextCompleted, completedAt: nextCompleted ? new Date() : null }).where(eq(cleaningExecutionActivitiesTable.id, activityId)).returning();
+  const nextInitial = initial_photo ?? current.initialPhoto; const nextFinal = final_photo ?? current.finalPhoto; const nextCompleted = completed ?? current.completed; const nextNotApplicable = not_applicable ?? current.notApplicable;
+  if (nextCompleted && nextNotApplicable) { res.status(400).json({ error: "Una actividad no puede estar completada y marcada como no aplica" }); return; }
+  const [updated] = await db.update(cleaningExecutionActivitiesTable).set({ initialPhoto: nextInitial, finalPhoto: nextFinal, completed: nextCompleted, notApplicable: nextNotApplicable, completedAt: nextCompleted ? new Date() : null }).where(eq(cleaningExecutionActivitiesTable.id, activityId)).returning();
   const all = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId));
-  if (all.length && all.every((a) => a.completed && a.initialPhoto && a.finalPhoto)) await db.update(cleaningExecutionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(cleaningExecutionsTable.id, executionId));
+  const areas = await db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId));
+  if (all.length && all.every((a) => (a.completed || a.notApplicable)) && areas.every((area) => area.ready)) await db.update(cleaningExecutionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(cleaningExecutionsTable.id, executionId));
   res.json(json(updated));
 });
 

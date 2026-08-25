@@ -61,5 +61,16 @@ export const cleaningExecutionActivitiesTable = pgTable("cleaning_execution_acti
   initialPhoto: text("initial_photo"),
   finalPhoto: text("final_photo"),
   completed: boolean("completed").notNull().default(false),
+  notApplicable: boolean("not_applicable").notNull().default(false),
   completedAt: timestamp("completed_at"),
+});
+
+export const cleaningExecutionAreasTable = pgTable("cleaning_execution_areas", {
+  id: serial("id").primaryKey(),
+  executionId: integer("execution_id").notNull().references(() => cleaningExecutionsTable.id, { onDelete: "cascade" }),
+  areaName: text("area_name").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  initialPhoto: text("initial_photo"),
+  finalPhoto: text("final_photo"),
+  ready: boolean("ready").notNull().default(false),
 });
