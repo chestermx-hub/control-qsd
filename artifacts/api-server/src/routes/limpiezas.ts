@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { and, asc, eq } from "drizzle-orm";
-import { db, udnsTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
+import { db, udnsTable, usersTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
 import type { Request, Response } from "express";
 
 const router = Router();
@@ -133,7 +133,13 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   res.status(201).json(await executionJson(execution.id));
 });
 router.get("/limpiezas/ejecuciones/:id", async (req, res) => { const data = await executionJson(Number(req.params.id)); if (!data) { res.status(404).json({ error: "Ejecución no encontrada" }); return; } res.json(data); });
-router.delete("/limpiezas/ejecuciones/:id", async (req, res) => { await db.delete(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, Number(req.params.id))); res.status(204).send(); });
+router.delete("/limpiezas/ejecuciones/:id", async (req, res) => {
+  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
+  if (!userId) { res.status(401).json({ error: "No autenticado" }); return; }
+  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId));
+  if (!user || (user.role !== "admin" && user.role !== "superadmin")) { res.status(403).json({ error: "Sólo un administrador puede eliminar reportes" }); return; }
+  await db.delete(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, Number(req.params.id))); res.status(204).send();
+});
 router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
   const executionId = Number(req.params.id); const areaId = Number(req.params.areaId);
   const [current] = await db.select().from(cleaningExecutionAreasTable).where(and(eq(cleaningExecutionAreasTable.id, areaId), eq(cleaningExecutionAreasTable.executionId, executionId)));
