@@ -6,6 +6,9 @@ export const cleaningClientsTable = pgTable("cleaning_clients", {
   name: text("name").notNull(),
   plantNumber: text("plant_number").notNull(),
   periodicity: text("periodicity").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
   udnId: integer("udn_id").references(() => udnsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -16,6 +19,7 @@ export const cleaningAreasTable = pgTable("cleaning_areas", {
   name: text("name").notNull(),
   description: text("description"),
   areaType: text("area_type").notNull().default("normal"),
+  clientId: integer("client_id").references(() => cleaningClientsTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -52,6 +56,10 @@ export const cleaningExecutionsTable = pgTable("cleaning_executions", {
   status: text("status").notNull().default("in_progress"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
+  signature: text("signature"),
+  signatureUserName: text("signature_user_name"),
+  signedAt: timestamp("signed_at"),
+  checklistPhotos: text("checklist_photos").array(),
 });
 
 export const cleaningExecutionActivitiesTable = pgTable("cleaning_execution_activities", {
@@ -76,4 +84,5 @@ export const cleaningExecutionAreasTable = pgTable("cleaning_execution_areas", {
   initialPhoto: text("initial_photo"),
   finalPhoto: text("final_photo"),
   ready: boolean("ready").notNull().default(false),
+  excluded: boolean("excluded").notNull().default(false),
 });

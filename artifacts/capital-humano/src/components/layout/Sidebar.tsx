@@ -60,7 +60,7 @@ const navigation: NavSection[] = [
     key: "limpiezas",
     title: "Limpiezas ICMX",
     items: [
-      { href: "/limpiezas-icmx", label: "Checklist de limpieza", icon: Sparkles, permission: "limpiezas_icmx" },
+      { href: "/limpiezas-icmx", label: "Reporte de limpieza", icon: Sparkles, permission: "limpiezas_icmx" },
     ],
   },
   {

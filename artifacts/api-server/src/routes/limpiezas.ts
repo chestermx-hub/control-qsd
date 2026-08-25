@@ -4,7 +4,7 @@ import { db, udnsTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaAc
 import type { Request, Response } from "express";
 
 const router = Router();
-const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, periodicity: row.periodicity, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
+const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
 async function areaWithActivities(id: number) {
   const [area] = await db.select().from(cleaningAreasTable).where(eq(cleaningAreasTable.id, id));
@@ -32,13 +32,13 @@ router.get("/limpiezas/catalogs", async (_req, res) => {
 
 router.get("/limpiezas/clientes", async (_req, res) => res.json((await db.select().from(cleaningClientsTable).orderBy(asc(cleaningClientsTable.name))).map(json)));
 router.post("/limpiezas/clientes", async (req, res) => {
-  const { name, plant_number, periodicity, udn_id } = req.body;
-  const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, periodicity, udnId: udn_id || null }).returning();
+  const { name, plant_number, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
+  const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).returning();
   res.status(201).json(json(row));
 });
 router.patch("/limpiezas/clientes/:id", async (req, res) => {
-  const id = Number(req.params.id); const { name, plant_number, periodicity, udn_id } = req.body;
-  const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, periodicity, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
+  const id = Number(req.params.id); const { name, plant_number, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
+  const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
   if (!row) { res.status(404).json({ error: "Cliente no encontrado" }); return; } res.json(json(row)); return;
 });
 router.delete("/limpiezas/clientes/:id", async (req, res) => {
@@ -48,9 +48,9 @@ router.delete("/limpiezas/clientes/:id", async (req, res) => {
 
 router.get("/limpiezas/areas", async (_req, res) => { const rows = await db.select().from(cleaningAreasTable).orderBy(asc(cleaningAreasTable.name)); res.json(await Promise.all(rows.map((a) => areaWithActivities(a.id)))); });
 router.post("/limpiezas/areas", async (req, res) => {
-  const { name, description, area_type, activities = [] } = req.body;
+  const { name, description, area_type, client_id, activities = [] } = req.body;
   const code = `ICMX-${Date.now().toString().slice(-6)}`;
-  const [area] = await db.insert(cleaningAreasTable).values({ code, name, description, areaType: area_type || "normal" }).returning();
+  const [area] = await db.insert(cleaningAreasTable).values({ code, name, description, areaType: area_type || "normal", clientId: client_id ? Number(client_id) : null }).returning();
   for (const [index, activity] of activities.entries()) {
     const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
     await db.insert(cleaningAreaActivitiesTable).values({ areaId: area.id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
@@ -58,8 +58,8 @@ router.post("/limpiezas/areas", async (req, res) => {
   res.status(201).json(await areaWithActivities(area.id));
 });
 router.patch("/limpiezas/areas/:id", async (req, res) => {
-  const id = Number(req.params.id); const { name, description, area_type, activities = [] } = req.body;
-  const [area] = await db.update(cleaningAreasTable).set({ name, description, areaType: area_type }).where(eq(cleaningAreasTable.id, id)).returning();
+  const id = Number(req.params.id); const { name, description, area_type, client_id, activities = [] } = req.body;
+  const [area] = await db.update(cleaningAreasTable).set({ name, description, areaType: area_type, clientId: client_id ? Number(client_id) : null }).where(eq(cleaningAreasTable.id, id)).returning();
   if (!area) { res.status(404).json({ error: "Área no encontrada" }); return; }
   await db.delete(cleaningAreaActivitiesTable).where(eq(cleaningAreaActivitiesTable.areaId, id));
   for (const [index, activity] of activities.entries()) {
@@ -113,7 +113,9 @@ async function maybeCompleteExecution(executionId: number) {
     db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId)),
     db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId)),
   ]);
-  if (activities.length && activities.every((activity) => activity.completed || activity.notApplicable) && areas.length && areas.every((area) => area.ready)) {
+  const activeAreaNames = new Set(areas.filter((area) => !area.excluded).map((area) => area.areaName));
+  const relevantActivities = activities.filter((activity) => !activity.areaName || activeAreaNames.has(activity.areaName));
+  if (relevantActivities.every((activity) => activity.completed || activity.notApplicable) && areas.every((area) => area.excluded || area.ready)) {
     await db.update(cleaningExecutionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(cleaningExecutionsTable.id, executionId));
   }
 }
@@ -139,8 +141,14 @@ router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
   const initialPhoto = req.body.initial_photo ?? current.initialPhoto;
   const finalPhoto = req.body.final_photo ?? current.finalPhoto;
   const ready = req.body.ready ?? current.ready;
-  if (ready && (!initialPhoto || !finalPhoto)) { res.status(400).json({ error: "El área requiere foto inicial y final antes de marcarla como lista" }); return; }
-  const [updated] = await db.update(cleaningExecutionAreasTable).set({ initialPhoto, finalPhoto, ready }).where(eq(cleaningExecutionAreasTable.id, areaId)).returning();
+  const excluded = req.body.excluded ?? current.excluded;
+  if (!excluded && ready && (!initialPhoto || !finalPhoto)) { res.status(400).json({ error: "El área requiere foto inicial y final antes de marcarla como lista" }); return; }
+  if (!excluded && req.body.final_photo && !current.excluded) {
+    const activities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId));
+    const areaActivities = activities.filter((activity) => (activity.areaName || "Área general") === current.areaName);
+    if (areaActivities.some((activity) => !activity.completed && !activity.notApplicable)) { res.status(400).json({ error: "La foto final se habilita después de completar las actividades del área" }); return; }
+  }
+  const [updated] = await db.update(cleaningExecutionAreasTable).set({ initialPhoto, finalPhoto, ready: excluded ? false : ready, excluded }).where(eq(cleaningExecutionAreasTable.id, areaId)).returning();
   await maybeCompleteExecution(executionId);
   res.json(json(updated));
 });

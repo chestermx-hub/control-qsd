@@ -137,11 +137,9 @@ test("flujo completo de Limpiezas ICMX", async () => {
     method: "PATCH",
     body: JSON.stringify({
       initial_photo: "storage://test/initial-a.jpg",
-      final_photo: "storage://test/final-a.jpg",
-      ready: true,
     }),
   });
-  assert.equal(readyAreaA.ready, true);
+  assert.equal(readyAreaA.ready, false);
 
   const secondActivity = created.execution.activities[1];
   const thirdActivity = created.execution.activities[2];
@@ -156,6 +154,14 @@ test("flujo completo de Limpiezas ICMX", async () => {
 
   const stillInProgress = await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}`, 200);
   assert.equal(stillInProgress.status, "in_progress");
+
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/areas/${executionAreas[0].id}`, 200, {
+    method: "PATCH",
+    body: JSON.stringify({
+      final_photo: "storage://test/final-a.jpg",
+      ready: true,
+    }),
+  });
 
   await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/areas/${executionAreas[1].id}`, 200, {
     method: "PATCH",
