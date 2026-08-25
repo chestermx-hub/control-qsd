@@ -8,3 +8,4 @@ export * from "./sides";
 export * from "./visualZones";
 export * from "./alphanumeric";
 export * from "./auditCaptures";
+export * from "./limpiezas";

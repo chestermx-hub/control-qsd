@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const moduleRoutes: { permission: string; route: string }[] = [
           { permission: "analisis_defectos", route: "/analisis-defectos/dashboard" },
           { permission: "checklist_operacion", route: "/checklist-operacion" },
+          { permission: "limpiezas_icmx", route: "/limpiezas-icmx" },
           { permission: "perfiles", route: "/control/perfiles" },
           { permission: "usuarios", route: "/control/usuarios" },
           { permission: "udns", route: "/control/udns" },

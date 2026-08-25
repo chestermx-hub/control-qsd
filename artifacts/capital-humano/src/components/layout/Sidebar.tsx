@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronRight,
   X,
+  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -55,6 +56,22 @@ const controlModuloZA: { key: string; title: string; items: NavItem[] } = {
 };
 
 const navigation: NavSection[] = [
+  {
+    key: "limpiezas",
+    title: "Limpiezas ICMX",
+    items: [
+      { href: "/limpiezas-icmx", label: "Checklist de limpieza", icon: Sparkles, permission: "limpiezas_icmx" },
+    ],
+    subSection: {
+      key: "control-limpiezas",
+      title: "Panel de Control",
+      items: [
+        { href: "/control/limpiezas-clientes", label: "Clientes", icon: Users, permission: "limpiezas_icmx" },
+        { href: "/control/limpiezas-areas", label: "Áreas", icon: Building2, permission: "limpiezas_icmx" },
+        { href: "/control/limpiezas-tipos", label: "Tipos de limpieza", icon: ClipboardCheck, permission: "limpiezas_icmx" },
+      ],
+    },
+  },
   {
     key: "analisis",
     title: "Análisis de Defectos",
@@ -100,6 +117,9 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
     const initial: Record<string, boolean> = {};
     navigation.forEach((section) => {
       initial[section.key] = allHrefs(section).includes(location);
+      if (section.subSection) {
+        initial[section.subSection.key] = section.subSection.items.some((i) => i.href === location);
+      }
     });
     initial["control-modulo"] = controlModuloZA.items.some((i) => i.href === location);
     return initial;
@@ -155,7 +175,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           if (!hasVisible) return null;
 
           const isOpen = openSections[section.key] ?? false;
-          const subOpen = openSections["control-modulo"] ?? false;
+           const subOpen = section.subSection ? (openSections[section.subSection.key] ?? false) : false;
 
           return (
             <div key={section.key} className="mb-1 px-3">
@@ -196,7 +216,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
                   {filteredSubItems.length > 0 && section.subSection && (
                     <div className="mt-1 pl-2 border-l border-sidebar-border/50">
                       <button
-                        onClick={() => toggle("control-modulo")}
+                         onClick={() => toggle(section.subSection!.key)}
                         className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-sidebar-foreground/40 uppercase tracking-wider hover:text-sidebar-foreground/60 transition-colors"
                       >
                         <span>{section.subSection.title}</span>

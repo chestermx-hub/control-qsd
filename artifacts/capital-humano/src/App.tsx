@@ -24,6 +24,7 @@ import NuevoRegistro from "@/pages/analisis-defectos/nuevo-registro";
 
 // Operation Module Pages
 import ChecklistOperacion from "@/pages/checklist-operacion";
+import Limpiezas from "@/pages/control/limpiezas";
 
 import PanelFormPage from "@/pages/control/panel-form";
 
@@ -72,6 +73,10 @@ function AppRouter() {
 
       {/* Operacion */}
       <Route path="/checklist-operacion" component={() => <ProtectedRoute component={ChecklistOperacion} permission="checklist_operacion" />} />
+      <Route path="/limpiezas-icmx" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" />} />
+      <Route path="/control/limpiezas-clientes" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" mode="config" />} />
+      <Route path="/control/limpiezas-areas" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" mode="config" />} />
+      <Route path="/control/limpiezas-tipos" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" mode="config" />} />
 
       {/* Fallback */}
       <Route component={NotFound} />

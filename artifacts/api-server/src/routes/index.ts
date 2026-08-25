@@ -14,6 +14,7 @@ import auditCapturesRouter from "./auditCaptures";
 import dashboardRouter from "./dashboard";
 import uploadRouter from "./upload";
 import storageRouter from "./storage";
+import limpiezasRouter from "./limpiezas";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(auditCapturesRouter);
 router.use(dashboardRouter);
 router.use(uploadRouter);
 router.use(storageRouter);
+router.use(limpiezasRouter);
 
 export default router;
