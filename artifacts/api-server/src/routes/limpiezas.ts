@@ -4,13 +4,13 @@ import { db, udnsTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaAc
 import type { Request, Response } from "express";
 
 const router = Router();
-const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, periodicity: row.periodicity, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
+const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, periodicity: row.periodicity, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
 async function areaWithActivities(id: number) {
   const [area] = await db.select().from(cleaningAreasTable).where(eq(cleaningAreasTable.id, id));
   if (!area) return null;
   const activities = await db.select().from(cleaningAreaActivitiesTable).where(eq(cleaningAreaActivitiesTable.areaId, id)).orderBy(asc(cleaningAreaActivitiesTable.sortOrder));
-  return { ...json(area), activities: activities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder })) };
+  return { ...json(area), activities: activities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto })) };
 }
 
 async function typeWithActivities(id: number) {
@@ -51,7 +51,10 @@ router.post("/limpiezas/areas", async (req, res) => {
   const { name, description, area_type, activities = [] } = req.body;
   const code = `ICMX-${Date.now().toString().slice(-6)}`;
   const [area] = await db.insert(cleaningAreasTable).values({ code, name, description, areaType: area_type || "normal" }).returning();
-  for (const [index, activity] of activities.entries()) await db.insert(cleaningAreaActivitiesTable).values({ areaId: area.id, description: String(activity), sortOrder: index });
+  for (const [index, activity] of activities.entries()) {
+    const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
+    await db.insert(cleaningAreaActivitiesTable).values({ areaId: area.id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+  }
   res.status(201).json(await areaWithActivities(area.id));
 });
 router.patch("/limpiezas/areas/:id", async (req, res) => {
@@ -59,7 +62,10 @@ router.patch("/limpiezas/areas/:id", async (req, res) => {
   const [area] = await db.update(cleaningAreasTable).set({ name, description, areaType: area_type }).where(eq(cleaningAreasTable.id, id)).returning();
   if (!area) { res.status(404).json({ error: "Área no encontrada" }); return; }
   await db.delete(cleaningAreaActivitiesTable).where(eq(cleaningAreaActivitiesTable.areaId, id));
-  for (const [index, activity] of activities.entries()) await db.insert(cleaningAreaActivitiesTable).values({ areaId: id, description: String(activity), sortOrder: index });
+  for (const [index, activity] of activities.entries()) {
+    const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
+    await db.insert(cleaningAreaActivitiesTable).values({ areaId: id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+  }
   res.json(await areaWithActivities(id));
 });
 router.delete("/limpiezas/areas/:id", async (req, res) => { await db.delete(cleaningAreasTable).where(eq(cleaningAreasTable.id, Number(req.params.id))); res.status(204).send(); });
@@ -68,7 +74,10 @@ router.get("/limpiezas/tipos", async (_req, res) => { const rows = await db.sele
 router.post("/limpiezas/tipos", async (req, res) => {
   const { client_id, name, description, activities = [] } = req.body;
   const [type] = await db.insert(cleaningTypesTable).values({ clientId: Number(client_id), name, description }).returning();
-  for (const [index, activity] of activities.entries()) await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: type.id, description: String(activity.description || activity), areaName: activity.area_name || null, sortOrder: index });
+  for (const [index, activity] of activities.entries()) {
+    const value = typeof activity === "string" ? { description: activity } : activity;
+    await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: type.id, description: String(value.description || value), areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+  }
   res.status(201).json(await typeWithActivities(type.id));
 });
 router.patch("/limpiezas/tipos/:id", async (req, res) => {
@@ -76,7 +85,10 @@ router.patch("/limpiezas/tipos/:id", async (req, res) => {
   const [type] = await db.update(cleaningTypesTable).set({ clientId: Number(client_id), name, description }).where(eq(cleaningTypesTable.id, id)).returning();
   if (!type) { res.status(404).json({ error: "Tipo no encontrado" }); return; }
   await db.delete(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, id));
-  for (const [index, activity] of activities.entries()) await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: id, description: String(activity.description || activity), areaName: activity.area_name || null, sortOrder: index });
+  for (const [index, activity] of activities.entries()) {
+    const value = typeof activity === "string" ? { description: activity } : activity;
+    await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: id, description: String(value.description || value), areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+  }
   res.json(await typeWithActivities(id));
 });
 router.delete("/limpiezas/tipos/:id", async (req, res) => {
@@ -113,7 +125,7 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   const activities = await db.select().from(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, type.id)).orderBy(asc(cleaningTypeActivitiesTable.sortOrder));
   if (!activities.length) { res.status(400).json({ error: "El flujo no tiene actividades" }); return; }
   const [execution] = await db.insert(cleaningExecutionsTable).values({ clientId: Number(client_id), cleaningTypeId: type.id, executionDate: execution_date || new Date().toISOString().slice(0, 10) }).returning();
-  for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, areaName: activity.areaName, sortOrder: activity.sortOrder });
+  for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, areaName: activity.areaName, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto });
   const areaNames = Array.from(new Set(activities.map((activity) => activity.areaName || "Área general")));
   for (const [index, areaName] of areaNames.entries()) await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: index });
   res.status(201).json(await executionJson(execution.id));
@@ -139,6 +151,7 @@ router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, r
   if (!current) { res.status(404).json({ error: "Actividad no encontrada" }); return; }
   const nextInitial = initial_photo ?? current.initialPhoto; const nextFinal = final_photo ?? current.finalPhoto; const nextCompleted = completed ?? current.completed; const nextNotApplicable = not_applicable ?? current.notApplicable;
   if (nextCompleted && nextNotApplicable) { res.status(400).json({ error: "Una actividad no puede estar completada y marcada como no aplica" }); return; }
+  if (nextCompleted && current.requiresPhoto && !nextInitial && !nextFinal) { res.status(400).json({ error: "Esta actividad requiere una foto antes de completarse" }); return; }
   const [updated] = await db.update(cleaningExecutionActivitiesTable).set({ initialPhoto: nextInitial, finalPhoto: nextFinal, completed: nextCompleted, notApplicable: nextNotApplicable, completedAt: nextCompleted ? new Date() : null }).where(eq(cleaningExecutionActivitiesTable.id, activityId)).returning();
   await maybeCompleteExecution(executionId);
   res.json(json(updated));

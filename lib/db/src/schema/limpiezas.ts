@@ -24,6 +24,7 @@ export const cleaningAreaActivitiesTable = pgTable("cleaning_area_activities", {
   areaId: integer("area_id").notNull().references(() => cleaningAreasTable.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
+  requiresPhoto: boolean("requires_photo").notNull().default(false),
 });
 
 export const cleaningTypesTable = pgTable("cleaning_types", {
@@ -40,6 +41,7 @@ export const cleaningTypeActivitiesTable = pgTable("cleaning_type_activities", {
   description: text("description").notNull(),
   areaName: text("area_name"),
   sortOrder: integer("sort_order").notNull().default(0),
+  requiresPhoto: boolean("requires_photo").notNull().default(false),
 });
 
 export const cleaningExecutionsTable = pgTable("cleaning_executions", {
@@ -60,6 +62,7 @@ export const cleaningExecutionActivitiesTable = pgTable("cleaning_execution_acti
   sortOrder: integer("sort_order").notNull().default(0),
   initialPhoto: text("initial_photo"),
   finalPhoto: text("final_photo"),
+  requiresPhoto: boolean("requires_photo").notNull().default(false),
   completed: boolean("completed").notNull().default(false),
   notApplicable: boolean("not_applicable").notNull().default(false),
   completedAt: timestamp("completed_at"),

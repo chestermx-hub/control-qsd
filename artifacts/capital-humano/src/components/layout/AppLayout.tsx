@@ -23,7 +23,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="font-semibold text-sm">Queretaro Servicio Decapado</span>
+          <span className="truncate font-semibold text-sm">Queretaro Servicio Decapado</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
