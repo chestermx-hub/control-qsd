@@ -159,7 +159,7 @@ router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, r
   if (!current) { res.status(404).json({ error: "Actividad no encontrada" }); return; }
   const nextInitial = initial_photo ?? current.initialPhoto; const nextFinal = final_photo ?? current.finalPhoto; const nextCompleted = completed ?? current.completed; const nextNotApplicable = not_applicable ?? current.notApplicable;
   if (nextCompleted && nextNotApplicable) { res.status(400).json({ error: "Una actividad no puede estar completada y marcada como no aplica" }); return; }
-  if (nextCompleted && current.requiresPhoto && !nextInitial && !nextFinal) { res.status(400).json({ error: "Esta actividad requiere una foto antes de completarse" }); return; }
+   if (nextCompleted && current.requiresPhoto && (!nextInitial || !nextFinal)) { res.status(400).json({ error: "Esta actividad requiere foto inicial y foto final antes de completarse" }); return; }
   const [updated] = await db.update(cleaningExecutionActivitiesTable).set({ initialPhoto: nextInitial, finalPhoto: nextFinal, completed: nextCompleted, notApplicable: nextNotApplicable, completedAt: nextCompleted ? new Date() : null }).where(eq(cleaningExecutionActivitiesTable.id, activityId)).returning();
   await maybeCompleteExecution(executionId);
   res.json(json(updated));

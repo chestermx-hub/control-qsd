@@ -126,7 +126,7 @@ test("flujo completo de Limpiezas ICMX", async () => {
   });
   await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 200, {
     method: "PATCH",
-    body: JSON.stringify({ initial_photo: "storage://test/activity.jpg", completed: true }),
+    body: JSON.stringify({ initial_photo: "storage://test/activity-initial.jpg", final_photo: "storage://test/activity-final.jpg", completed: true }),
   });
   await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 400, {
     method: "PATCH",
