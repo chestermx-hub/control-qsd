@@ -85,13 +85,14 @@ test("flujo completo de Limpiezas ICMX", async () => {
       name: `Flujo prueba ${suffix}`,
       description: "Flujo de integración",
       activities: [
-        { description: "Barrer", area_name: areaA.name },
+        { description: "Barrer", area_name: areaA.name, requires_photo: true },
         { description: "Desinfectar", area_name: areaA.name },
         { description: "Lavar", area_name: areaB.name },
       ],
     }),
   });
   assert.equal(created.type.activities.length, 3);
+  assert.equal(created.type.activities[0].requires_photo, true);
 
   const catalogs = await expectStatus("/limpiezas/catalogs", 200);
   assert.ok(catalogs.clients.some((client) => client.id === created.client.id));
@@ -119,9 +120,13 @@ test("flujo completo de Limpiezas ICMX", async () => {
   });
 
   const firstActivity = created.execution.activities[0];
-  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 200, {
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 400, {
     method: "PATCH",
     body: JSON.stringify({ completed: true }),
+  });
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 200, {
+    method: "PATCH",
+    body: JSON.stringify({ initial_photo: "storage://test/activity.jpg", completed: true }),
   });
   await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 400, {
     method: "PATCH",
