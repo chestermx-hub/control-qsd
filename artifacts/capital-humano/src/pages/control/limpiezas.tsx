@@ -36,6 +36,13 @@ function useCatalogs() {
 function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "client" | "area" | "flow"; initial?: any; catalogs: Catalogs; onSaved: () => void; onClose: () => void }) {
   const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
   const [activity, setActivity] = useState("");
+  const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>(() => {
+    if (kind !== "flow") return [];
+    return Array.from(new Set((initial?.activities || []).map((item: FlowActivity) => {
+      const area = catalogs.areas.find((candidate) => candidate.name === item.area_name);
+      return area?.id;
+    }).filter(Boolean))) as number[];
+  });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
@@ -58,8 +65,44 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
       {kind === "flow" && <label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={v => update("client_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label>}
     </div>
     {kind !== "client" && <label className="space-y-1 block text-sm font-medium">Descripción<Textarea value={form.description || ""} onChange={e => update("description", e.target.value)} /></label>}
-    {kind !== "client" && <div className="space-y-2">
-      <div className="flex gap-2"><Input placeholder={kind === "area" ? "Nueva actividad del área" : "Actividad del flujo"} value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (activity.trim()) { update("activities", [...activities, kind === "flow" ? { description: activity.trim() } : activity.trim()]); setActivity(""); } } }} /><Button type="button" variant="outline" onClick={() => { if (activity.trim()) { update("activities", [...activities, kind === "flow" ? { description: activity.trim() } : activity.trim()]); setActivity(""); } }}><Plus className="h-4 w-4" /></Button></div>
+    {kind === "flow" ? <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div><p className="text-sm font-medium">Áreas del flujo</p><p className="text-xs text-muted-foreground">Cada área carga automáticamente sus actividades preestablecidas.</p></div>
+        <Select value="" onValueChange={(value) => {
+          const id = Number(value);
+          if (!selectedAreaIds.includes(id)) {
+            const nextIds = [...selectedAreaIds, id];
+            setSelectedAreaIds(nextIds);
+            update("activities", nextIds.flatMap((areaId) => {
+              const area = catalogs.areas.find((candidate) => candidate.id === areaId);
+              if (!area) return [];
+              return area.activities.map((item) => ({ description: item.description, area_name: area.name }));
+            }));
+          }
+        }}>
+          <SelectTrigger className="w-auto min-w-[110px]"><Plus className="mr-1 h-4 w-4" /><SelectValue placeholder="Agregar área" /></SelectTrigger>
+          <SelectContent>{catalogs.areas.filter((area) => !selectedAreaIds.includes(area.id)).map((area) => <SelectItem key={area.id} value={String(area.id)}>{area.name}</SelectItem>)}</SelectContent>
+        </Select>
+      </div>
+      {!selectedAreaIds.length && <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">Usa el botón + para agregar la primera área al flujo.</div>}
+      {selectedAreaIds.map((areaId, areaIndex) => {
+        const area = catalogs.areas.find((candidate) => candidate.id === areaId);
+        if (!area) return null;
+        return <div key={area.id} className="rounded-lg border bg-muted/20 overflow-hidden">
+          <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2"><div className="flex-1"><p className="font-medium">{area.name}</p><p className="text-xs text-muted-foreground">{area.code} · {area.activities.length} actividades</p></div><Button type="button" variant="ghost" size="sm" onClick={() => {
+            const nextIds = selectedAreaIds.filter((id) => id !== area.id);
+            setSelectedAreaIds(nextIds);
+            update("activities", nextIds.flatMap((id) => {
+              const nextArea = catalogs.areas.find((candidate) => candidate.id === id);
+              if (!nextArea) return [];
+              return nextArea.activities.map((item) => ({ description: item.description, area_name: nextArea.name }));
+            }));
+          }}><Trash2 className="mr-1 h-4 w-4 text-destructive" />Quitar</Button></div>
+          <div className="divide-y">{area.activities.map((item, index) => <div key={item.id} className="flex gap-3 px-3 py-2 text-sm"><span className="w-5 text-muted-foreground">{index + 1}.</span><span>{item.description}</span></div>)}{!area.activities.length && <p className="p-3 text-sm text-muted-foreground">Esta área no tiene actividades preestablecidas.</p>}</div>
+        </div>;
+      })}
+    </div> : kind !== "client" && <div className="space-y-2">
+      <div className="flex gap-2"><Input placeholder="Nueva actividad del área" value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (activity.trim()) { update("activities", [...activities, activity.trim()]); setActivity(""); } } }} /><Button type="button" variant="outline" onClick={() => { if (activity.trim()) { update("activities", [...activities, activity.trim()]); setActivity(""); } }}><Plus className="h-4 w-4" /></Button></div>
       <div className="space-y-2">{activities.map((item: any, index: number) => <div key={index} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="text-muted-foreground w-6">{index + 1}.</span><span className="flex-1">{item.description || item}</span><Button type="button" variant="ghost" size="icon" onClick={() => update("activities", activities.filter((_: any, i: number) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
     </div>}
     <DialogFooter><Button type="button" variant="outline" onClick={onClose}>Cancelar</Button><Button type="submit" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar</Button></DialogFooter>
