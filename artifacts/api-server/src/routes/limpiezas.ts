@@ -4,7 +4,7 @@ import { db, udnsTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaAc
 import type { Request, Response } from "express";
 
 const router = Router();
-const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, periodicity: row.periodicity, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
+const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, periodicity: row.periodicity, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
 async function areaWithActivities(id: number) {
   const [area] = await db.select().from(cleaningAreasTable).where(eq(cleaningAreasTable.id, id));
@@ -95,6 +95,16 @@ async function executionJson(id: number) {
   ]);
   return { ...json(execution), client: client ? json(client) : null, cleaning_type: type ? json(type) : null, areas: areas.map(json), activities: activities.map(json) };
 }
+
+async function maybeCompleteExecution(executionId: number) {
+  const [activities, areas] = await Promise.all([
+    db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId)),
+    db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId)),
+  ]);
+  if (activities.length && activities.every((activity) => activity.completed || activity.notApplicable) && areas.length && areas.every((area) => area.ready)) {
+    await db.update(cleaningExecutionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(cleaningExecutionsTable.id, executionId));
+  }
+}
 router.get("/limpiezas/ejecuciones", async (_req, res) => { const rows = await db.select().from(cleaningExecutionsTable).orderBy(asc(cleaningExecutionsTable.executionDate)); res.json(await Promise.all(rows.map((r) => executionJson(r.id)))); });
 router.post("/limpiezas/ejecuciones", async (req, res) => {
   const { client_id, cleaning_type_id, execution_date } = req.body;
@@ -119,6 +129,7 @@ router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
   const ready = req.body.ready ?? current.ready;
   if (ready && (!initialPhoto || !finalPhoto)) { res.status(400).json({ error: "El área requiere foto inicial y final antes de marcarla como lista" }); return; }
   const [updated] = await db.update(cleaningExecutionAreasTable).set({ initialPhoto, finalPhoto, ready }).where(eq(cleaningExecutionAreasTable.id, areaId)).returning();
+  await maybeCompleteExecution(executionId);
   res.json(json(updated));
 });
 router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, res) => {
@@ -129,9 +140,7 @@ router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, r
   const nextInitial = initial_photo ?? current.initialPhoto; const nextFinal = final_photo ?? current.finalPhoto; const nextCompleted = completed ?? current.completed; const nextNotApplicable = not_applicable ?? current.notApplicable;
   if (nextCompleted && nextNotApplicable) { res.status(400).json({ error: "Una actividad no puede estar completada y marcada como no aplica" }); return; }
   const [updated] = await db.update(cleaningExecutionActivitiesTable).set({ initialPhoto: nextInitial, finalPhoto: nextFinal, completed: nextCompleted, notApplicable: nextNotApplicable, completedAt: nextCompleted ? new Date() : null }).where(eq(cleaningExecutionActivitiesTable.id, activityId)).returning();
-  const all = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId));
-  const areas = await db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId));
-  if (all.length && all.every((a) => (a.completed || a.notApplicable)) && areas.every((area) => area.ready)) await db.update(cleaningExecutionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(cleaningExecutionsTable.id, executionId));
+  await maybeCompleteExecution(executionId);
   res.json(json(updated));
 });
 
