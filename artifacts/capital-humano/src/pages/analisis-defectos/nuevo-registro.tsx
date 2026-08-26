@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import {
-  useListPanels, useListSides, useListVisualZones, useListAlphanumeric,
+  useListPanels, useListVisualZones, useListAlphanumeric,
   useListDefects, useCreateAuditCapture, useGetAuditDailyCounter,
   useListZones, getListAuditCapturesQueryKey,
 } from "@workspace/api-client-react";
@@ -49,7 +49,6 @@ export default function NuevoRegistro() {
   const isContinuing = existingUnitNumber !== null;
 
   const { data: panels } = useListPanels();
-  const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const { data: alphanumericList } = useListAlphanumeric();
   const { data: defects } = useListDefects();
@@ -60,7 +59,7 @@ export default function NuevoRegistro() {
   const [zoneId, setZoneId] = useState<number | null>(existingZoneId);
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
-  const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">("center");
+  const [sidePosition, setSidePosition] = useState<"right" | "left">("left");
 
   const { data: dailyCounter } = useGetAuditDailyCounter({
     date: date || todayStr(),
@@ -70,12 +69,10 @@ export default function NuevoRegistro() {
   const resolvedUnitNumber = isContinuing ? existingUnitNumber! : (dailyCounter?.next_unit_number ?? 1);
 
   const selectedPanel = useMemo(() => panels?.find((p) => p.id === panelId), [panels, panelId]);
-  const panelSide = useMemo(() => sides?.find((s) => s.id === selectedPanel?.side_id), [sides, selectedPanel]);
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
   const sidePositionOptions = [
-    { value: "left" as const, label: "Izquierda" },
-    { value: "center" as const, label: "Centro" },
-    { value: "right" as const, label: "Derecha" },
+    { value: "left" as const, label: "LH" },
+    { value: "right" as const, label: "RH" },
   ];
   const sidePositionIndex = sidePositionOptions.findIndex((option) => option.value === sidePosition);
 
@@ -269,13 +266,13 @@ export default function NuevoRegistro() {
               <div
                 role="radiogroup"
                 aria-label="Posición de auditoría"
-                className="relative flex h-10 w-full rounded-full border bg-muted p-1"
+                className="relative flex h-8 w-32 rounded-full border bg-muted p-1"
               >
                 <div
                   aria-hidden="true"
                   className="absolute inset-y-1 left-1 rounded-full bg-background shadow-sm transition-transform duration-200"
                   style={{
-                    width: "calc((100% - 0.5rem) / 3)",
+                    width: "calc((100% - 0.25rem) / 2)",
                     transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
                   }}
                 />
@@ -323,14 +320,6 @@ export default function NuevoRegistro() {
 
           {selectedPanel && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-2 border-t">
-              <div className="space-y-1">
-                <Label>Lado del catálogo (histórico)</Label>
-                <Input
-                  readOnly
-                  value={panelSide?.name || "Sin lado asignado"}
-                  className="bg-muted text-muted-foreground"
-                />
-              </div>
               <div className="space-y-1">
                 <Label>Zona Visual (del panel)</Label>
                 <Input
