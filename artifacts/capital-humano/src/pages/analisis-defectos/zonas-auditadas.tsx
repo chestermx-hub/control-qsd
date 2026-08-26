@@ -23,6 +23,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { PanelGrid } from "@/pages/control/paneles";
+import { buildHighlighted } from "@/lib/panel-highlight";
 
 function todayStr() {
   return new Date().toISOString().slice(0, 10);
@@ -89,35 +90,6 @@ type Panel = {
   diagram_offset_y?: number | null;
   diagram_opacity?: number | null;
 };
-
-function buildHighlighted(captures: AuditCapture[], panel: Panel) {
-  return captures.map((c) => {
-    const colStart = panel.column_start ?? 1;
-    const rowStart = panel.row_start ?? 0;
-    const colsAsc = panel.columns_asc ?? true;
-    const rowsAsc = panel.rows_asc ?? true;
-
-    // Inverse of PanelGrid getColLabel:
-    //   ascending:  label = colStart + colIdx  → colIdx = label - colStart
-    //   descending: label = colStart + cols - 1 - colIdx → colIdx = colStart + cols - 1 - label
-    const explicitColIndex = panel.column_labels?.indexOf(c.grid_col_label ?? String(c.grid_col)) ?? -1;
-    const colIndex = explicitColIndex >= 0 ? explicitColIndex : (colsAsc
-      ? c.grid_col - colStart
-      : colStart + panel.columns - 1 - c.grid_col);
-
-    // Inverse of PanelGrid getRowLabel:
-    //   ascending:  idx = rowStart + rowIdx  → rowIdx = idx - rowStart
-    //   descending: idx = rowStart + rows - 1 - rowIdx → rowIdx = rowStart + rows - 1 - idx
-    const letterIdx = c.grid_row.toUpperCase().charCodeAt(0) - 65;
-    const explicitRowIndex = panel.row_labels?.indexOf(c.grid_row) ?? -1;
-    const rowIndex = explicitRowIndex >= 0 ? explicitRowIndex : (rowsAsc
-      ? letterIdx - rowStart
-      : rowStart + panel.rows - 1 - letterIdx);
-
-    return { col: colIndex, row: rowIndex, count: c.quantity };
-  }).filter((h) => h.col >= 0 && h.col < panel.columns && h.row >= 0 && h.row < panel.rows);
-}
-
 /* ──────────────────────────────────────────────
    Diálogo: Agregar Defectos a unidad existente
 ────────────────────────────────────────────── */

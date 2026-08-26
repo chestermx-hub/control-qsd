@@ -1,0 +1,193 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+const baseUrl = (process.env.TEST_API_URL || "http://127.0.0.1:8080").replace(/\/$/, "");
+const today = new Date().toISOString().slice(0, 10);
+const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+let cookie = "";
+const created = { panels: [], captures: [], user: null };
+
+async function request(path, options = {}) {
+  const headers = new Headers(options.headers);
+  headers.set("content-type", "application/json");
+  if (cookie) headers.set("cookie", cookie);
+
+  const response = await fetch(`${baseUrl}/api${path}`, { ...options, headers });
+  const setCookies = response.headers.getSetCookie?.() || [];
+  if (setCookies.length) cookie = setCookies.map((value) => value.split(";")[0]).join("; ");
+  const text = await response.text();
+  let body = null;
+  if (text) {
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = text;
+    }
+  }
+  return { response, body };
+}
+
+async function expectStatus(path, status, options = {}) {
+  const result = await request(path, options);
+  assert.equal(
+    result.response.status,
+    status,
+    `${options.method || "GET"} ${path}: ${JSON.stringify(result.body)}`,
+  );
+  return result.body;
+}
+
+function panelPayload(name, columnLabels, rowLabels) {
+  return {
+    name,
+    description: "Compatibilidad histórica de pruebas",
+    diagram_url: `storage://test/${name}.jpg`,
+    columns: columnLabels.length,
+    rows: rowLabels.length,
+    column_labels: columnLabels,
+    row_labels: rowLabels,
+  };
+}
+
+test(
+  "conserva etiquetas de panel y posiciones de capturas para históricos",
+  async () => {
+    await expectStatus("/auth/login", 200, {
+      method: "POST",
+      body: JSON.stringify({
+        email: "sistemas@qis-servicio.com",
+        password: "QIS2025!",
+      }),
+    });
+
+    const numericPanel = await expectStatus("/panels", 201, {
+      method: "POST",
+      body: JSON.stringify(
+        panelPayload(`Panel numérico ${suffix}`, ["10", "11", "12"], ["A", "B"]),
+      ),
+    });
+    created.panels.push(numericPanel);
+    assert.deepEqual(numericPanel.column_labels, ["10", "11", "12"]);
+    assert.deepEqual(numericPanel.row_labels, ["A", "B"]);
+
+    const textPanel = await expectStatus("/panels", 201, {
+      method: "POST",
+      body: JSON.stringify(
+        panelPayload(
+          `Panel textual ${suffix}`,
+          ["Frente", "Centro"],
+          ["Superior", "Inferior"],
+        ),
+      ),
+    });
+    created.panels.push(textPanel);
+    assert.deepEqual(textPanel.column_labels, ["Frente", "Centro"]);
+    assert.deepEqual(textPanel.row_labels, ["Superior", "Inferior"]);
+
+    const fetchedPanel = await expectStatus(`/panels/${textPanel.id}`, 200);
+    assert.deepEqual(fetchedPanel.column_labels, ["Frente", "Centro"]);
+    assert.deepEqual(fetchedPanel.row_labels, ["Superior", "Inferior"]);
+
+    for (const [index, position] of ["right", "left", "center"].entries()) {
+      const capture = await expectStatus("/audit-captures", 201, {
+        method: "POST",
+        body: JSON.stringify({
+          unit_number: 900000 + index,
+          week_number: 35,
+          date: today,
+          panel_id: textPanel.id,
+          side_position: position,
+          grid_col: index === 1 ? 2 : 1,
+          grid_col_label: index === 1 ? "Centro" : "Frente",
+          grid_row: index === 1 ? "Inferior" : "Superior",
+          quantity: index + 1,
+        }),
+      });
+      created.captures.push(capture);
+      assert.equal(capture.side_position, position);
+      assert.equal(capture.grid_col_label, index === 1 ? "Centro" : "Frente");
+    }
+
+    const historicalCompatibleCaptures = await expectStatus(
+      `/audit-captures?date=${today}&panel_id=${textPanel.id}`,
+      200,
+    );
+    assert.equal(historicalCompatibleCaptures.length, 3);
+    assert.deepEqual(
+      historicalCompatibleCaptures.map((capture) => capture.side_position).sort(),
+      ["center", "left", "right"],
+    );
+    assert.ok(
+      historicalCompatibleCaptures.every(
+        (capture) => capture.grid_col_label && capture.grid_row,
+      ),
+    );
+  },
+  { timeout: 30_000 },
+);
+
+test(
+  "rechaza que un usuario no administrador edite las etiquetas del panel",
+  async () => {
+    await expectStatus("/auth/login", 200, {
+      method: "POST",
+      body: JSON.stringify({
+        email: "sistemas@qis-servicio.com",
+        password: "QIS2025!",
+      }),
+    });
+
+    const panel = await expectStatus("/panels", 201, {
+      method: "POST",
+      body: JSON.stringify(panelPayload(`Panel protegido ${suffix}`, ["1", "2"], ["A", "B"])),
+    });
+    created.panels.push(panel);
+
+    created.user = await expectStatus("/users", 201, {
+      method: "POST",
+      body: JSON.stringify({
+        name: `Usuario pruebas ${suffix}`,
+        email: `panel-history-${suffix}@example.test`,
+        password: "Prueba2026!",
+        puesto: "Auditor",
+        area: "Calidad",
+        role: "user",
+      }),
+    });
+
+    await expectStatus("/auth/login", 200, {
+      method: "POST",
+      body: JSON.stringify({
+        email: created.user.email,
+        password: "Prueba2026!",
+      }),
+    });
+
+    const rejected = await request(`/panels/${panel.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        column_labels: ["Uno", "Dos"],
+        row_labels: ["Arriba", "Abajo"],
+      }),
+    });
+    assert.equal(rejected.response.status, 403);
+    assert.match(rejected.body.error, /administrador/i);
+
+    const unchanged = await expectStatus(`/panels/${panel.id}`, 200);
+    assert.deepEqual(unchanged.column_labels, ["1", "2"]);
+    assert.deepEqual(unchanged.row_labels, ["A", "B"]);
+  },
+  { timeout: 30_000 },
+);
+
+test.after(async () => {
+  for (const capture of created.captures) {
+    await expectStatus(`/audit-captures/${capture.id}`, 204, { method: "DELETE" }).catch(() => {});
+  }
+  for (const panel of created.panels) {
+    await expectStatus(`/panels/${panel.id}`, 204, { method: "DELETE" }).catch(() => {});
+  }
+  if (created.user) {
+    await expectStatus(`/users/${created.user.id}`, 204, { method: "DELETE" }).catch(() => {});
+  }
+});
