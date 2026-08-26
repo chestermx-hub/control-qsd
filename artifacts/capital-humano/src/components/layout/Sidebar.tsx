@@ -21,6 +21,7 @@ import {
   ChevronRight,
   X,
   Sparkles,
+  Palette,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -52,6 +53,7 @@ const controlModuloZA: { key: string; title: string; items: NavItem[] } = {
     { href: "/control/defectos", label: "Defectos", icon: AlertTriangle, permission: "defectos" },
     { href: "/control/lados", label: "Lados", icon: BoxSelect, permission: "lados" },
     { href: "/control/alfanumerico", label: "Alfanumérico", icon: Type, permission: "alfanumerico" },
+    { href: "/control/apariencia", label: "Apariencia", icon: Palette, permission: "paneles" },
   ],
 };
 

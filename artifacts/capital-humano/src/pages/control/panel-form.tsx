@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
-  useListPanels, useListSides, useListVisualZones, useListAlphanumeric,
+  useListPanels, useListVisualZones, useListAlphanumeric,
   useCreatePanel, useUpdatePanel, useGetPanel,
   getListPanelsQueryKey, getGetPanelQueryKey,
 } from "@workspace/api-client-react";
@@ -17,7 +17,8 @@ import { z } from "zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch, useLocation } from "wouter";
-import { PanelGrid, letterToIndex, indexToLetter } from "./paneles";
+import { PanelGrid, generateGridLabels, indexToLetter } from "./paneles";
+import { useAuth } from "@/lib/auth";
 import { ArrowLeft, Loader2, Upload, X } from "lucide-react";
 
 const panelSchema = z.object({
@@ -26,8 +27,8 @@ const panelSchema = z.object({
   diagram_url: z.string().min(1, "El diagrama es obligatorio"),
   columns: z.coerce.number().min(1, "Debe ser mayor a 0"),
   rows: z.coerce.number().min(1, "Debe ser mayor a 0"),
-  column_start: z.coerce.number().min(1, "Mínimo 1").default(1),
-  row_start_letter: z.string().min(1, "Requerido").max(1).regex(/^[A-Za-z]$/, "Debe ser una letra (A-Z)").default("A"),
+  column_start: z.string().trim().min(1, "Requerido").max(20).regex(/^[\p{L}\p{N} _-]+$/u, "Usa un valor numérico o textual").default("1"),
+  row_start_label: z.string().trim().min(1, "Requerido").max(20).regex(/^[\p{L}\p{N} _-]+$/u, "Usa un valor numérico o textual").default("A"),
   columns_asc: z.boolean().default(true),
   rows_asc: z.boolean().default(true),
   cell_width: z.number().min(20).max(200).default(48),
@@ -39,7 +40,6 @@ const panelSchema = z.object({
   diagram_offset_x: z.number().min(0).max(500).default(0),
   diagram_offset_y: z.number().min(0).max(500).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
-  side_id: z.coerce.number().optional(),
   visual_zone_id: z.coerce.number().optional(),
   column_widths: z.array(z.number()).default([]),
   row_heights: z.array(z.number()).default([]),
@@ -92,9 +92,10 @@ export default function PanelFormPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { user } = useAuth();
+  const canEditLabels = user?.role === "admin" || user?.role === "superadmin";
 
   const { data: panels } = useListPanels();
-  const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const { data: alphanumericList } = useListAlphanumeric();
   const { data: existingPanel } = useGetPanel(
@@ -104,6 +105,8 @@ export default function PanelFormPage() {
 
   const [naturalImgSize, setNaturalImgSize] = useState<{ w: number; h: number } | null>(null);
   const [selectedAlphanumericIds, setSelectedAlphanumericIds] = useState<number[]>([]);
+  const [savedColumnLabels, setSavedColumnLabels] = useState<string[]>([]);
+  const [savedRowLabels, setSavedRowLabels] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -112,7 +115,7 @@ export default function PanelFormPage() {
     defaultValues: {
       name: "", description: "", diagram_url: "",
       columns: 5, rows: 5,
-      column_start: 1, row_start_letter: "A",
+      column_start: "1", row_start_label: "A",
       columns_asc: true, rows_asc: true,
       cell_width: 48, cell_height: 32, grid_offset_x: 0, grid_offset_y: 0,
       column_widths: [], row_heights: [],
@@ -130,8 +133,8 @@ export default function PanelFormPage() {
         diagram_url: existingPanel.diagram_url || "",
         columns: existingPanel.columns,
         rows: existingPanel.rows,
-        column_start: existingPanel.column_start ?? 1,
-        row_start_letter: indexToLetter(existingPanel.row_start ?? 0),
+        column_start: existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1),
+        row_start_label: existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0),
         columns_asc: existingPanel.columns_asc ?? true,
         rows_asc: existingPanel.rows_asc ?? true,
         cell_width: existingPanel.cell_width ?? 48,
@@ -145,9 +148,10 @@ export default function PanelFormPage() {
         diagram_offset_x: existingPanel.diagram_offset_x ?? 0,
         diagram_offset_y: existingPanel.diagram_offset_y ?? 0,
         diagram_opacity: existingPanel.diagram_opacity ?? 0.5,
-        side_id: existingPanel.side_id || undefined,
         visual_zone_id: existingPanel.visual_zone_id || undefined,
       });
+      setSavedColumnLabels(existingPanel.column_labels ?? []);
+      setSavedRowLabels(existingPanel.row_labels ?? []);
     }
   }, [existingPanel, form]);
 
@@ -155,7 +159,7 @@ export default function PanelFormPage() {
   const formRows = form.watch("rows");
   const formDiagramUrl = form.watch("diagram_url");
   const formColumnStart = form.watch("column_start");
-  const formRowStartLetter = form.watch("row_start_letter");
+  const formRowStartLabel = form.watch("row_start_label");
   const formColumnsAsc = form.watch("columns_asc");
   const formRowsAsc = form.watch("rows_asc");
   const formCellWidth = form.watch("cell_width");
@@ -169,6 +173,14 @@ export default function PanelFormPage() {
   const formDiagramOpacity = form.watch("diagram_opacity");
   const formColumnWidths = form.watch("column_widths");
   const formRowHeights = form.watch("row_heights");
+  const preserveExistingPreviewLabels = isEditing &&
+    existingPanel &&
+    existingPanel.columns === formColumns &&
+    existingPanel.rows === formRows &&
+    (existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1)) === formColumnStart &&
+    (existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0)) === formRowStartLabel &&
+    (existingPanel.columns_asc ?? true) === formColumnsAsc &&
+    (existingPanel.rows_asc ?? true) === formRowsAsc;
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -217,13 +229,29 @@ export default function PanelFormPage() {
   });
 
   const onSubmit = (data: PanelFormValues) => {
-    const { row_start_letter, columns_asc, rows_asc, column_start, ...rest } = data;
+    const { row_start_label, columns_asc, rows_asc, column_start, ...rest } = data;
+    const preserveLabels = isEditing &&
+      existingPanel &&
+      existingPanel.columns === data.columns &&
+      existingPanel.rows === data.rows &&
+      (existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1)) === column_start &&
+      (existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0)) === row_start_label &&
+      (existingPanel.columns_asc ?? true) === columns_asc &&
+      (existingPanel.rows_asc ?? true) === rows_asc;
     const payload = {
       ...rest,
       column_start,
-      row_start: letterToIndex(row_start_letter),
+      row_start: row_start_label,
       columns_asc,
       rows_asc,
+      ...(canEditLabels || !isEditing ? {
+        column_labels: preserveLabels && savedColumnLabels.length === data.columns
+          ? savedColumnLabels
+          : generateGridLabels(data.columns, column_start, columns_asc),
+        row_labels: preserveLabels && savedRowLabels.length === data.rows
+          ? savedRowLabels
+          : generateGridLabels(data.rows, row_start_label, rows_asc),
+      } : {}),
       alphanumeric_ids: selectedAlphanumericIds,
     };
     if (isEditing && editingId) {
@@ -260,18 +288,6 @@ export default function PanelFormPage() {
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="name" render={({ field }) => (
                   <FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={form.control} name="side_id" render={({ field }) => (
-                  <FormItem><FormLabel>Lado</FormLabel>
-                    <Select onValueChange={(val) => field.onChange(val && val !== "none" ? Number(val) : undefined)} value={field.value?.toString() || ""}>
-                      <FormControl><SelectTrigger><SelectValue placeholder="Selecciona un lado" /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        <SelectItem value="none">Sin lado</SelectItem>
-                        {sides?.map((s) => <SelectItem key={s.id} value={s.id.toString()}>{s.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
                 )} />
                 <FormField control={form.control} name="visual_zone_id" render={({ field }) => (
                   <FormItem><FormLabel>Zona Visual</FormLabel>
@@ -317,12 +333,12 @@ export default function PanelFormPage() {
               <h2 className="font-semibold text-base">Configuración de Cuadrícula</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-3 border-r pr-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Columnas (1, 2, 3...)</p>
+                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Etiquetas de columnas</p>
                   <FormField control={form.control} name="columns" render={({ field }) => (
                     <FormItem><FormLabel>Cantidad de columnas</FormLabel><FormControl><Input type="number" min={1} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="column_start" render={({ field }) => (
-                    <FormItem><FormLabel>Columna inicial</FormLabel><FormControl><Input type="number" min={1} {...field} /></FormControl><FormMessage /></FormItem>
+                     <FormItem><FormLabel>Etiqueta inicial</FormLabel><FormControl><Input placeholder="Ej. 1, A, C1" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={form.control} name="columns_asc" render={({ field }) => (
                     <FormItem>
@@ -330,8 +346,8 @@ export default function PanelFormPage() {
                       <Select onValueChange={(val) => field.onChange(val === "asc")} value={field.value ? "asc" : "desc"}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="asc">Ascendente (1, 2, 3...)</SelectItem>
-                          <SelectItem value="desc">Descendente (3, 2, 1...)</SelectItem>
+                           <SelectItem value="asc">Ascendente</SelectItem>
+                           <SelectItem value="desc">Descendente</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -339,15 +355,15 @@ export default function PanelFormPage() {
                   )} />
                 </div>
                 <div className="space-y-3 pl-4">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Filas (A, B, C...)</p>
+                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Etiquetas de filas</p>
                   <FormField control={form.control} name="rows" render={({ field }) => (
                     <FormItem><FormLabel>Cantidad de filas</FormLabel><FormControl><Input type="number" min={1} {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <FormField control={form.control} name="row_start_letter" render={({ field }) => (
+                   <FormField control={form.control} name="row_start_label" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Fila inicial</FormLabel>
+                         <FormLabel>Etiqueta inicial</FormLabel>
                       <FormControl>
-                        <Input maxLength={1} placeholder="A" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
+                         <Input placeholder="Ej. A, 1, Fila-1" {...field} onChange={(e) => field.onChange(e.target.value)} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -358,8 +374,8 @@ export default function PanelFormPage() {
                       <Select onValueChange={(val) => field.onChange(val === "asc")} value={field.value ? "asc" : "desc"}>
                         <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="asc">Ascendente (A, B, C...)</SelectItem>
-                          <SelectItem value="desc">Descendente (C, B, A...)</SelectItem>
+                           <SelectItem value="asc">Ascendente</SelectItem>
+                           <SelectItem value="desc">Descendente</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -442,8 +458,14 @@ export default function PanelFormPage() {
                 columns={formColumns || 1}
                 rows={formRows || 1}
                 diagramUrl={formDiagramUrl}
-                columnStart={formColumnStart || 1}
-                rowStart={letterToIndex(formRowStartLetter || "A")}
+                columnStart={Number(formColumnStart) || 1}
+                 rowStart={0}
+                 columnLabels={preserveExistingPreviewLabels && savedColumnLabels.length === formColumns
+                   ? savedColumnLabels
+                   : generateGridLabels(formColumns || 1, formColumnStart || "1", formColumnsAsc)}
+                 rowLabels={preserveExistingPreviewLabels && savedRowLabels.length === formRows
+                   ? savedRowLabels
+                   : generateGridLabels(formRows || 1, formRowStartLabel || "A", formRowsAsc)}
                 columnsAsc={formColumnsAsc}
                 rowsAsc={formRowsAsc}
                 cellWidth={formCellWidth ?? 48}

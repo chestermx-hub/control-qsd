@@ -5,15 +5,18 @@
  * Control de Capital Humano API
  * OpenAPI spec version: 0.1.0
  */
+import type { AuditCaptureUpdateSidePosition } from './auditCaptureUpdateSidePosition';
 
 export interface AuditCaptureUpdate {
   skill_number?: string;
   zone_id?: number;
   panel_id?: number;
   side_id?: number;
+  side_position?: AuditCaptureUpdateSidePosition;
   visual_zone_id?: number;
   alphanumeric_id?: number;
   grid_col?: number;
+  grid_col_label?: string;
   grid_row?: string;
   defect_id?: number;
   defect_other?: string;

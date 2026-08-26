@@ -165,6 +165,10 @@ export interface Panel {
   column_start: number;
   /** Row labeling starts at this letter index (0=A, 1=B, ...) */
   row_start: number;
+  /** Custom column labels in visual order */
+  column_labels?: string[];
+  /** Custom row labels in visual order */
+  row_labels?: string[];
   /** Column labels in ascending order left to right */
   columns_asc: boolean;
   /** Row labels in ascending order top to bottom */
@@ -196,8 +200,10 @@ export interface PanelInput {
   diagram_url: string;
   columns: number;
   rows: number;
-  column_start?: number;
-  row_start?: number;
+  column_start?: string;
+  row_start?: string;
+  column_labels?: string[];
+  row_labels?: string[];
   columns_asc?: boolean;
   rows_asc?: boolean;
   cell_width?: number;
@@ -223,8 +229,10 @@ export interface PanelUpdate {
   diagram_url?: string;
   columns?: number;
   rows?: number;
-  column_start?: number;
-  row_start?: number;
+  column_start?: string;
+  row_start?: string;
+  column_labels?: string[];
+  row_labels?: string[];
   columns_asc?: boolean;
   rows_asc?: boolean;
   cell_width?: number;
@@ -244,6 +252,15 @@ export interface PanelUpdate {
   alphanumeric_ids?: number[];
 }
 
+export type AuditCaptureSidePosition = typeof AuditCaptureSidePosition[keyof typeof AuditCaptureSidePosition];
+
+
+export const AuditCaptureSidePosition = {
+  right: 'right',
+  left: 'left',
+  center: 'center',
+} as const;
+
 export interface AuditCapture {
   id: number;
   unit_number: number;
@@ -256,11 +273,13 @@ export interface AuditCapture {
   panel_id?: number | null;
   /** @nullable */
   side_id?: number | null;
+  side_position?: AuditCaptureSidePosition;
   /** @nullable */
   visual_zone_id?: number | null;
   /** @nullable */
   alphanumeric_id?: number | null;
   grid_col: number;
+  grid_col_label?: string;
   grid_row: string;
   /** @nullable */
   defect_id?: number | null;
@@ -270,6 +289,15 @@ export interface AuditCapture {
   created_at: string;
 }
 
+export type AuditCaptureInputSidePosition = typeof AuditCaptureInputSidePosition[keyof typeof AuditCaptureInputSidePosition];
+
+
+export const AuditCaptureInputSidePosition = {
+  right: 'right',
+  left: 'left',
+  center: 'center',
+} as const;
+
 export interface AuditCaptureInput {
   unit_number: number;
   week_number: number;
@@ -278,23 +306,36 @@ export interface AuditCaptureInput {
   zone_id?: number;
   panel_id?: number;
   side_id?: number;
+  side_position?: AuditCaptureInputSidePosition;
   visual_zone_id?: number;
   alphanumeric_id?: number;
   grid_col: number;
+  grid_col_label?: string;
   grid_row: string;
   defect_id?: number;
   defect_other?: string;
   quantity: number;
 }
 
+export type AuditCaptureUpdateSidePosition = typeof AuditCaptureUpdateSidePosition[keyof typeof AuditCaptureUpdateSidePosition];
+
+
+export const AuditCaptureUpdateSidePosition = {
+  right: 'right',
+  left: 'left',
+  center: 'center',
+} as const;
+
 export interface AuditCaptureUpdate {
   skill_number?: string;
   zone_id?: number;
   panel_id?: number;
   side_id?: number;
+  side_position?: AuditCaptureUpdateSidePosition;
   visual_zone_id?: number;
   alphanumeric_id?: number;
   grid_col?: number;
+  grid_col_label?: string;
   grid_row?: string;
   defect_id?: number;
   defect_other?: string;

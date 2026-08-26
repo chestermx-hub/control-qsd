@@ -4,6 +4,8 @@ import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
+const SIDE_POSITIONS = ["right", "left", "center"] as const;
+type SidePosition = typeof SIDE_POSITIONS[number];
 
 function toJson(row: typeof auditCapturesTable.$inferSelect) {
   return {
@@ -15,9 +17,11 @@ function toJson(row: typeof auditCapturesTable.$inferSelect) {
     zone_id: row.zoneId,
     panel_id: row.panelId,
     side_id: row.sideId,
+    side_position: row.sidePosition,
     visual_zone_id: row.visualZoneId,
     alphanumeric_id: row.alphanumericId,
     grid_col: row.gridCol,
+    grid_col_label: row.gridColLabel ?? String(row.gridCol),
     grid_row: row.gridRow,
     defect_id: row.defectId,
     defect_other: row.defectOther,
@@ -75,14 +79,22 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
   const {
     unit_number, week_number, date, skill_number,
     zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
-    grid_col, grid_row, defect_id, defect_other, quantity,
+    side_position, grid_col, grid_col_label, grid_row, defect_id, defect_other, quantity,
   } = req.body as {
     unit_number: number; week_number: number; date: string; skill_number?: string;
     zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
-    grid_col: number; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
+    side_position?: string; grid_col: number; grid_col_label?: string; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
   };
   if (date !== new Date().toISOString().slice(0, 10)) {
     res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
+    return;
+  }
+  if (side_position !== undefined && !SIDE_POSITIONS.includes(side_position as SidePosition)) {
+    res.status(400).json({ error: "La posición debe ser Derecha, Izquierda o Centro" });
+    return;
+  }
+  if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
+    res.status(400).json({ error: "La etiqueta de columna no es válida" });
     return;
   }
   const [row] = await db.insert(auditCapturesTable).values({
@@ -93,9 +105,11 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zoneId: zone_id,
     panelId: panel_id,
     sideId: side_id,
+    sidePosition: side_position ?? "center",
     visualZoneId: visual_zone_id,
     alphanumericId: alphanumeric_id,
     gridCol: grid_col,
+    gridColLabel: grid_col_label?.trim() || String(grid_col),
     gridRow: grid_row,
     defectId: defect_id,
     defectOther: defect_other,
@@ -121,19 +135,27 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   }
   const {
     skill_number, zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
-    grid_col, grid_row, defect_id, defect_other, quantity,
+    side_position, grid_col, grid_col_label, grid_row, defect_id, defect_other, quantity,
   } = req.body as {
     skill_number?: string; zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
-    grid_col?: number; grid_row?: string; defect_id?: number; defect_other?: string; quantity?: number;
+    side_position?: string; grid_col?: number; grid_col_label?: string; grid_row?: string; defect_id?: number; defect_other?: string; quantity?: number;
   };
+  if (side_position !== undefined && !SIDE_POSITIONS.includes(side_position as SidePosition)) {
+    res.status(400).json({ error: "La posición debe ser Derecha, Izquierda o Centro" }); return;
+  }
+  if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
+    res.status(400).json({ error: "La etiqueta de columna no es válida" }); return;
+  }
   const updates: Partial<typeof auditCapturesTable.$inferInsert> = {};
   if (skill_number !== undefined) updates.skillNumber = skill_number;
   if (zone_id !== undefined) updates.zoneId = zone_id;
   if (panel_id !== undefined) updates.panelId = panel_id;
   if (side_id !== undefined) updates.sideId = side_id;
+  if (side_position !== undefined) updates.sidePosition = side_position;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;
   if (alphanumeric_id !== undefined) updates.alphanumericId = alphanumeric_id;
   if (grid_col !== undefined) updates.gridCol = grid_col;
+  if (grid_col_label !== undefined) updates.gridColLabel = grid_col_label.trim();
   if (grid_row !== undefined) updates.gridRow = grid_row;
   if (defect_id !== undefined) updates.defectId = defect_id;
   if (defect_other !== undefined) updates.defectOther = defect_other;

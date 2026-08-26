@@ -5,6 +5,7 @@
  * Control de Capital Humano API
  * OpenAPI spec version: 0.1.0
  */
+import type { AuditCaptureSidePosition } from './auditCaptureSidePosition';
 
 export interface AuditCapture {
   id: number;
@@ -18,11 +19,13 @@ export interface AuditCapture {
   panel_id?: number | null;
   /** @nullable */
   side_id?: number | null;
+  side_position?: AuditCaptureSidePosition;
   /** @nullable */
   visual_zone_id?: number | null;
   /** @nullable */
   alphanumeric_id?: number | null;
   grid_col: number;
+  grid_col_label?: string;
   grid_row: string;
   /** @nullable */
   defect_id?: number | null;

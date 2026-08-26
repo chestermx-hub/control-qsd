@@ -1323,6 +1323,16 @@ components:
           type: integer
           default: 0
           description: Row labeling starts at this letter index (0=A, 1=B, ...)
+        column_labels:
+          type: array
+          items:
+            type: string
+          description: Custom column labels in visual order
+        row_labels:
+          type: array
+          items:
+            type: string
+          description: Custom row labels in visual order
         columns_asc:
           type: boolean
           default: true
@@ -1403,9 +1413,17 @@ components:
         rows:
           type: integer
         column_start:
-          type: integer
+          type: string
         row_start:
-          type: integer
+          type: string
+        column_labels:
+          type: array
+          items:
+            type: string
+        row_labels:
+          type: array
+          items:
+            type: string
         columns_asc:
           type: boolean
         rows_asc:
@@ -1466,9 +1484,17 @@ components:
         rows:
           type: integer
         column_start:
-          type: integer
+          type: string
         row_start:
-          type: integer
+          type: string
+        column_labels:
+          type: array
+          items:
+            type: string
+        row_labels:
+          type: array
+          items:
+            type: string
         columns_asc:
           type: boolean
         rows_asc:
@@ -1537,12 +1563,17 @@ components:
           type: ["integer", "null"]
         side_id:
           type: ["integer", "null"]
+        side_position:
+          type: string
+          enum: [right, left, center]
         visual_zone_id:
           type: ["integer", "null"]
         alphanumeric_id:
           type: ["integer", "null"]
         grid_col:
           type: integer
+        grid_col_label:
+          type: string
         grid_row:
           type: string
         defect_id:
@@ -1574,12 +1605,17 @@ components:
           type: integer
         side_id:
           type: integer
+        side_position:
+          type: string
+          enum: [right, left, center]
         visual_zone_id:
           type: integer
         alphanumeric_id:
           type: integer
         grid_col:
           type: integer
+        grid_col_label:
+          type: string
         grid_row:
           type: string
         defect_id:
@@ -1600,12 +1636,17 @@ components:
           type: integer
         side_id:
           type: integer
+        side_position:
+          type: string
+          enum: [right, left, center]
         visual_zone_id:
           type: integer
         alphanumeric_id:
           type: integer
         grid_col:
           type: integer
+        grid_col_label:
+          type: string
         grid_row:
           type: string
         defect_id:

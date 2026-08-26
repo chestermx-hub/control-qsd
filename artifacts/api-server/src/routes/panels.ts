@@ -1,11 +1,75 @@
 import { Router } from "express";
-import { db, panelsTable } from "@workspace/db";
+import { db, panelsTable, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
 
+const LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
+
+function spreadsheetLabel(index: number): string {
+  let value = Math.max(0, index);
+  let label = "";
+  do {
+    label = String.fromCharCode(65 + (value % 26)) + label;
+    value = Math.floor(value / 26) - 1;
+  } while (value >= 0);
+  return label;
+}
+
+function generatedLabels(count: number, start: string, ascending: boolean, row: boolean): string[] {
+  const normalizedStart = (start || (row ? "A" : "1")).trim();
+  const numeric = /^\d+$/.test(normalizedStart);
+  const letter = /^[A-Za-z]+$/.test(normalizedStart);
+  const startNumber = numeric ? Number(normalizedStart) : 0;
+  const startLetter = letter
+    ? normalizedStart.toUpperCase().split("").reduce((total, char) => total * 26 + char.charCodeAt(0) - 64, 0) - 1
+    : 0;
+  return Array.from({ length: count }, (_, index) => {
+    const offset = ascending ? index : count - 1 - index;
+    if (numeric) return String(startNumber + offset);
+    if (letter) {
+      if (row && normalizedStart.length === 1) return spreadsheetLabel(startLetter + offset);
+      return spreadsheetLabel(startLetter + offset);
+    }
+    return index === 0 ? normalizedStart : `${normalizedStart}${offset + 1}`;
+  });
+}
+
+function legacyColumnStart(value: string | number | undefined): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 1 ? parsed : 1;
+}
+
+function legacyRowStart(value: string | number | undefined): number {
+  const parsed = Number(value);
+  if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  const normalized = String(value ?? "A").trim().toUpperCase();
+  if (!/^[A-Z]+$/.test(normalized)) return 0;
+  return normalized.split("").reduce((total, char) => total * 26 + char.charCodeAt(0) - 64, 0) - 1;
+}
+
+function validLabels(labels: unknown, count: number): labels is string[] {
+  return Array.isArray(labels) &&
+    labels.length === count &&
+    labels.every((label) => typeof label === "string" && LABEL_PATTERN.test(label.trim())) &&
+    new Set(labels.map((label) => label.trim().toLocaleLowerCase())).size === count;
+}
+
+function isAdministrator(req: Request) {
+  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
+  return userId
+    ? db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).then(([user]) => user?.role === "admin" || user?.role === "superadmin")
+    : Promise.resolve(false);
+}
+
 function toJson(row: typeof panelsTable.$inferSelect) {
+  const columnLabels = validLabels(row.columnLabels, row.columns)
+    ? row.columnLabels
+    : generatedLabels(row.columns, String(row.columnStart), row.columnsAsc, false);
+  const rowLabels = validLabels(row.rowLabels, row.rows)
+    ? row.rowLabels
+    : generatedLabels(row.rows, row.rowStart ? spreadsheetLabel(row.rowStart) : "A", row.rowsAsc, true);
   return {
     id: row.id,
     name: row.name,
@@ -15,6 +79,8 @@ function toJson(row: typeof panelsTable.$inferSelect) {
     rows: row.rows,
     column_start: row.columnStart,
     row_start: row.rowStart,
+    column_labels: columnLabels,
+    row_labels: rowLabels,
     columns_asc: row.columnsAsc,
     rows_asc: row.rowsAsc,
     cell_width: row.cellWidth,
@@ -49,22 +115,32 @@ router.post("/panels", async (req: Request, res: Response) => {
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
     grid_offset_x, grid_offset_y,
     column_widths, row_heights,
+    column_labels, row_labels,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
     name: string; description?: string; diagram_url: string;
     columns: number; rows: number;
-    column_start?: number; row_start?: number;
+    column_start?: string | number; row_start?: string | number;
     columns_asc?: boolean; rows_asc?: boolean;
     cell_width?: number; cell_height?: number;
     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
     grid_offset_x?: number; grid_offset_y?: number;
     column_widths?: number[]; row_heights?: number[];
+    column_labels?: string[]; row_labels?: string[];
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
+  if (column_labels !== undefined || row_labels !== undefined) {
+    if (!validLabels(column_labels, columns) || !validLabels(row_labels, rows)) {
+      res.status(400).json({ error: "Las etiquetas deben ser valores alfanuméricos válidos y coincidir con el tamaño de la cuadrícula" });
+      return;
+    }
+  }
   const [row] = await db.insert(panelsTable).values({
     name, description, diagramUrl: diagram_url, columns, rows,
-    columnStart: column_start ?? 1,
-    rowStart: row_start ?? 0,
+    columnStart: legacyColumnStart(column_start),
+    rowStart: legacyRowStart(row_start),
+    columnLabels: validLabels(column_labels, columns) ? column_labels : generatedLabels(columns, String(column_start ?? 1), columns_asc ?? true, false),
+    rowLabels: validLabels(row_labels, rows) ? row_labels : generatedLabels(rows, String(row_start ?? "A"), rows_asc ?? true, true),
     columnsAsc: columns_asc ?? true,
     rowsAsc: rows_asc ?? true,
     cellWidth: cell_width ?? 48,
@@ -100,26 +176,38 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
     grid_offset_x, grid_offset_y,
     column_widths, row_heights,
+    column_labels, row_labels,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
     name?: string; description?: string; diagram_url?: string;
     columns?: number; rows?: number;
-    column_start?: number; row_start?: number;
+    column_start?: string | number; row_start?: string | number;
     columns_asc?: boolean; rows_asc?: boolean;
     cell_width?: number; cell_height?: number;
     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
     grid_offset_x?: number; grid_offset_y?: number;
     column_widths?: number[]; row_heights?: number[];
+    column_labels?: string[]; row_labels?: string[];
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
+  if (column_labels !== undefined || row_labels !== undefined) {
+    if (!(await isAdministrator(req))) { res.status(403).json({ error: "Sólo un administrador puede editar etiquetas de cuadrícula" }); return; }
+    const current = await db.select({ columns: panelsTable.columns, rows: panelsTable.rows }).from(panelsTable).where(eq(panelsTable.id, id));
+    const currentPanel = current[0];
+    if (!currentPanel ||
+      (column_labels !== undefined && !validLabels(column_labels, currentPanel.columns)) ||
+      (row_labels !== undefined && !validLabels(row_labels, currentPanel.rows))) {
+      res.status(400).json({ error: "Las etiquetas deben ser valores alfanuméricos válidos" }); return;
+    }
+  }
   const updates: Partial<typeof panelsTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
   if (description !== undefined) updates.description = description;
   if (diagram_url !== undefined) updates.diagramUrl = diagram_url;
   if (columns !== undefined) updates.columns = columns;
   if (rows !== undefined) updates.rows = rows;
-  if (column_start !== undefined) updates.columnStart = column_start;
-  if (row_start !== undefined) updates.rowStart = row_start;
+  if (column_start !== undefined) updates.columnStart = legacyColumnStart(column_start);
+  if (row_start !== undefined) updates.rowStart = legacyRowStart(row_start);
   if (columns_asc !== undefined) updates.columnsAsc = columns_asc;
   if (rows_asc !== undefined) updates.rowsAsc = rows_asc;
   if (cell_width !== undefined) updates.cellWidth = cell_width;
@@ -133,6 +221,8 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (grid_offset_y !== undefined) updates.gridOffsetY = grid_offset_y;
   if (column_widths !== undefined) updates.columnWidths = column_widths;
   if (row_heights !== undefined) updates.rowHeights = row_heights;
+  if (column_labels !== undefined) updates.columnLabels = column_labels;
+  if (row_labels !== undefined) updates.rowLabels = row_labels;
   if (zone_id !== undefined) updates.zoneId = zone_id;
   if (side_id !== undefined) updates.sideId = side_id;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;

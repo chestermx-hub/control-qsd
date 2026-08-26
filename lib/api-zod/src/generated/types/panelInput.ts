@@ -12,8 +12,10 @@ export interface PanelInput {
   diagram_url: string;
   columns: number;
   rows: number;
-  column_start?: number;
-  row_start?: number;
+  column_start?: string;
+  row_start?: string;
+  column_labels?: string[];
+  row_labels?: string[];
   columns_asc?: boolean;
   rows_asc?: boolean;
   cell_width?: number;

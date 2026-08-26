@@ -60,6 +60,7 @@ export default function NuevoRegistro() {
   const [zoneId, setZoneId] = useState<number | null>(existingZoneId);
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
+  const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">("center");
 
   const { data: dailyCounter } = useGetAuditDailyCounter({
     date: date || todayStr(),
@@ -165,9 +166,11 @@ export default function NuevoRegistro() {
         zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
+         side_position: sidePosition,
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
         alphanumeric_id: selectedAlphanumericId ?? undefined,
-        grid_col: Number(dialogCell.colLabel),
+         grid_col: dialogCell.colIndex + 1,
+         grid_col_label: dialogCell.colLabel,
         grid_row: dialogCell.rowLabel,
         defect_id: dialogDefectId !== "otro" && dialogDefectId ? Number(dialogDefectId) : undefined,
         defect_other: dialogDefectId === "otro" ? dialogDefectOther : undefined,
@@ -282,12 +285,23 @@ export default function NuevoRegistro() {
           {selectedPanel && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-2 border-t">
               <div className="space-y-1">
-                <Label>Lado (del panel)</Label>
+                <Label>Lado del catálogo (histórico)</Label>
                 <Input
                   readOnly
                   value={panelSide?.name || "Sin lado asignado"}
                   className="bg-muted text-muted-foreground"
                 />
+              </div>
+              <div className="space-y-1">
+                <Label>Posición de auditoría</Label>
+                <Select value={sidePosition} onValueChange={(value) => setSidePosition(value as "right" | "left" | "center")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="right">Derecha</SelectItem>
+                    <SelectItem value="left">Izquierda</SelectItem>
+                    <SelectItem value="center">Centro</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Zona Visual (del panel)</Label>
@@ -339,6 +353,8 @@ export default function NuevoRegistro() {
                     diagramUrl={selectedPanel.diagram_url ?? undefined}
                     columnStart={selectedPanel.column_start ?? 1}
                     rowStart={selectedPanel.row_start ?? 0}
+                    columnLabels={selectedPanel.column_labels}
+                    rowLabels={selectedPanel.row_labels}
                     columnsAsc={selectedPanel.columns_asc ?? true}
                     rowsAsc={selectedPanel.rows_asc ?? true}
                     cellWidth={selectedPanel.cell_width ?? 48}

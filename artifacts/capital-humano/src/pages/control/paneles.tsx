@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   useListPanels, useDeletePanel, getListPanelsQueryKey,
-  useListZones, useListSides, useListVisualZones,
+  useListZones, useListVisualZones, useUpdatePanel,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -11,13 +11,36 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import { useAuth } from "@/lib/auth";
 
 export function letterToIndex(letter: string): number {
   return letter.toUpperCase().charCodeAt(0) - 65;
 }
 
 export function indexToLetter(index: number): string {
-  return String.fromCharCode(65 + Math.max(0, index));
+  let value = Math.max(0, index);
+  let label = "";
+  do {
+    label = String.fromCharCode(65 + (value % 26)) + label;
+    value = Math.floor(value / 26) - 1;
+  } while (value >= 0);
+  return label;
+}
+
+export function generateGridLabels(count: number, start: string, ascending: boolean): string[] {
+  const normalized = (start || "1").trim();
+  const numeric = /^\d+$/.test(normalized);
+  const letters = /^[A-Za-z]+$/.test(normalized);
+  const startNumber = numeric ? Number(normalized) : 0;
+  const startLetter = letters
+    ? normalized.toUpperCase().split("").reduce((total, char) => total * 26 + char.charCodeAt(0) - 64, 0) - 1
+    : 0;
+  return Array.from({ length: count }, (_, index) => {
+    const offset = ascending ? index : count - 1 - index;
+    if (numeric) return String(startNumber + offset);
+    if (letters) return indexToLetter(startLetter + offset);
+    return index === 0 ? normalized : `${normalized}${offset + 1}`;
+  });
 }
 
 export function PanelGrid({
@@ -26,6 +49,8 @@ export function PanelGrid({
   diagramUrl,
   columnStart = 1,
   rowStart = 0,
+  columnLabels,
+  rowLabels,
   columnsAsc = true,
   rowsAsc = true,
   cellWidth = 48,
@@ -44,6 +69,7 @@ export function PanelGrid({
   onImagePositionChange,
   onImageNaturalSize,
   onCellDoubleClick,
+  onLabelDoubleClick,
   highlightedCells,
   className,
 }: {
@@ -52,6 +78,8 @@ export function PanelGrid({
   diagramUrl?: string;
   columnStart?: number;
   rowStart?: number;
+  columnLabels?: string[] | null;
+  rowLabels?: string[] | null;
   columnsAsc?: boolean;
   rowsAsc?: boolean;
   cellWidth?: number;
@@ -70,6 +98,7 @@ export function PanelGrid({
   onImagePositionChange?: (x: number, y: number) => void;
   onImageNaturalSize?: (w: number, h: number) => void;
   onCellDoubleClick?: (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => void;
+  onLabelDoubleClick?: (kind: "column" | "row", index: number, value: string) => void;
   highlightedCells?: { col: number; row: number; count?: number }[];
   className?: string;
 }) {
@@ -183,10 +212,12 @@ export function PanelGrid({
   const rowIdx0 = Number(rowStart) || 0;
 
   const getColLabel = (colIdx: number) => {
+    if (columnLabels?.length === columns) return columnLabels[colIdx];
     const label = columnsAsc ? colStart + colIdx : colStart + columns - 1 - colIdx;
     return label.toString();
   };
   const getRowLabel = (rowIdx: number) => {
+    if (rowLabels?.length === rows) return rowLabels[rowIdx];
     const idx = rowsAsc ? rowIdx0 + rowIdx : rowIdx0 + rows - 1 - rowIdx;
     return indexToLetter(idx);
   };
@@ -272,6 +303,17 @@ export function PanelGrid({
               <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
                 {getColLabel(c)}
               </span>
+              {onLabelDoubleClick && (
+                <button
+                  type="button"
+                  className="absolute inset-0 cursor-text"
+                  aria-label={`Editar etiqueta de columna ${getColLabel(c)}`}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
+                    onLabelDoubleClick("column", c, getColLabel(c));
+                  }}
+                />
+              )}
               {canResizeCols && (
                 <div
                   className="absolute right-0 top-0 w-[3px] h-full bg-border/40 hover:bg-primary/60 transition-colors"
@@ -292,6 +334,17 @@ export function PanelGrid({
                 <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
                   {getRowLabel(r)}
                 </span>
+                {onLabelDoubleClick && (
+                  <button
+                    type="button"
+                    className="absolute inset-0 cursor-text"
+                    aria-label={`Editar etiqueta de fila ${getRowLabel(r)}`}
+                    onDoubleClick={(event) => {
+                      event.stopPropagation();
+                      onLabelDoubleClick("row", r, getRowLabel(r));
+                    }}
+                  />
+                )}
                 {canResizeRows && (
                   <div
                     className="absolute bottom-0 left-0 w-full h-[3px] bg-border/40 hover:bg-primary/60 transition-colors"
@@ -377,13 +430,27 @@ function AlphanumericMultiSelect({
 export default function Paneles() {
   const { data: panels, isLoading } = useListPanels();
   const { data: zones } = useListZones();
-  const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const [viewingGrid, setViewingGrid] = useState<any>(null);
+  const [editingLabel, setEditingLabel] = useState<{ panel: any; kind: "column" | "row"; index: number; value: string } | null>(null);
+  const [labelValue, setLabelValue] = useState("");
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
+  const canEditLabels = user?.role === "admin" || user?.role === "superadmin";
+
+  const updatePanel = useUpdatePanel({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListPanelsQueryKey() });
+        setEditingLabel(null);
+        toast({ title: "Etiqueta actualizada" });
+      },
+      onError: (error) => toast({ title: error.message || "No se pudo actualizar la etiqueta", variant: "destructive" }),
+    },
+  });
 
   const deletePanel = useDeletePanel({
     mutation: {
@@ -415,7 +482,6 @@ export default function Paneles() {
                 <TableHead className="w-[80px]">Diagrama</TableHead>
                 <TableHead>Nombre</TableHead>
                 <TableHead>Zona</TableHead>
-                <TableHead>Lado</TableHead>
                 <TableHead>Zona Visual</TableHead>
                 <TableHead>Cuadrícula</TableHead>
                 <TableHead className="w-[120px]"></TableHead>
@@ -424,7 +490,7 @@ export default function Paneles() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8">
+                  <TableCell colSpan={6} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
@@ -446,13 +512,12 @@ export default function Paneles() {
                     {panel.description && <p className="text-xs text-muted-foreground">{panel.description}</p>}
                   </TableCell>
                   <TableCell>{zones?.find((z) => z.id === panel.zone_id)?.name || "-"}</TableCell>
-                  <TableCell>{sides?.find((s) => s.id === panel.side_id)?.name || "-"}</TableCell>
                   <TableCell>{visualZones?.find((v) => v.id === panel.visual_zone_id)?.name || "-"}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {panel.columns} cols × {panel.rows} filas
                     <span className="block text-[11px]">
-                      Col {panel.column_start ?? 1}+ · Fila {indexToLetter(panel.row_start ?? 0)}+
-                      {" · "}{(panel.columns_asc ?? true) ? "Asc" : "Desc"} / {(panel.rows_asc ?? true) ? "Asc" : "Desc"}
+                      Columnas: {(panel.column_labels?.slice(0, 3).join(", ") || `${panel.column_start ?? 1}...`)}
+                      {" · "}Filas: {(panel.row_labels?.slice(0, 3).join(", ") || `${indexToLetter(panel.row_start ?? 0)}...`)}
                     </span>
                   </TableCell>
                   <TableCell>
@@ -490,14 +555,10 @@ export default function Paneles() {
             {viewingGrid && (
               <div className="space-y-2">
                 <div className="flex gap-4 text-sm text-muted-foreground flex-wrap">
-                  {viewingGrid.side_id && (
-                    <span>Lado: <span className="font-medium text-foreground">{sides?.find((s) => s.id === viewingGrid.side_id)?.name}</span></span>
-                  )}
                   {viewingGrid.visual_zone_id && (
                     <span>Zona Visual: <span className="font-medium text-foreground">{visualZones?.find((v) => v.id === viewingGrid.visual_zone_id)?.name}</span></span>
                   )}
-                  <span>Columnas: <span className="font-medium text-foreground">{(viewingGrid.columns_asc ?? true) ? "Ascendente" : "Descendente"}</span></span>
-                  <span>Filas: <span className="font-medium text-foreground">{(viewingGrid.rows_asc ?? true) ? "Ascendente" : "Descendente"}</span></span>
+                  <span>Etiquetas editables: <span className="font-medium text-foreground">{canEditLabels ? "doble clic" : "sólo administradores"}</span></span>
                 </div>
                 <div className="h-[60vh]">
                   <PanelGrid
@@ -506,6 +567,8 @@ export default function Paneles() {
                     diagramUrl={viewingGrid.diagram_url}
                     columnStart={viewingGrid.column_start ?? 1}
                     rowStart={viewingGrid.row_start ?? 0}
+                    columnLabels={viewingGrid.column_labels}
+                    rowLabels={viewingGrid.row_labels}
                     columnsAsc={viewingGrid.columns_asc ?? true}
                     rowsAsc={viewingGrid.rows_asc ?? true}
                     cellWidth={viewingGrid.cell_width ?? 48}
@@ -519,6 +582,10 @@ export default function Paneles() {
                     diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
                     diagramOffsetY={viewingGrid.diagram_offset_y ?? 0}
                     diagramOpacity={viewingGrid.diagram_opacity ?? 0.5}
+                    onLabelDoubleClick={canEditLabels ? (kind, index, value) => {
+                      setEditingLabel({ panel: viewingGrid, kind, index, value });
+                      setLabelValue(value);
+                    } : undefined}
                   />
                 </div>
               </div>
@@ -528,6 +595,47 @@ export default function Paneles() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+          <Dialog open={!!editingLabel} onOpenChange={(open) => !open && setEditingLabel(null)}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>Editar etiqueta de {editingLabel?.kind === "column" ? "columna" : "fila"}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-2">
+                <label htmlFor="grid-label" className="text-sm font-medium">Etiqueta</label>
+                <input
+                  id="grid-label"
+                  autoFocus
+                  value={labelValue}
+                  onChange={(event) => setLabelValue(event.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                />
+                <p className="text-xs text-muted-foreground">Usa un valor numérico o textual, sin dejarlo vacío.</p>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditingLabel(null)}>Cancelar</Button>
+                <Button
+                  disabled={!labelValue.trim() || updatePanel.isPending}
+                  onClick={() => {
+                    if (!editingLabel || !labelValue.trim()) return;
+                    const panel = editingLabel.panel;
+                    const cols = panel.column_labels?.length === panel.columns
+                      ? [...panel.column_labels]
+                      : generateGridLabels(panel.columns, String(panel.column_start ?? 1), panel.columns_asc ?? true);
+                    const rows = panel.row_labels?.length === panel.rows
+                      ? [...panel.row_labels]
+                      : generateGridLabels(panel.rows, indexToLetter(panel.row_start ?? 0), panel.rows_asc ?? true);
+                    if (editingLabel.kind === "column") cols[editingLabel.index] = labelValue.trim();
+                    else rows[editingLabel.index] = labelValue.trim();
+                    updatePanel.mutate({ id: panel.id, data: { column_labels: cols, row_labels: rows } });
+                  }}
+                >
+                  {updatePanel.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Guardar
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
       </div>
     </AppLayout>
   );

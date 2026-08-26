@@ -27,6 +27,9 @@ import ChecklistOperacion from "@/pages/checklist-operacion";
 import Limpiezas from "@/pages/control/limpiezas";
 
 import PanelFormPage from "@/pages/control/panel-form";
+import Apariencia from "@/pages/control/apariencia";
+import { useEffect } from "react";
+import { restoreAppearancePalette } from "@/lib/appearance";
 
 import NotFound from "@/pages/not-found";
 
@@ -65,6 +68,7 @@ function AppRouter() {
       <Route path="/control/alfanumerico" component={() => <ProtectedRoute component={Alfanumerico} permission="alfanumerico" />} />
       <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
       <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
+      <Route path="/control/apariencia" component={() => <ProtectedRoute component={Apariencia} permission="paneles" />} />
 
       {/* Analisis Defectos Module */}
       <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} permission="analisis_defectos" />} />
@@ -85,6 +89,10 @@ function AppRouter() {
 }
 
 function App() {
+  useEffect(() => {
+    restoreAppearancePalette();
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>

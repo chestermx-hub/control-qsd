@@ -21,6 +21,10 @@ export interface Panel {
   column_start: number;
   /** Row labeling starts at this letter index (0=A, 1=B, ...) */
   row_start: number;
+  /** Custom column labels in visual order */
+  column_labels?: string[];
+  /** Custom row labels in visual order */
+  row_labels?: string[];
   /** Column labels in ascending order left to right */
   columns_asc: boolean;
   /** Row labels in ascending order top to bottom */

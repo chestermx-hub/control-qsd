@@ -40,10 +40,12 @@ type AuditCapture = {
   skill_number?: string | null;
   panel_id?: number | null;
   side_id?: number | null;
+  side_position?: "right" | "left" | "center" | null;
   visual_zone_id?: number | null;
   zone_id?: number | null;
   alphanumeric_id?: number | null;
   grid_col: number;
+  grid_col_label?: string | null;
   grid_row: string;
   defect_id?: number | null;
   defect_other?: string | null;
@@ -71,6 +73,8 @@ type Panel = {
   diagram_url?: string | null;
   column_start?: number | null;
   row_start?: number | null;
+  column_labels?: string[] | null;
+  row_labels?: string[] | null;
   columns_asc?: boolean | null;
   rows_asc?: boolean | null;
   cell_width?: number | null;
@@ -96,17 +100,19 @@ function buildHighlighted(captures: AuditCapture[], panel: Panel) {
     // Inverse of PanelGrid getColLabel:
     //   ascending:  label = colStart + colIdx  → colIdx = label - colStart
     //   descending: label = colStart + cols - 1 - colIdx → colIdx = colStart + cols - 1 - label
-    const colIndex = colsAsc
+    const explicitColIndex = panel.column_labels?.indexOf(c.grid_col_label ?? String(c.grid_col)) ?? -1;
+    const colIndex = explicitColIndex >= 0 ? explicitColIndex : (colsAsc
       ? c.grid_col - colStart
-      : colStart + panel.columns - 1 - c.grid_col;
+      : colStart + panel.columns - 1 - c.grid_col);
 
     // Inverse of PanelGrid getRowLabel:
     //   ascending:  idx = rowStart + rowIdx  → rowIdx = idx - rowStart
     //   descending: idx = rowStart + rows - 1 - rowIdx → rowIdx = rowStart + rows - 1 - idx
     const letterIdx = c.grid_row.toUpperCase().charCodeAt(0) - 65;
-    const rowIndex = rowsAsc
+    const explicitRowIndex = panel.row_labels?.indexOf(c.grid_row) ?? -1;
+    const rowIndex = explicitRowIndex >= 0 ? explicitRowIndex : (rowsAsc
       ? letterIdx - rowStart
-      : rowStart + panel.rows - 1 - letterIdx;
+      : rowStart + panel.rows - 1 - letterIdx);
 
     return { col: colIndex, row: rowIndex, count: c.quantity };
   }).filter((h) => h.col >= 0 && h.col < panel.columns && h.row >= 0 && h.row < panel.rows);
@@ -152,6 +158,7 @@ function AgregarDefectosDialog({
   const [skillSaving, setSkillSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(group.captures[0]?.zone_id ?? null);
   const [selectedAlphaId, setSelectedAlphaId] = useState<number | null>(group.captures[0]?.alphanumeric_id ?? null);
+  const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">(group.captures[0]?.side_position ?? "center");
 
   const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState("");
@@ -244,9 +251,11 @@ function AgregarDefectosDialog({
         zone_id: selectedZoneId ?? undefined,
         panel_id: panel.id,
         side_id: panel.side_id ?? undefined,
+         side_position: sidePosition,
         visual_zone_id: panel.visual_zone_id ?? undefined,
         alphanumeric_id: selectedAlphaId ?? undefined,
-        grid_col: Number(dialogCell.colLabel),
+         grid_col: dialogCell.colIndex + 1,
+         grid_col_label: dialogCell.colLabel,
         grid_row: dialogCell.rowLabel,
         defect_id: dialogDefectId !== "otro" && dialogDefectId ? Number(dialogDefectId) : undefined,
         defect_other: dialogDefectId === "otro" ? dialogDefectOther : undefined,
@@ -284,9 +293,20 @@ function AgregarDefectosDialog({
                 <Input readOnly value={panel.name} className="bg-muted text-muted-foreground h-8 text-sm" />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Lado</Label>
+                 <Label className="text-xs">Lado del catálogo</Label>
                 <Input readOnly value={panelSide?.name || "—"} className="bg-muted text-muted-foreground h-8 text-sm" />
               </div>
+               <div className="space-y-1">
+                 <Label className="text-xs">Posición de auditoría</Label>
+                 <Select value={sidePosition} onValueChange={(value) => setSidePosition(value as "right" | "left" | "center")}>
+                   <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="right">Derecha</SelectItem>
+                     <SelectItem value="left">Izquierda</SelectItem>
+                     <SelectItem value="center">Centro</SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Zona Visual</Label>
                 <Input readOnly value={panelVZ?.name || "—"} className="bg-muted text-muted-foreground h-8 text-sm" />
@@ -368,6 +388,8 @@ function AgregarDefectosDialog({
                     diagramUrl={panel.diagram_url ?? undefined}
                     columnStart={panel.column_start ?? 1}
                     rowStart={panel.row_start ?? 0}
+                    columnLabels={panel.column_labels}
+                    rowLabels={panel.row_labels}
                     columnsAsc={panel.columns_asc ?? true}
                     rowsAsc={panel.rows_asc ?? true}
                     cellWidth={panel.cell_width ?? 48}
@@ -398,7 +420,7 @@ function AgregarDefectosDialog({
             <div className="divide-y max-h-48 overflow-y-auto">
               {group.captures.map((cap) => (
                 <div key={cap.id} className="flex items-center gap-3 py-1.5 text-sm px-1">
-                  <span className="font-mono font-medium w-10 shrink-0 text-muted-foreground">{cap.grid_row}{cap.grid_col}</span>
+                  <span className="font-mono font-medium w-10 shrink-0 text-muted-foreground">{cap.grid_row}{cap.grid_col_label ?? cap.grid_col}</span>
                   <span className="flex-1 text-muted-foreground">
                     {cap.defect_other ? `Otro: ${cap.defect_other}` : cap.defect_id ? (
                       (() => {
@@ -631,9 +653,10 @@ export default function AnalisisZonasAuditadas() {
         Fecha: c.date,
         SK: c.skill_number ?? "",
         Panel: panel?.name ?? "",
-        Lado: side?.name ?? "",
+        "Lado catálogo": side?.name ?? "",
+        Posición: c.side_position === "right" ? "Derecha" : c.side_position === "left" ? "Izquierda" : "Centro",
         "Zona Vista": vz?.name ?? "",
-        "Clave Alfa Numérica": `${c.grid_row}${c.grid_col}`,
+        "Clave Alfa Numérica": `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
         Defecto: defectLabel,
         Cantidad: c.quantity,
         Total: isFirstOfDay && stats ? stats.total : "",
@@ -680,7 +703,7 @@ export default function AnalisisZonasAuditadas() {
         panelName: panel?.name ?? "—",
         sideName: side?.name ?? "—",
         vzName: vz?.name ?? "—",
-        cellLabel: `${c.grid_row}${c.grid_col}`,
+        cellLabel: `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
         defectLabel: c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—",
       };
     });
@@ -813,7 +836,8 @@ export default function AnalisisZonasAuditadas() {
                         <TableHead className="whitespace-nowrap">Fecha</TableHead>
                         <TableHead className="whitespace-nowrap">SK</TableHead>
                         <TableHead className="whitespace-nowrap">Panel</TableHead>
-                        <TableHead className="whitespace-nowrap">Lado</TableHead>
+                        <TableHead className="whitespace-nowrap">Lado catálogo</TableHead>
+                        <TableHead className="whitespace-nowrap">Posición</TableHead>
                         <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
                         <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
                         <TableHead className="whitespace-nowrap">Defecto</TableHead>
@@ -836,6 +860,7 @@ export default function AnalisisZonasAuditadas() {
                             <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
                             <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
                             <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
+                            <TableCell className="whitespace-nowrap">{row.capture.side_position === "right" ? "Derecha" : row.capture.side_position === "left" ? "Izquierda" : "Centro"}</TableCell>
                             <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
                             <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
                             <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
@@ -888,6 +913,7 @@ export default function AnalisisZonasAuditadas() {
                            {auditedZone && <span className="text-sm font-medium text-foreground shrink-0">· {auditedZone.name}</span>}
                           {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
                           {side && <span className="text-sm text-muted-foreground shrink-0">· {side.name}</span>}
+                          <span className="text-sm text-muted-foreground shrink-0">· {group.captures[0]?.side_position === "right" ? "Derecha" : group.captures[0]?.side_position === "left" ? "Izquierda" : "Centro"}</span>
                           {visualZone && <span className="text-sm text-muted-foreground shrink-0">· {visualZone.name}</span>}
                         </button>
 
@@ -950,7 +976,7 @@ export default function AnalisisZonasAuditadas() {
                           {group.captures.map((cap) => (
                             <div key={cap.id} className="flex items-center gap-3 px-6 py-2 text-sm hover:bg-muted/20">
                               <span className="font-mono font-medium w-10 shrink-0">
-                                {cap.grid_row}{cap.grid_col}
+                                {cap.grid_row}{cap.grid_col_label ?? cap.grid_col}
                               </span>
                               <span className="flex-1 text-muted-foreground">{getDefectLabel(cap)}</span>
                               <Badge variant="secondary" className="shrink-0">
@@ -1020,6 +1046,8 @@ export default function AnalisisZonasAuditadas() {
                       diagramUrl={panel.diagram_url ?? undefined}
                       columnStart={panel.column_start ?? 1}
                       rowStart={panel.row_start ?? 0}
+                      columnLabels={panel.column_labels}
+                      rowLabels={panel.row_labels}
                       columnsAsc={panel.columns_asc ?? true}
                       rowsAsc={panel.rows_asc ?? true}
                       cellWidth={panel.cell_width ?? 48}
