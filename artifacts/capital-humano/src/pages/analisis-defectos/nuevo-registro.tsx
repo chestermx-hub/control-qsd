@@ -271,39 +271,6 @@ export default function NuevoRegistro() {
               )}
             </div>
             <div className="space-y-1 sm:col-span-2">
-              <Label>Posición de auditoría</Label>
-              <div
-                role="radiogroup"
-                aria-label="Posición de auditoría"
-                className="relative flex h-8 w-32 rounded-full border bg-muted p-1"
-              >
-                <div
-                  aria-hidden="true"
-                  className="absolute inset-y-1 left-1 rounded-full bg-background shadow-sm transition-transform duration-200"
-                  style={{
-                    width: "calc((100% - 0.25rem) / 3)",
-                    transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
-                  }}
-                />
-                {sidePositionOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="radio"
-                    aria-checked={sidePosition === option.value}
-                    onClick={() => setSidePosition(option.value)}
-                    className={`relative z-10 flex-1 rounded-full px-3 text-sm transition-colors ${
-                      sidePosition === option.value
-                        ? "font-medium text-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {option.label || <span className="sr-only">{option.ariaLabel}</span>}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="space-y-1 sm:col-span-2">
               <Label>Panel</Label>
               <Select
                 onValueChange={(val) => {
@@ -329,6 +296,50 @@ export default function NuevoRegistro() {
 
           {selectedPanel && (
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-2 border-t">
+              <div className="space-y-1">
+                <Label>Posición de auditoría</Label>
+                <div
+                  role="radiogroup"
+                  aria-label="Posición de auditoría"
+                  className="relative flex h-8 w-32 rounded-full border bg-muted p-1"
+                >
+                  <div
+                    aria-hidden="true"
+                    className={`absolute inset-y-1 left-1 rounded-full shadow-sm transition-[transform,background-color] duration-200 ${
+                      sidePosition === "left"
+                        ? "bg-green-600"
+                        : sidePosition === "right"
+                          ? "bg-red-600"
+                          : "bg-background"
+                    }`}
+                    style={{
+                      width: "calc((100% - 0.25rem) / 3)",
+                      transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
+                    }}
+                  />
+                  {sidePositionOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={sidePosition === option.value}
+                      aria-label={option.ariaLabel}
+                      onClick={() => setSidePosition(option.value)}
+                      className={`relative z-10 flex-1 rounded-full px-3 text-sm transition-colors ${
+                        sidePosition === option.value
+                          ? sidePosition === "left"
+                            ? "font-medium text-white"
+                            : sidePosition === "right"
+                              ? "font-medium text-white"
+                              : "font-medium text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {option.label || <span className="sr-only">{option.ariaLabel}</span>}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="space-y-1">
                 <Label>Zona Visual (del panel)</Label>
                 <Input

@@ -284,7 +284,13 @@ function AgregarDefectosDialog({
                 >
                   <div
                     aria-hidden="true"
-                    className="absolute inset-y-1 left-1 rounded-full bg-background shadow-sm transition-transform duration-200"
+                    className={`absolute inset-y-1 left-1 rounded-full shadow-sm transition-[transform,background-color] duration-200 ${
+                      sidePosition === "left"
+                        ? "bg-green-600"
+                        : sidePosition === "right"
+                          ? "bg-red-600"
+                          : "bg-background"
+                    }`}
                     style={{
                       width: "calc((100% - 0.25rem) / 3)",
                       transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
@@ -296,11 +302,13 @@ function AgregarDefectosDialog({
                       type="button"
                       role="radio"
                       aria-checked={sidePosition === option.value}
-                      aria-label={option.ariaLabel ?? option.label}
+                      aria-label={option.ariaLabel}
                       onClick={() => setSidePosition(option.value)}
                       className={`relative z-10 flex-1 rounded-full text-xs transition-colors ${
                         sidePosition === option.value
-                          ? "font-medium text-foreground"
+                          ? sidePosition === "left" || sidePosition === "right"
+                            ? "font-medium text-white"
+                            : "font-medium text-foreground"
                           : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
