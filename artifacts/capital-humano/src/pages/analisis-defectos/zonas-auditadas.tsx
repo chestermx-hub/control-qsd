@@ -100,7 +100,6 @@ function AgregarDefectosDialog({
   panel,
   defects,
   alphanumericList,
-  sides,
   visualZones,
   zones,
   onClose,
@@ -109,7 +108,6 @@ function AgregarDefectosDialog({
   panel: Panel;
   defects: { id: number; code: string; name: string }[] | undefined;
   alphanumericList: { id: number; code: string; name: string }[] | undefined;
-  sides: { id: number; name: string }[] | undefined;
   visualZones: { id: number; name: string }[] | undefined;
   zones: { id: number; name: string }[] | undefined;
   onClose: () => void;
@@ -117,7 +115,6 @@ function AgregarDefectosDialog({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const panelSide = sides?.find((s) => s.id === panel.side_id);
   const panelVZ = visualZones?.find((v) => v.id === panel.visual_zone_id);
   const panelAlphaOptions = useMemo(() => {
     if (!panel.alphanumeric_ids || !alphanumericList) return [];
@@ -131,6 +128,12 @@ function AgregarDefectosDialog({
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(group.captures[0]?.zone_id ?? null);
   const [selectedAlphaId, setSelectedAlphaId] = useState<number | null>(group.captures[0]?.alphanumeric_id ?? null);
   const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">(group.captures[0]?.side_position ?? "center");
+  const sidePositionOptions = [
+    { value: "left" as const, label: "LH", ariaLabel: "LH, izquierda" },
+    { value: "center" as const, label: "", ariaLabel: "Centro" },
+    { value: "right" as const, label: "RH", ariaLabel: "RH, derecha" },
+  ];
+  const sidePositionIndex = sidePositionOptions.findIndex((option) => option.value === sidePosition);
 
   const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState("");
@@ -201,6 +204,10 @@ function AgregarDefectosDialog({
   };
 
   const handleCellDoubleClick = (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => {
+    if (sidePosition === "center") {
+      toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+      return;
+    }
     setDialogCell({ colIndex, rowIndex, colLabel, rowLabel });
     setDialogDefectId("");
     setDialogDefectOther("");
@@ -209,6 +216,10 @@ function AgregarDefectosDialog({
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
+    if (sidePosition === "center") {
+      toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+      return;
+    }
     if (!dialogDefectId) { toast({ title: "Seleccione un defecto", variant: "destructive" }); return; }
     if (dialogDefectId === "otro" && !dialogDefectOther.trim()) { toast({ title: "Describa el defecto", variant: "destructive" }); return; }
     const qty = Number(dialogQuantity);
@@ -265,20 +276,39 @@ function AgregarDefectosDialog({
                 <Input readOnly value={panel.name} className="bg-muted text-muted-foreground h-8 text-sm" />
               </div>
               <div className="space-y-1">
-                 <Label className="text-xs">Lado del catálogo</Label>
-                <Input readOnly value={panelSide?.name || "—"} className="bg-muted text-muted-foreground h-8 text-sm" />
+                <Label className="text-xs">Posición de auditoría</Label>
+                <div
+                  role="radiogroup"
+                  aria-label="Posición de auditoría"
+                  className="relative flex h-8 w-32 rounded-full border bg-muted p-1"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="absolute inset-y-1 left-1 rounded-full bg-background shadow-sm transition-transform duration-200"
+                    style={{
+                      width: "calc((100% - 0.25rem) / 3)",
+                      transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
+                    }}
+                  />
+                  {sidePositionOptions.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={sidePosition === option.value}
+                      aria-label={option.ariaLabel ?? option.label}
+                      onClick={() => setSidePosition(option.value)}
+                      className={`relative z-10 flex-1 rounded-full text-xs transition-colors ${
+                        sidePosition === option.value
+                          ? "font-medium text-foreground"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {option.label || <span className="sr-only">{option.ariaLabel}</span>}
+                    </button>
+                  ))}
+                </div>
               </div>
-               <div className="space-y-1">
-                 <Label className="text-xs">Posición de auditoría</Label>
-                 <Select value={sidePosition} onValueChange={(value) => setSidePosition(value as "right" | "left" | "center")}>
-                   <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                   <SelectContent>
-                     <SelectItem value="right">Derecha</SelectItem>
-                     <SelectItem value="left">Izquierda</SelectItem>
-                     <SelectItem value="center">Centro</SelectItem>
-                   </SelectContent>
-                 </Select>
-               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Zona Visual</Label>
                 <Input readOnly value={panelVZ?.name || "—"} className="bg-muted text-muted-foreground h-8 text-sm" />
@@ -988,7 +1018,6 @@ export default function AnalisisZonasAuditadas() {
             panel={panel}
             defects={defects as { id: number; code: string; name: string }[] | undefined}
             alphanumericList={alphanumericList as { id: number; code: string; name: string }[] | undefined}
-            sides={sides as { id: number; name: string }[] | undefined}
             visualZones={visualZones as { id: number; name: string }[] | undefined}
             zones={zones as { id: number; name: string }[] | undefined}
             onClose={() => setAddDialog(null)}

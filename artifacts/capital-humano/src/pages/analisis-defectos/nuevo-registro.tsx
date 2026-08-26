@@ -59,7 +59,7 @@ export default function NuevoRegistro() {
   const [zoneId, setZoneId] = useState<number | null>(existingZoneId);
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
   const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
-  const [sidePosition, setSidePosition] = useState<"right" | "left">("left");
+  const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">("center");
 
   const { data: dailyCounter } = useGetAuditDailyCounter({
     date: date || todayStr(),
@@ -71,8 +71,9 @@ export default function NuevoRegistro() {
   const selectedPanel = useMemo(() => panels?.find((p) => p.id === panelId), [panels, panelId]);
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
   const sidePositionOptions = [
-    { value: "left" as const, label: "LH" },
-    { value: "right" as const, label: "RH" },
+    { value: "left" as const, label: "LH", ariaLabel: "LH, izquierda" },
+    { value: "center" as const, label: "", ariaLabel: "Centro" },
+    { value: "right" as const, label: "RH", ariaLabel: "RH, derecha" },
   ];
   const sidePositionIndex = sidePositionOptions.findIndex((option) => option.value === sidePosition);
 
@@ -138,6 +139,10 @@ export default function NuevoRegistro() {
       toast({ title: "Selecciona un panel y una fecha primero", variant: "destructive" });
       return;
     }
+    if (sidePosition === "center") {
+      toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+      return;
+    }
     setDialogCell({ colIndex, rowIndex, colLabel, rowLabel });
     setDialogDefectId("");
     setDialogDefectOther("");
@@ -146,6 +151,10 @@ export default function NuevoRegistro() {
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
+    if (sidePosition === "center") {
+      toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+      return;
+    }
     if (!dialogDefectId) {
       toast({ title: "Seleccione un defecto", variant: "destructive" });
       return;
@@ -272,7 +281,7 @@ export default function NuevoRegistro() {
                   aria-hidden="true"
                   className="absolute inset-y-1 left-1 rounded-full bg-background shadow-sm transition-transform duration-200"
                   style={{
-                    width: "calc((100% - 0.25rem) / 2)",
+                    width: "calc((100% - 0.25rem) / 3)",
                     transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
                   }}
                 />
@@ -289,7 +298,7 @@ export default function NuevoRegistro() {
                         : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {option.label}
+                    {option.label || <span className="sr-only">{option.ariaLabel}</span>}
                   </button>
                 ))}
               </div>
