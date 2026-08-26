@@ -72,6 +72,12 @@ export default function NuevoRegistro() {
   const selectedPanel = useMemo(() => panels?.find((p) => p.id === panelId), [panels, panelId]);
   const panelSide = useMemo(() => sides?.find((s) => s.id === selectedPanel?.side_id), [sides, selectedPanel]);
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
+  const sidePositionOptions = [
+    { value: "left" as const, label: "Izquierda" },
+    { value: "center" as const, label: "Centro" },
+    { value: "right" as const, label: "Derecha" },
+  ];
+  const sidePositionIndex = sidePositionOptions.findIndex((option) => option.value === sidePosition);
 
   const panelAlphanumericOptions = useMemo(() => {
     if (!selectedPanel || !alphanumericList) return [];
@@ -259,6 +265,39 @@ export default function NuevoRegistro() {
               )}
             </div>
             <div className="space-y-1 sm:col-span-2">
+              <Label>Posición de auditoría</Label>
+              <div
+                role="radiogroup"
+                aria-label="Posición de auditoría"
+                className="relative flex h-10 w-full rounded-full border bg-muted p-1"
+              >
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-y-1 left-1 rounded-full bg-background shadow-sm transition-transform duration-200"
+                  style={{
+                    width: "calc((100% - 0.5rem) / 3)",
+                    transform: `translateX(${Math.max(sidePositionIndex, 0) * 100}%)`,
+                  }}
+                />
+                {sidePositionOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={sidePosition === option.value}
+                    onClick={() => setSidePosition(option.value)}
+                    className={`relative z-10 flex-1 rounded-full px-3 text-sm transition-colors ${
+                      sidePosition === option.value
+                        ? "font-medium text-foreground"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1 sm:col-span-2">
               <Label>Panel</Label>
               <Select
                 onValueChange={(val) => {
@@ -291,17 +330,6 @@ export default function NuevoRegistro() {
                   value={panelSide?.name || "Sin lado asignado"}
                   className="bg-muted text-muted-foreground"
                 />
-              </div>
-              <div className="space-y-1">
-                <Label>Posición de auditoría</Label>
-                <Select value={sidePosition} onValueChange={(value) => setSidePosition(value as "right" | "left" | "center")}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="right">Derecha</SelectItem>
-                    <SelectItem value="left">Izquierda</SelectItem>
-                    <SelectItem value="center">Centro</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-1">
                 <Label>Zona Visual (del panel)</Label>
