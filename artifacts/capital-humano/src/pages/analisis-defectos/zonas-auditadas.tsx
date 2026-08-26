@@ -63,6 +63,25 @@ type UnitGroup = {
   captures: AuditCapture[];
 };
 
+function PositionBadge({
+  position,
+  className = "",
+}: {
+  position?: "right" | "left" | "center" | null;
+  className?: string;
+}) {
+  if (position !== "left" && position !== "right") return null;
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold text-white ${
+        position === "left" ? "bg-green-600" : "bg-red-600"
+      } ${className}`}
+    >
+      {position === "left" ? "LH" : "RH"}
+    </span>
+  );
+}
+
 type Panel = {
   id: number;
   name: string;
@@ -125,6 +144,7 @@ function AgregarDefectosDialog({
 
   const [skillInput, setSkillInput] = useState(group.skill_number ?? "");
   const [skillSaving, setSkillSaving] = useState(false);
+  const [sideSaving, setSideSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(group.captures[0]?.zone_id ?? null);
   const [selectedAlphaId, setSelectedAlphaId] = useState<number | null>(group.captures[0]?.alphanumeric_id ?? null);
   const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">(group.captures[0]?.side_position ?? "center");
@@ -203,6 +223,34 @@ function AgregarDefectosDialog({
     }
   };
 
+  const handleSidePositionChange = async (nextPosition: "right" | "left" | "center") => {
+    if (nextPosition === "center") {
+      toast({ title: "Selecciona LH o RH para guardar la posición", variant: "destructive" });
+      return;
+    }
+    if (nextPosition === sidePosition || sideSaving) return;
+
+    const previousPosition = sidePosition;
+    setSidePosition(nextPosition);
+    setSideSaving(true);
+    try {
+      await Promise.all(
+        group.captures.map((capture) =>
+          updateCapture.mutateAsync({
+            id: capture.id,
+            data: { side_position: nextPosition },
+          })
+        )
+      );
+      toast({ title: `Posición ${nextPosition === "left" ? "LH" : "RH"} guardada` });
+    } catch {
+      setSidePosition(previousPosition);
+      toast({ title: "Error al guardar la posición", variant: "destructive" });
+    } finally {
+      setSideSaving(false);
+    }
+  };
+
   const handleCellDoubleClick = (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => {
     if (sidePosition === "center") {
       toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
@@ -250,7 +298,7 @@ function AgregarDefectosDialog({
   return (
     <>
       <Dialog open onOpenChange={onClose}>
-        <DialogContent className="max-w-5xl w-full max-h-[92vh] overflow-y-auto overflow-x-hidden">
+        <DialogContent className="w-[calc(100vw-1rem)] max-w-5xl max-h-[calc(100dvh-1rem)] overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>Agregar Defectos — Unidad #{group.unit_number}</DialogTitle>
           </DialogHeader>
@@ -258,7 +306,7 @@ function AgregarDefectosDialog({
           {/* Datos del registro */}
           <div className="border rounded-lg bg-muted/30 p-4 space-y-3">
             <h3 className="font-semibold text-sm">Datos del Registro</h3>
-            <div className="grid grid-cols-3 gap-3 text-sm">
+            <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
               <div className="space-y-1">
                 <Label className="text-xs">Fecha</Label>
                 <Input readOnly value={group.date} className="bg-muted text-muted-foreground h-8 text-sm" />
@@ -303,8 +351,9 @@ function AgregarDefectosDialog({
                       role="radio"
                       aria-checked={sidePosition === option.value}
                       aria-label={option.ariaLabel}
-                      onClick={() => setSidePosition(option.value)}
-                      className={`relative z-10 flex-1 rounded-full text-xs transition-colors ${
+                      onClick={() => void handleSidePositionChange(option.value)}
+                      disabled={sideSaving || option.value === "center"}
+                      className={`relative z-10 flex-1 rounded-full text-xs transition-colors disabled:cursor-not-allowed ${
                         sidePosition === option.value
                           ? sidePosition === "left" || sidePosition === "right"
                             ? "font-medium text-white"
@@ -316,6 +365,9 @@ function AgregarDefectosDialog({
                     </button>
                   ))}
                 </div>
+                {sideSaving && (
+                  <span className="text-[11px] text-muted-foreground">Guardando…</span>
+                )}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Zona Visual</Label>
@@ -388,37 +440,34 @@ function AgregarDefectosDialog({
               <h3 className="font-semibold text-sm">Cuadrícula: {panel.name}</h3>
               <p className="text-xs text-muted-foreground">Doble clic en una celda para registrar un defecto</p>
             </div>
-            <div className="overflow-x-auto">
-              <div style={{ display: "inline-block", minWidth: "100%" }}>
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <PanelGrid
-                    key={panel.id}
-                    columns={panel.columns}
-                    rows={panel.rows}
-                    diagramUrl={panel.diagram_url ?? undefined}
-                    columnStart={panel.column_start ?? 1}
-                    rowStart={panel.row_start ?? 0}
-                    columnLabels={panel.column_labels}
-                    rowLabels={panel.row_labels}
-                    columnsAsc={panel.columns_asc ?? true}
-                    rowsAsc={panel.rows_asc ?? true}
-                    cellWidth={panel.cell_width ?? 48}
-                    cellHeight={panel.cell_height ?? 32}
-                    columnWidths={panel.column_widths ?? undefined}
-                    rowHeights={panel.row_heights ?? undefined}
-                    gridOffsetX={panel.grid_offset_x ?? 0}
-                    gridOffsetY={panel.grid_offset_y ?? 0}
-                    diagramScaleX={panel.diagram_scale_x ?? 1}
-                    diagramScaleY={panel.diagram_scale_y ?? 1}
-                    diagramOffsetX={panel.diagram_offset_x ?? 0}
-                    diagramOffsetY={panel.diagram_offset_y ?? 0}
-                    diagramOpacity={panel.diagram_opacity ?? 0.5}
-                    onCellDoubleClick={handleCellDoubleClick}
-                    highlightedCells={allHighlighted}
-                    className=""
-                  />
-                </div>
-              </div>
+            <div className="flex h-[min(48vh,480px)] min-h-[220px] min-w-0 items-center justify-center overflow-hidden">
+              <PanelGrid
+                key={panel.id}
+                columns={panel.columns}
+                rows={panel.rows}
+                diagramUrl={panel.diagram_url ?? undefined}
+                columnStart={panel.column_start ?? 1}
+                rowStart={panel.row_start ?? 0}
+                columnLabels={panel.column_labels}
+                rowLabels={panel.row_labels}
+                columnsAsc={panel.columns_asc ?? true}
+                rowsAsc={panel.rows_asc ?? true}
+                cellWidth={panel.cell_width ?? 48}
+                cellHeight={panel.cell_height ?? 32}
+                columnWidths={panel.column_widths ?? undefined}
+                rowHeights={panel.row_heights ?? undefined}
+                gridOffsetX={panel.grid_offset_x ?? 0}
+                gridOffsetY={panel.grid_offset_y ?? 0}
+                diagramScaleX={panel.diagram_scale_x ?? 1}
+                diagramScaleY={panel.diagram_scale_y ?? 1}
+                diagramOffsetX={panel.diagram_offset_x ?? 0}
+                diagramOffsetY={panel.diagram_offset_y ?? 0}
+                diagramOpacity={panel.diagram_opacity ?? 0.5}
+                onCellDoubleClick={handleCellDoubleClick}
+                highlightedCells={allHighlighted}
+                fitToContainer
+                className=""
+              />
             </div>
           </div>
 
@@ -870,7 +919,9 @@ export default function AnalisisZonasAuditadas() {
                             <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
                             <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
                             <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
-                            <TableCell className="whitespace-nowrap">{row.capture.side_position === "right" ? "Derecha" : row.capture.side_position === "left" ? "Izquierda" : "Centro"}</TableCell>
+                             <TableCell className="whitespace-nowrap">
+                               <PositionBadge position={row.capture.side_position} />
+                             </TableCell>
                             <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
                             <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
                             <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
@@ -900,17 +951,15 @@ export default function AnalisisZonasAuditadas() {
                   const isExpanded = expandedUnits.has(key);
                   const editable = isCurrentDay(group.date);
                   const panel = getPanel(group.panel_id);
-                  const side = panel ? getSide(panel.side_id) : null;
-                  const visualZone = panel ? getVisualZone(panel.visual_zone_id) : null;
                   const auditedZone = zones?.find((zone) => zone.id === group.zone_id);
 
                   return (
                     <div key={key} className="border rounded-lg bg-card overflow-hidden">
                       {/* Unit header */}
-                      <div className="flex items-center gap-3 px-4 py-3 bg-muted/40">
+                       <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-muted/40 sm:flex-nowrap sm:gap-3 sm:px-4 sm:py-3">
                         <button
                           onClick={() => toggleUnit(key)}
-                          className="flex items-center gap-2 flex-1 text-left min-w-0"
+                          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
                         >
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -918,16 +967,12 @@ export default function AnalisisZonasAuditadas() {
                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                           )}
                           <span className="font-bold text-base shrink-0">Unidad #{group.unit_number}</span>
-                          <span className="text-sm text-muted-foreground shrink-0">{group.date}</span>
-                          <span className="text-sm text-muted-foreground shrink-0">· Semana {group.week_number}</span>
                            {auditedZone && <span className="text-sm font-medium text-foreground shrink-0">· {auditedZone.name}</span>}
                           {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
-                          {side && <span className="text-sm text-muted-foreground shrink-0">· {side.name}</span>}
-                          <span className="text-sm text-muted-foreground shrink-0">· {group.captures[0]?.side_position === "right" ? "Derecha" : group.captures[0]?.side_position === "left" ? "Izquierda" : "Centro"}</span>
-                          {visualZone && <span className="text-sm text-muted-foreground shrink-0">· {visualZone.name}</span>}
+                           <PositionBadge position={group.captures[0]?.side_position} />
                         </button>
 
-                        <div className="flex items-center gap-2 shrink-0">
+                         <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
                           {/* Skill badge + lápiz inline si no tiene Skill */}
                           {group.skill_number ? (
                             <Badge variant="secondary" className="font-mono">
@@ -948,7 +993,19 @@ export default function AnalisisZonasAuditadas() {
                             </div>
                           )}
 
-                          <Badge variant="outline">{group.captures.length} defecto(s)</Badge>
+                           <Button
+                             type="button"
+                             variant="outline"
+                             size="sm"
+                             className="h-8 shrink-0 px-2 text-xs"
+                             title={`${group.captures.length} defecto(s) registrados`}
+                             onClick={(event) => {
+                               event.stopPropagation();
+                               toggleUnit(key);
+                             }}
+                           >
+                             Número de defectos: {group.captures.length}
+                           </Button>
                           {!editable && (
                             <Badge variant="secondary" className="gap-1 text-muted-foreground">
                               <Lock className="h-3 w-3" />
@@ -968,13 +1025,16 @@ export default function AnalisisZonasAuditadas() {
                           )}
 
                           {panel && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setAddDialog(group)}
-                            >
-                              <Plus className="mr-1 h-3 w-3" />
-                              Agregar defectos
+                           <Button
+                             type="button"
+                             variant="outline"
+                             size="icon"
+                             className="h-8 w-8 shrink-0"
+                             title="Agregar defectos"
+                             aria-label="Agregar defectos"
+                             onClick={() => setAddDialog(group)}
+                           >
+                             <Plus className="h-4 w-4" />
                             </Button>
                           )}
                         </div>
@@ -1040,41 +1100,38 @@ export default function AnalisisZonasAuditadas() {
         const highlighted = buildHighlighted(gridDialog.captures, panel);
         return (
           <Dialog open onOpenChange={() => setGridDialog(null)}>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogContent className="w-[calc(100vw-1rem)] max-w-[1100px] h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-4 sm:p-6">
               <DialogHeader>
                 <DialogTitle>
                   Cuadrícula — Unidad #{gridDialog.unit_number} · {panel.name}
                 </DialogTitle>
               </DialogHeader>
-              <div className="overflow-x-auto">
-                <div style={{ display: "inline-block", minWidth: "100%" }}>
-                  <div style={{ display: "flex", justifyContent: "center" }}>
-                    <PanelGrid
-                      columns={panel.columns}
-                      rows={panel.rows}
-                      diagramUrl={panel.diagram_url ?? undefined}
-                      columnStart={panel.column_start ?? 1}
-                      rowStart={panel.row_start ?? 0}
-                      columnLabels={panel.column_labels}
-                      rowLabels={panel.row_labels}
-                      columnsAsc={panel.columns_asc ?? true}
-                      rowsAsc={panel.rows_asc ?? true}
-                      cellWidth={panel.cell_width ?? 48}
-                      cellHeight={panel.cell_height ?? 32}
-                      columnWidths={panel.column_widths ?? undefined}
-                      rowHeights={panel.row_heights ?? undefined}
-                      gridOffsetX={panel.grid_offset_x ?? 0}
-                      gridOffsetY={panel.grid_offset_y ?? 0}
-                      diagramScaleX={panel.diagram_scale_x ?? 1}
-                      diagramScaleY={panel.diagram_scale_y ?? 1}
-                      diagramOffsetX={panel.diagram_offset_x ?? 0}
-                      diagramOffsetY={panel.diagram_offset_y ?? 0}
-                      diagramOpacity={panel.diagram_opacity ?? 0.5}
-                      highlightedCells={highlighted}
-                    />
-                  </div>
+              <div className="flex min-h-0 min-w-0 items-center justify-center overflow-hidden">
+                <PanelGrid
+                  columns={panel.columns}
+                  rows={panel.rows}
+                  diagramUrl={panel.diagram_url ?? undefined}
+                  columnStart={panel.column_start ?? 1}
+                  rowStart={panel.row_start ?? 0}
+                  columnLabels={panel.column_labels}
+                  rowLabels={panel.row_labels}
+                  columnsAsc={panel.columns_asc ?? true}
+                  rowsAsc={panel.rows_asc ?? true}
+                  cellWidth={panel.cell_width ?? 48}
+                  cellHeight={panel.cell_height ?? 32}
+                  columnWidths={panel.column_widths ?? undefined}
+                  rowHeights={panel.row_heights ?? undefined}
+                  gridOffsetX={panel.grid_offset_x ?? 0}
+                  gridOffsetY={panel.grid_offset_y ?? 0}
+                  diagramScaleX={panel.diagram_scale_x ?? 1}
+                  diagramScaleY={panel.diagram_scale_y ?? 1}
+                  diagramOffsetX={panel.diagram_offset_x ?? 0}
+                  diagramOffsetY={panel.diagram_offset_y ?? 0}
+                  diagramOpacity={panel.diagram_opacity ?? 0.5}
+                  highlightedCells={highlighted}
+                  fitToContainer
+                />
                 </div>
-              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setGridDialog(null)}>Cerrar</Button>
               </DialogFooter>

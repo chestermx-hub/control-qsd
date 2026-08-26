@@ -71,6 +71,7 @@ export function PanelGrid({
   onCellDoubleClick,
   onLabelDoubleClick,
   highlightedCells,
+   fitToContainer = false,
   className,
 }: {
   columns: number;
@@ -100,6 +101,7 @@ export function PanelGrid({
   onCellDoubleClick?: (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => void;
   onLabelDoubleClick?: (kind: "column" | "row", index: number, value: string) => void;
   highlightedCells?: { col: number; row: number; count?: number }[];
+  fitToContainer?: boolean;
   className?: string;
 }) {
   const HEADER_W = 36;
@@ -229,71 +231,110 @@ export function PanelGrid({
 
   const [naturalImgWidth, setNaturalImgWidth] = useState<number | null>(null);
   const [naturalImgHeight, setNaturalImgHeight] = useState<number | null>(null);
+  const gridRootRef = useRef<HTMLDivElement>(null);
+  const [availableSize, setAvailableSize] = useState({ width: 0, height: 0 });
 
   const imgLoaded = naturalImgWidth !== null && naturalImgHeight !== null;
+  const imageWidth = imgLoaded ? HEADER_W + imgOffset.x + naturalImgWidth! * diagramScaleX : 0;
+  const imageHeight = imgLoaded ? HEADER_H + imgOffset.y + naturalImgHeight! * diagramScaleY : 0;
+  const contentWidth = Math.max(totalW, imageWidth);
+  const contentHeight = Math.max(totalH, imageHeight);
+  const displayScale = fitToContainer && availableSize.width > 0 && availableSize.height > 0
+    ? Math.min(1, availableSize.width / contentWidth, availableSize.height / contentHeight)
+    : 1;
+
+  useEffect(() => {
+    if (!fitToContainer) {
+      setAvailableSize({ width: 0, height: 0 });
+      return;
+    }
+    const parent = gridRootRef.current?.parentElement;
+    if (!parent) return;
+    const updateSize = () => {
+      setAvailableSize({ width: parent.clientWidth, height: parent.clientHeight });
+    };
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(parent);
+    return () => observer.disconnect();
+  }, [fitToContainer, contentWidth, contentHeight]);
 
   return (
     <div
+      ref={gridRootRef}
       className={`relative border border-gray-300 bg-white overflow-hidden${className !== undefined ? ` ${className}` : " mt-4"}`}
-      style={{ height: totalH + (MARGIN + EXTRA) * 2, minHeight: 200, width: totalW }}
+      style={{
+        height: Math.max(200, contentHeight * displayScale + (MARGIN + EXTRA) * 2),
+        minHeight: 200,
+        width: contentWidth * displayScale,
+      }}
     >
-      {diagramUrl && (
-        <div
-          className={`absolute inset-0 z-0 ${onImagePositionChange ? "" : "pointer-events-none"}`}
-        >
-          <img
-            src={diagramUrl}
-            alt=""
-            draggable={false}
-            onLoad={(e) => {
-              const img = e.currentTarget;
-              if (img.naturalWidth && img.naturalHeight) {
-                setNaturalImgWidth(img.naturalWidth);
-                setNaturalImgHeight(img.naturalHeight);
-                onImageNaturalSize?.(img.naturalWidth, img.naturalHeight);
-              }
-            }}
-            style={{
-              position: "absolute",
-              left: HEADER_W + imgOffset.x,
-              top: HEADER_H + imgOffset.y,
-              width: imgLoaded ? `${Math.round(naturalImgWidth! * diagramScaleX)}px` : 0,
-              height: imgLoaded ? `${Math.round(naturalImgHeight! * diagramScaleY)}px` : 0,
-              maxWidth: "none",
-              opacity: imgLoaded ? diagramOpacity : 0,
-              cursor: onImagePositionChange ? (isDraggingImg ? "grabbing" : "grab") : "default",
-              userSelect: "none",
-            }}
-            onMouseDown={onImagePositionChange ? (e) => {
-              e.preventDefault();
-              imgDragging.current = {
-                startClientX: e.clientX,
-                startClientY: e.clientY,
-                startX: imgOffset.x,
-                startY: imgOffset.y,
-              };
-              setIsDraggingImg(true);
-            } : undefined}
-          />
-        </div>
-      )}
       <div
-        className="absolute overflow-hidden z-10"
         style={{
-          inset: MARGIN + EXTRA,
-          transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)`,
-          pointerEvents: onImagePositionChange ? "none" : undefined,
+          position: "relative",
+          width: contentWidth,
+          height: contentHeight,
+          transform: `scale(${displayScale})`,
+          transformOrigin: "top left",
         }}
       >
+        {diagramUrl && (
+          <div
+            className={`absolute inset-0 z-0 ${onImagePositionChange ? "" : "pointer-events-none"}`}
+          >
+            <img
+              src={diagramUrl}
+              alt=""
+              draggable={false}
+              onLoad={(e) => {
+                const img = e.currentTarget;
+                if (img.naturalWidth && img.naturalHeight) {
+                  setNaturalImgWidth(img.naturalWidth);
+                  setNaturalImgHeight(img.naturalHeight);
+                  onImageNaturalSize?.(img.naturalWidth, img.naturalHeight);
+                }
+              }}
+              style={{
+                position: "absolute",
+                left: HEADER_W + imgOffset.x,
+                top: HEADER_H + imgOffset.y,
+                width: imgLoaded ? `${Math.round(naturalImgWidth! * diagramScaleX)}px` : 0,
+                height: imgLoaded ? `${Math.round(naturalImgHeight! * diagramScaleY)}px` : 0,
+                maxWidth: "none",
+                opacity: imgLoaded ? diagramOpacity : 0,
+                cursor: onImagePositionChange ? (isDraggingImg ? "grabbing" : "grab") : "default",
+                userSelect: "none",
+              }}
+              onMouseDown={onImagePositionChange ? (e) => {
+                e.preventDefault();
+                imgDragging.current = {
+                  startClientX: e.clientX,
+                  startClientY: e.clientY,
+                  startX: imgOffset.x,
+                  startY: imgOffset.y,
+                };
+                setIsDraggingImg(true);
+              } : undefined}
+            />
+          </div>
+        )}
         <div
+          className="absolute overflow-hidden z-10"
           style={{
-            display: "grid",
-            gridTemplateColumns: `${HEADER_W}px ${colWidths.map(w => `${w}px`).join(" ")}`,
-            gridTemplateRows: `${HEADER_H}px ${rowHeights.map(h => `${h}px`).join(" ")}`,
-            width: totalW,
-            userSelect: (canResizeCols || canResizeRows) ? "none" : undefined,
+            inset: MARGIN + EXTRA,
+            transform: `translate(${gridOffsetX}px, ${gridOffsetY}px)`,
+            pointerEvents: onImagePositionChange ? "none" : undefined,
           }}
         >
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `${HEADER_W}px ${colWidths.map(w => `${w}px`).join(" ")}`,
+              gridTemplateRows: `${HEADER_H}px ${rowHeights.map(h => `${h}px`).join(" ")}`,
+              width: totalW,
+              userSelect: (canResizeCols || canResizeRows) ? "none" : undefined,
+            }}
+          >
           <div className="sticky top-0 left-0 z-30 bg-gray-100 border-r border-b border-red-500 pointer-events-auto" />
           {colWidths.map((w, c) => (
             <div
@@ -382,6 +423,7 @@ export function PanelGrid({
               })}
             </div>
           ))}
+          </div>
         </div>
       </div>
     </div>
