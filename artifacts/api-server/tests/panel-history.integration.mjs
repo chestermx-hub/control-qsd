@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import test from "node:test";
+import { promisify } from "node:util";
+
+const execFileAsync = promisify(execFile);
 
 const baseUrl = (process.env.TEST_API_URL || "http://127.0.0.1:8080").replace(/\/$/, "");
 const today = new Intl.DateTimeFormat("en-CA", {
@@ -616,8 +620,8 @@ test(
         method: "POST",
         body: JSON.stringify({
           unit_number: 920000,
-          week_number: 1,
-          date: "2020-01-02",
+          week_number: 35,
+          date: today,
           panel_id: panel.id,
           grid_col: 1,
           grid_col_label: "1",
@@ -626,6 +630,21 @@ test(
         }),
       });
       created.captures.push(capture);
+
+      // La API sólo permite crear capturas del día actual; se mueve el
+      // registro de prueba directamente para validar el permiso histórico.
+      assert.ok(process.env.DATABASE_URL, "DATABASE_URL es necesaria para esta prueba");
+      await execFileAsync(
+        "psql",
+        [
+          process.env.DATABASE_URL,
+          "-v",
+          "ON_ERROR_STOP=1",
+          "-c",
+          `UPDATE audit_captures SET date = '2020-01-02' WHERE id = ${capture.id}`,
+        ],
+        { env: process.env },
+      );
 
       await expectStatus(`/audit-captures/${capture.id}`, 204, { method: "DELETE" });
     } finally {
