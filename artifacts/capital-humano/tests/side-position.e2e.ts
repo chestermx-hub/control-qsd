@@ -65,7 +65,13 @@ test("muestra LH/Centro/RH sólo para paneles bilaterales", async ({ page }) => 
     await panelSelect().first().click();
     await page.getByRole("option", { name: `Panel con lado ${suffix}`, exact: true }).click();
 
-    await expect(page.getByRole("radiogroup", { name: "Posición de auditoría" })).toBeVisible();
+    const sideSelector = page.getByRole("radiogroup", { name: "Selección de lado" });
+    await expect(sideSelector).toBeVisible();
+    await expect(page.getByText("Selecciona un lado para habilitar los cuadrantes.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Selección de lado requerida", { exact: true })).toBeVisible();
+    await expect(page.locator('[title^="A1"]')).toHaveCount(0);
+    await sideSelector.getByRole("radio", { name: "LH, izquierda" }).click();
+    await expect(page.getByText("Selección de lado requerida", { exact: true })).toHaveCount(0);
     await page.locator('[title^="A1"]').dblclick();
     await expect(page.getByRole("dialog")).toBeVisible();
     await page.getByRole("button", { name: "Cancelar" }).click();

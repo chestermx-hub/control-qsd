@@ -497,22 +497,22 @@ export default function PanelFormPage() {
                   <FormItem className="col-span-2">
                     <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
                       <div>
-                        <FormLabel>Modalidad de captura</FormLabel>
+                        <FormLabel>Selección de lado</FormLabel>
                         <p className="text-xs text-muted-foreground">
                           {field.value === "bilateral"
-                            ? "Permite registrar LH, Centro o RH."
-                            : "Registra automáticamente la posición Centro."}
+                            ? "Pide seleccionar LH, Centro o RH antes de elegir cuadrantes."
+                            : "No pide seleccionar lado y registra automáticamente Centro."}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium">
-                          {field.value === "bilateral" ? "Bilateral" : "Unilateral"}
+                          {field.value === "bilateral" ? "Activo" : "Inactivo"}
                         </span>
                         <FormControl>
                           <Switch
                             checked={field.value === "bilateral"}
                             onCheckedChange={(checked) => field.onChange(checked ? "bilateral" : "unilateral")}
-                            aria-label="Modalidad Bilateral o Unilateral"
+                            aria-label="Activar selección de lado"
                           />
                         </FormControl>
                       </div>

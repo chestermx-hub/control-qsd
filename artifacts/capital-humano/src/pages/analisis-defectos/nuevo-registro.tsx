@@ -40,6 +40,8 @@ type SavedCapture = {
   quantity: number;
 };
 
+type SidePosition = "right" | "left" | "center";
+
 export default function NuevoRegistro() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -66,7 +68,7 @@ export default function NuevoRegistro() {
   const [skillNumber, setSkillNumber] = useState(existingSkillNumber);
   const [zoneId, setZoneId] = useState<number | null>(existingZoneId);
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
-  const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">("center");
+  const [sidePosition, setSidePosition] = useState<SidePosition | null>(null);
 
   const { data: dailyCounter } = useGetAuditDailyCounter({
     date: date || todayStr(),
@@ -76,6 +78,8 @@ export default function NuevoRegistro() {
   const resolvedUnitNumber = isContinuing ? existingUnitNumber! : (dailyCounter?.next_unit_number ?? 1);
 
   const selectedPanel = useMemo(() => activePanels?.find((p) => p.id === panelId), [activePanels, panelId]);
+  const requiresSideSelection = selectedPanel?.side_mode === "bilateral";
+  const canSelectGrid = !requiresSideSelection || sidePosition !== null;
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
   const isZonaU = useMemo(
     () => zones?.find((zone) => zone.id === zoneId)?.name.trim().toLocaleUpperCase() === "ZONA U",
@@ -90,7 +94,13 @@ export default function NuevoRegistro() {
     { value: "center" as const, label: "", ariaLabel: "Centro" },
     { value: "right" as const, label: "RH", ariaLabel: "RH, derecha" },
   ];
-  const sidePositionIndex = sidePositionOptions.findIndex((option) => option.value === sidePosition);
+  const sidePositionIndex = sidePosition === null
+    ? 1
+    : sidePositionOptions.findIndex((option) => option.value === sidePosition);
+
+  useEffect(() => {
+    setSidePosition(selectedPanel?.side_mode === "bilateral" ? null : "center");
+  }, [selectedPanel?.id, selectedPanel?.side_mode]);
 
   const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState<string>("");
@@ -154,7 +164,7 @@ export default function NuevoRegistro() {
       toast({ title: "Selecciona un panel y una fecha primero", variant: "destructive" });
       return;
     }
-    if (selectedPanel?.side_mode === "bilateral" && !sidePosition) {
+    if (requiresSideSelection && !sidePosition) {
       toast({ title: "Selecciona LH, Centro o RH antes de registrar", variant: "destructive" });
       return;
     }
@@ -166,7 +176,7 @@ export default function NuevoRegistro() {
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
-    if (selectedPanel?.side_mode === "bilateral" && !sidePosition) {
+    if (requiresSideSelection && !sidePosition) {
       toast({ title: "Selecciona LH, Centro o RH antes de registrar", variant: "destructive" });
       return;
     }
@@ -201,7 +211,7 @@ export default function NuevoRegistro() {
         zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
-        side_position: selectedPanel?.side_mode === "bilateral" ? sidePosition : "center",
+        side_position: requiresSideSelection ? sidePosition! : "center",
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
          grid_col: dialogCell.colIndex + 1,
          grid_col_label: dialogCell.colLabel,
@@ -296,9 +306,9 @@ export default function NuevoRegistro() {
               <Label>Panel</Label>
               <Select
                 onValueChange={(val) => {
-                  setPanelId(Number(val));
                   const nextPanel = activePanels?.find((panel) => panel.id === Number(val));
-                  if (nextPanel?.side_mode !== "bilateral") setSidePosition("center");
+                  setPanelId(Number(val));
+                  setSidePosition(nextPanel?.side_mode === "bilateral" ? null : "center");
                   if (!isContinuing) {
                     setSavedCaptures([]);
                     setCapturedCells([]);
@@ -319,12 +329,12 @@ export default function NuevoRegistro() {
 
           {selectedPanel && (
             <div className="grid grid-cols-2 gap-4 pt-2 border-t sm:grid-cols-3">
-              {selectedPanel.side_mode === "bilateral" && (
+              {requiresSideSelection && (
               <div className="space-y-1">
-                <Label>Posición de auditoría</Label>
+                <Label>Selección de lado</Label>
                 <div
                   role="radiogroup"
-                  aria-label="Posición de auditoría"
+                  aria-label="Selección de lado"
                   className="relative flex h-8 w-32 rounded-full border bg-muted p-1"
                 >
                   <div
@@ -363,6 +373,11 @@ export default function NuevoRegistro() {
                     </button>
                   ))}
                 </div>
+                {!sidePosition && (
+                  <p className="text-xs text-amber-700">
+                    Selecciona un lado para habilitar los cuadrantes.
+                  </p>
+                )}
               </div>
               )}
               <div className="space-y-1">
@@ -385,40 +400,54 @@ export default function NuevoRegistro() {
                 Cuadrícula: {selectedPanel.name}
               </h2>
               <p className="text-xs text-muted-foreground">
-                Doble clic en una celda para registrar un defecto
+                {canSelectGrid
+                  ? "Doble clic en una celda para registrar un defecto"
+                  : "Selecciona un lado para habilitar los cuadrantes"}
               </p>
             </div>
 
             <div className="overflow-x-auto">
               <div style={{ display: "inline-block", minWidth: "100%" }}>
                 <div style={{ display: "flex", justifyContent: "center" }}>
-                  <PanelGrid
-                    key={selectedPanel.id}
-                    columns={selectedPanel.columns}
-                    rows={selectedPanel.rows}
-                    diagramUrl={selectedPanel.diagram_url ?? undefined}
-                    columnStart={selectedPanel.column_start ?? 1}
-                    rowStart={selectedPanel.row_start ?? 0}
-                    columnLabels={selectedPanel.column_labels}
-                    rowLabels={selectedPanel.row_labels}
-                    columnsAsc={selectedPanel.columns_asc ?? true}
-                    rowsAsc={selectedPanel.rows_asc ?? true}
-                    cellWidth={selectedPanel.cell_width ?? 48}
-                    cellHeight={selectedPanel.cell_height ?? 32}
-                    columnWidths={selectedPanel.column_widths ?? undefined}
-                    rowHeights={selectedPanel.row_heights ?? undefined}
-                    gridOffsetX={selectedPanel.grid_offset_x ?? 0}
-                    gridOffsetY={selectedPanel.grid_offset_y ?? 0}
-                    diagramScaleX={selectedPanel.diagram_scale_x ?? 1}
-                    diagramScaleY={selectedPanel.diagram_scale_y ?? 1}
-                    diagramOffsetX={selectedPanel.diagram_offset_x ?? 0}
-                    diagramOffsetY={selectedPanel.diagram_offset_y ?? 0}
-                    diagramOpacity={selectedPanel.diagram_opacity ?? 0.5}
-                    diagramTint={selectedPanel.diagram_tint}
-                    onCellDoubleClick={handleCellDoubleClick}
-                    highlightedCells={capturedCells}
-                    className=""
-                  />
+                  <div className="relative">
+                    <PanelGrid
+                      key={selectedPanel.id}
+                      columns={selectedPanel.columns}
+                      rows={selectedPanel.rows}
+                      diagramUrl={selectedPanel.diagram_url ?? undefined}
+                      columnStart={selectedPanel.column_start ?? 1}
+                      rowStart={selectedPanel.row_start ?? 0}
+                      columnLabels={selectedPanel.column_labels}
+                      rowLabels={selectedPanel.row_labels}
+                      columnsAsc={selectedPanel.columns_asc ?? true}
+                      rowsAsc={selectedPanel.rows_asc ?? true}
+                      cellWidth={selectedPanel.cell_width ?? 48}
+                      cellHeight={selectedPanel.cell_height ?? 32}
+                      columnWidths={selectedPanel.column_widths ?? undefined}
+                      rowHeights={selectedPanel.row_heights ?? undefined}
+                      gridOffsetX={selectedPanel.grid_offset_x ?? 0}
+                      gridOffsetY={selectedPanel.grid_offset_y ?? 0}
+                      diagramScaleX={selectedPanel.diagram_scale_x ?? 1}
+                      diagramScaleY={selectedPanel.diagram_scale_y ?? 1}
+                      diagramOffsetX={selectedPanel.diagram_offset_x ?? 0}
+                      diagramOffsetY={selectedPanel.diagram_offset_y ?? 0}
+                      diagramOpacity={selectedPanel.diagram_opacity ?? 0.5}
+                      diagramTint={selectedPanel.diagram_tint}
+                      onCellDoubleClick={canSelectGrid ? handleCellDoubleClick : undefined}
+                      highlightedCells={capturedCells}
+                      className=""
+                    />
+                    {!canSelectGrid && (
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/75 p-4 text-center">
+                        <div className="rounded-md border bg-card px-4 py-3 shadow-sm">
+                          <p className="text-sm font-medium">Selección de lado requerida</p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            Elige LH, Centro o RH antes de seleccionar un cuadrante.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
