@@ -20,19 +20,15 @@ function currentMexicoDate() {
   return `${values.year}-${values.month}-${values.day}`;
 }
 
-function isAdministrator(req: Request) {
-  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
-  return userId
-    ? db
-        .select({ role: usersTable.role, email: usersTable.email })
-        .from(usersTable)
-        .where(eq(usersTable.id, userId))
-        .then(([user]) =>
-          user?.role === "admin" ||
-          user?.role === "superadmin" ||
-          user?.email.toLowerCase() === CAPTURE_DELETE_EMAIL
-        )
-    : Promise.resolve(false);
+async function getCurrentUser(req: Request) {
+  const rawUserId = (req.session as unknown as Record<string, unknown>).userId;
+  const userId = Number(rawUserId);
+  if (!Number.isInteger(userId) || userId <= 0) return undefined;
+  const [user] = await db
+    .select({ role: usersTable.role, email: usersTable.email })
+    .from(usersTable)
+    .where(eq(usersTable.id, userId));
+  return user;
 }
 
 async function getPanelContext(panelId?: number) {
@@ -233,11 +229,17 @@ router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
   const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-  if (!(await isAdministrator(req))) {
+  const user = await getCurrentUser(req);
+  const isSpecialDeleteUser = user?.email.toLowerCase() === CAPTURE_DELETE_EMAIL;
+  if (
+    user?.role !== "admin" &&
+    user?.role !== "superadmin" &&
+    !isSpecialDeleteUser
+  ) {
     res.status(403).json({ error: "Sólo un administrador puede eliminar registros" });
     return;
   }
-  if (existing.date !== currentMexicoDate()) {
+  if (existing.date !== currentMexicoDate() && !isSpecialDeleteUser) {
     res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
     return;
   }

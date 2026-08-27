@@ -97,7 +97,8 @@ function PositionBadge({
 function positionLabel(position?: "right" | "left" | "center" | null) {
   if (position === "left") return "LH";
   if (position === "right") return "RH";
-  return "Centro";
+  if (position === "center") return "Centro";
+  return "—";
 }
 
 type Panel = {
@@ -571,6 +572,8 @@ export default function AnalisisZonasAuditadas() {
     user?.role === "admin" ||
     user?.role === "superadmin" ||
     user?.email?.toLowerCase() === "sistemas@qis-servicio.com";
+  const canDeleteHistoricalCaptures =
+    user?.email?.toLowerCase() === "sistemas@qis-servicio.com";
 
   const params = {
     ...(filterDate ? { date: filterDate } : {}),
@@ -724,7 +727,6 @@ export default function AnalisisZonasAuditadas() {
   };
 
   const getPanel = (id: number | null | undefined) => panels?.find((p) => p.id === id) as Panel | undefined;
-  const getSide = (id: number | null | undefined) => sides?.find((s) => s.id === id);
   const getVisualZone = (id: number | null | undefined) => visualZones?.find((v) => v.id === id);
 
   const exportToExcel = () => {
@@ -758,7 +760,6 @@ export default function AnalisisZonasAuditadas() {
 
     const rows = sorted.map((c, i) => {
       const panel = panels?.find((p) => p.id === c.panel_id);
-      const side = sides?.find((s) => s.id === c.side_id);
       const vz = visualZones?.find((v) => v.id === c.visual_zone_id);
       const defect = defects?.find((d) => d.id === c.defect_id);
       const defectLabel = c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—";
@@ -770,8 +771,7 @@ export default function AnalisisZonasAuditadas() {
         Fecha: c.date,
         SK: c.skill_number ?? "",
         Panel: panel?.name ?? "",
-        "Lado catálogo": side?.name ?? "",
-        Posición: c.side_position === "right" ? "Derecha" : c.side_position === "left" ? "Izquierda" : "Centro",
+        Posición: positionLabel(c.side_position),
         "Zona Vista": vz?.name ?? "",
         "Clave Alfa Numérica": `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
         Defecto: defectLabel,
@@ -811,20 +811,18 @@ export default function AnalisisZonasAuditadas() {
     });
     return allCaptures.map((c, idx) => {
       const panel = getPanel(c.panel_id);
-      const side = sides?.find((s) => s.id === c.side_id);
       const vz = visualZones?.find((v) => v.id === c.visual_zone_id);
       const defect = defects?.find((d) => d.id === c.defect_id);
       return {
         idx,
         capture: c,
         panelName: panel?.name ?? "—",
-        sideName: side?.name ?? "—",
         vzName: vz?.name ?? "—",
         cellLabel: `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
         defectLabel: c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—",
       };
     });
-  }, [captures, panels, sides, visualZones, defects]);
+  }, [captures, panels, visualZones, defects]);
 
   return (
     <AppLayout>
@@ -956,7 +954,6 @@ export default function AnalisisZonasAuditadas() {
                         <TableHead className="whitespace-nowrap">Fecha</TableHead>
                         <TableHead className="whitespace-nowrap">SK</TableHead>
                         <TableHead className="whitespace-nowrap">Panel</TableHead>
-                        <TableHead className="whitespace-nowrap">Lado catálogo</TableHead>
                         <TableHead className="whitespace-nowrap">Posición</TableHead>
                         <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
                         <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
@@ -967,6 +964,7 @@ export default function AnalisisZonasAuditadas() {
                         <TableHead className="whitespace-nowrap text-right">R1000</TableHead>
                         <TableHead className="whitespace-nowrap">Analista</TableHead>
                         <TableHead className="whitespace-nowrap">Turno</TableHead>
+                        {canDeleteCaptures && <TableHead className="whitespace-nowrap">Acciones</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -979,10 +977,13 @@ export default function AnalisisZonasAuditadas() {
                             <TableCell className="whitespace-nowrap">{row.capture.date}</TableCell>
                             <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
                             <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
-                            <TableCell className="whitespace-nowrap">{row.sideName}</TableCell>
-                             <TableCell className="whitespace-nowrap">
-                               <PositionBadge position={row.capture.side_position} />
-                             </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              <PositionBadge position={row.capture.side_position} />
+                              {row.capture.side_position === "center" && (
+                                <span className="text-muted-foreground">Centro</span>
+                              )}
+                              {!row.capture.side_position && <span className="text-muted-foreground">—</span>}
+                            </TableCell>
                             <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
                             <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
                             <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
@@ -998,6 +999,27 @@ export default function AnalisisZonasAuditadas() {
                             </TableCell>
                             <TableCell className="whitespace-nowrap">{user?.name ?? "—"}</TableCell>
                             <TableCell>1ro</TableCell>
+                            {canDeleteCaptures && (
+                              <TableCell>
+                                {(isCurrentDay(row.capture.date) || canDeleteHistoricalCaptures) && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive"
+                                    title="Eliminar registro"
+                                    aria-label={`Eliminar registro ${row.capture.id}`}
+                                    onClick={() => {
+                                      if (confirm("¿Eliminar este registro?")) {
+                                        deleteCapture.mutate({ id: row.capture.id });
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </TableCell>
+                            )}
                           </TableRow>
                         );
                       })}
@@ -1011,6 +1033,8 @@ export default function AnalisisZonasAuditadas() {
                   const key = `${group.zone_id ?? "none"}__${group.unit_number}__${group.date}`;
                   const isExpanded = expandedUnits.has(key);
                   const editable = isCurrentDay(group.date);
+                  const canDeleteGroup =
+                    canDeleteCaptures && (editable || canDeleteHistoricalCaptures);
                   const panel = getPanel(group.panel_id);
                   const auditedZone = zones?.find((zone) => zone.id === group.zone_id);
 
@@ -1118,7 +1142,7 @@ export default function AnalisisZonasAuditadas() {
                               <Badge variant="secondary" className="shrink-0">
                                 Cant: {cap.quantity}
                               </Badge>
-                               {editable && canDeleteCaptures && <Button
+                              {canDeleteGroup && <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive shrink-0"

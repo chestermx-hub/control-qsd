@@ -591,6 +591,59 @@ test(
   { timeout: 30_000 },
 );
 
+test(
+  "permite a sistemas eliminar una captura de una fecha anterior",
+  async () => {
+    let panel = null;
+    let capture = null;
+
+    try {
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: "sistemas@qis-servicio.com",
+          password: "QIS2025!",
+        }),
+      });
+
+      panel = await expectStatus("/panels", 201, {
+        method: "POST",
+        body: JSON.stringify(panelPayload(`Panel histórico ${suffix}`, ["1"], ["A"])),
+      });
+      created.panels.push(panel);
+
+      capture = await expectStatus("/audit-captures", 201, {
+        method: "POST",
+        body: JSON.stringify({
+          unit_number: 920000,
+          week_number: 1,
+          date: "2020-01-02",
+          panel_id: panel.id,
+          grid_col: 1,
+          grid_col_label: "1",
+          grid_row: "A",
+          quantity: 1,
+        }),
+      });
+      created.captures.push(capture);
+
+      await expectStatus(`/audit-captures/${capture.id}`, 204, { method: "DELETE" });
+    } finally {
+      if (capture) {
+        await expectStatus(`/audit-captures/${capture.id}`, 204, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+      if (panel) {
+        await expectStatus(`/panels/${panel.id}`, 204, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+    }
+  },
+  { timeout: 30_000 },
+);
+
 test.after(async () => {
   for (const capture of created.captures) {
     await expectStatus(`/audit-captures/${capture.id}`, 204, { method: "DELETE" }).catch(() => {});
