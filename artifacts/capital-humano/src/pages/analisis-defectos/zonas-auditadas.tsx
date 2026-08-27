@@ -63,6 +63,13 @@ type UnitGroup = {
   captures: AuditCapture[];
 };
 
+type NewCaptureStart = {
+  zoneId: number;
+  latestUnitNumber: number;
+  nextUnitNumber: number;
+  skillNumber: string;
+};
+
 function PositionBadge({
   position,
   className = "",
@@ -566,6 +573,7 @@ export default function AnalisisZonasAuditadas() {
   const [updatingSkill, setUpdatingSkill] = useState(false);
   const [addDialog, setAddDialog] = useState<UnitGroup | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [newCaptureStart, setNewCaptureStart] = useState<NewCaptureStart | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -577,12 +585,68 @@ export default function AnalisisZonasAuditadas() {
   };
   const { data: captures, isLoading } = useListAuditCaptures(params);
   const { data: historicalCaptures } = useListAuditCaptures({});
+  const {
+    data: todayCaptures,
+    isLoading: isLoadingTodayCaptures,
+    isError: isTodayCapturesError,
+  } = useListAuditCaptures({ date: todayStr() });
   const { data: panels } = useListPanels();
   const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const { data: defects } = useListDefects();
   const { data: alphanumericList } = useListAlphanumeric();
   const { data: zones, isLoading: isLoadingZones } = useListZones();
+
+  const startNewCapture = (zoneId: number) => {
+    if (isLoadingTodayCaptures) {
+      toast({ title: "Cargando las capturas de hoy, intenta de nuevo en un momento" });
+      return;
+    }
+    if (isTodayCapturesError || !todayCaptures) {
+      toast({ title: "No se pudieron consultar las capturas de la zona", variant: "destructive" });
+      return;
+    }
+
+    const zoneCaptures = (todayCaptures as AuditCapture[]).filter((capture) => capture.zone_id === zoneId);
+    if (zoneCaptures.length === 0) {
+      window.location.href = `/analisis-defectos/nuevo-registro?zoneId=${zoneId}`;
+      return;
+    }
+
+    const latestUnitNumber = Math.max(...zoneCaptures.map((capture) => capture.unit_number));
+    const latestCapture = zoneCaptures
+      .filter((capture) => capture.unit_number === latestUnitNumber)
+      .sort((a, b) => a.id - b.id)
+      .at(-1);
+
+    setNewCaptureStart({
+      zoneId,
+      latestUnitNumber,
+      nextUnitNumber: latestUnitNumber + 1,
+      skillNumber: latestCapture?.skill_number ?? "",
+    });
+  };
+
+  const openNewPanelCapture = () => {
+    if (!newCaptureStart) return;
+    const params = new URLSearchParams({
+      date: todayStr(),
+      zoneId: String(newCaptureStart.zoneId),
+      unitNumber: String(newCaptureStart.latestUnitNumber),
+    });
+    if (newCaptureStart.skillNumber) params.set("skillNumber", newCaptureStart.skillNumber);
+    window.location.href = `/analisis-defectos/nuevo-registro?${params.toString()}`;
+  };
+
+  const openNewUnitCapture = () => {
+    if (!newCaptureStart) return;
+    const params = new URLSearchParams({
+      date: todayStr(),
+      zoneId: String(newCaptureStart.zoneId),
+    });
+    if (newCaptureStart.skillNumber) params.set("skillNumber", newCaptureStart.skillNumber);
+    window.location.href = `/analisis-defectos/nuevo-registro?${params.toString()}`;
+  };
 
   const deleteCapture = useDeleteAuditCapture({
     mutation: {
@@ -797,12 +861,15 @@ export default function AnalisisZonasAuditadas() {
                 {zones.map((zone) => (
                   <button
                     key={zone.id}
-                    onClick={() => {
-                      window.location.href = `/analisis-defectos/nuevo-registro?zoneId=${zone.id}`;
-                    }}
+                    onClick={() => startNewCapture(zone.id)}
+                    disabled={isLoadingTodayCaptures}
                     className="flex flex-col items-center justify-center gap-3 border rounded-xl bg-card p-6 hover:bg-accent hover:border-primary/50 transition-all active:scale-[0.98] min-h-[140px]"
                   >
-                    <MapPin className="h-8 w-8 text-primary" />
+                    {isLoadingTodayCaptures ? (
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    ) : (
+                      <MapPin className="h-8 w-8 text-primary" />
+                    )}
                     <span className="text-base font-semibold text-center leading-tight">{zone.name}</span>
                   </button>
                 ))}
@@ -1075,6 +1142,52 @@ export default function AnalisisZonasAuditadas() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={!!newCaptureStart} onOpenChange={(open) => !open && setNewCaptureStart(null)}>
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>¿Qué deseas capturar?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Esta zona ya tiene registros de hoy. Elige si agregarás otro panel a la unidad existente o comenzarás una unidad nueva.
+            </p>
+            <div className="grid gap-3 pt-2 sm:grid-cols-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto min-h-24 flex-col items-start gap-1 p-4 text-left"
+                onClick={openNewPanelCapture}
+              >
+                <span className="flex items-center gap-2 font-semibold">
+                  <Grid3X3 className="h-4 w-4 text-primary" />
+                  Nuevo panel
+                </span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Conserva la unidad #{newCaptureStart?.latestUnitNumber} y permite seleccionar otro panel.
+                </span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-auto min-h-24 flex-col items-start gap-1 p-4 text-left"
+                onClick={openNewUnitCapture}
+              >
+                <span className="flex items-center gap-2 font-semibold">
+                  <Plus className="h-4 w-4 text-primary" />
+                  Nueva unidad
+                </span>
+                <span className="text-xs font-normal text-muted-foreground">
+                  Inicia la unidad #{newCaptureStart?.nextUnitNumber}.
+                </span>
+              </Button>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewCaptureStart(null)}>Cancelar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Diálogo: Agregar defectos */}
       {addDialog && (() => {
