@@ -55,6 +55,17 @@ type LabelEdit = {
 
 const GRID_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
 
+function labelConfigurationKey(
+  columns: number | undefined,
+  rows: number | undefined,
+  columnStart: string | undefined,
+  rowStart: string | undefined,
+  columnsAsc: boolean | undefined,
+  rowsAsc: boolean | undefined,
+) {
+  return [columns ?? 0, rows ?? 0, columnStart ?? "", rowStart ?? "", columnsAsc ? "asc" : "desc", rowsAsc ? "asc" : "desc"].join("|");
+}
+
 function AlphanumericMultiSelect({
   alphanumericList,
   value,
@@ -121,6 +132,8 @@ export default function PanelFormPage() {
   const [labelEditValue, setLabelEditValue] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const labelBaseRef = useRef<string | null>(null);
+  const pendingLabelBaseRef = useRef<string | null>(null);
 
   const form = useForm<PanelFormValues>({
     resolver: zodResolver(panelSchema),
@@ -184,6 +197,14 @@ export default function PanelFormPage() {
           ),
         ),
       });
+      pendingLabelBaseRef.current = labelConfigurationKey(
+        existingPanel.columns,
+        existingPanel.rows,
+        existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1),
+        existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0),
+        existingPanel.columns_asc ?? true,
+        existingPanel.rows_asc ?? true,
+      );
     }
   }, [existingPanel, form]);
 
@@ -213,6 +234,25 @@ export default function PanelFormPage() {
     () => generateGridLabels(formRows || 1, formRowStartLabel || "A", formRowsAsc),
     [formRows, formRowStartLabel, formRowsAsc],
   );
+  const labelBaseKey = labelConfigurationKey(
+    formColumns,
+    formRows,
+    formColumnStart,
+    formRowStartLabel,
+    formColumnsAsc,
+    formRowsAsc,
+  );
+  useEffect(() => {
+    if (pendingLabelBaseRef.current === labelBaseKey) {
+      labelBaseRef.current = labelBaseKey;
+      pendingLabelBaseRef.current = null;
+      return;
+    }
+    if (labelBaseRef.current !== null && labelBaseRef.current !== labelBaseKey) {
+      setLabelOverrides({ column: {}, row: {} });
+    }
+    labelBaseRef.current = labelBaseKey;
+  }, [labelBaseKey]);
   const previewColumnLabels = automaticColumnLabels.map(
     (label, index) => labelOverrides.column[index] ?? label,
   );
@@ -552,7 +592,7 @@ export default function PanelFormPage() {
                   form.setValue("diagram_offset_y", Math.round(y));
                 }}
                 onImageNaturalSize={(w, h) => setNaturalImgSize({ w, h })}
-                onLabelDoubleClick={startLabelEdit}
+                onLabelDoubleClick={(!isEditing || canEditLabels) ? startLabelEdit : undefined}
               />
               <p className="text-xs text-muted-foreground">
                 Doble clic en una etiqueta del encabezado para cambiarla manualmente. Los cambios se guardan con el panel.
