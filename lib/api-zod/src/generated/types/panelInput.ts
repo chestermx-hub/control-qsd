@@ -5,6 +5,7 @@
  * Control de Capital Humano API
  * OpenAPI spec version: 0.1.0
  */
+import type { PanelInputSideMode } from './panelInputSideMode';
 
 export interface PanelInput {
   name: string;
@@ -38,6 +39,8 @@ export interface PanelInput {
   row_heights?: number[];
   zone_id?: number;
   side_id?: number;
+  /** Capture modality for this panel */
+  side_mode?: PanelInputSideMode;
   visual_zone_id?: number;
   alphanumeric_ids?: number[];
 }

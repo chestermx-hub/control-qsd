@@ -33,7 +33,7 @@ async function createPanel(
   return response.json();
 }
 
-test("solicita LH/RH sólo para paneles configurados con lado", async ({ page }) => {
+test("muestra LH/Centro/RH sólo para paneles bilaterales", async ({ page }) => {
   const api = await createRequestContext.newContext({ baseURL: apiBaseURL });
   let side: CreatedSide | undefined;
   let sidePanel: CreatedPanel | undefined;
@@ -67,8 +67,8 @@ test("solicita LH/RH sólo para paneles configurados con lado", async ({ page })
 
     await expect(page.getByRole("radiogroup", { name: "Posición de auditoría" })).toBeVisible();
     await page.locator('[title^="A1"]').dblclick();
-    await expect(page.getByText("Mueve la posición a LH o RH antes de registrar", { exact: true })).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.getByRole("button", { name: "Cancelar" }).click();
 
     await panelSelect().first().click();
     await page.getByRole("option", { name: `Panel sin lado ${suffix}`, exact: true }).click();
@@ -98,4 +98,18 @@ test("solicita LH/RH sólo para paneles configurados con lado", async ({ page })
     if (side) await api.delete(`/api/sides/${side.id}`, { timeout: 10_000 }).catch(() => {});
     await api.dispose();
   }
+});
+
+test("cierra la sesión y regresa a la ventana de login", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Correo Electronico").fill("sistemas@qis-servicio.com");
+  await page.getByLabel("Contrasena").fill("QIS2025!");
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+
+  await page.getByRole("button", { name: "Cerrar Sesión" }).click();
+
+  await expect(page).toHaveURL(/\/login$/);
+  await expect(page.getByRole("button", { name: "Ingresar" })).toBeVisible();
+  await expect(page.request.get("/api/auth/me")).resolves.toMatchObject({ status: 401 });
 });

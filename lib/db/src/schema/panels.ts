@@ -15,6 +15,7 @@ export const panelsTable = pgTable("panels", {
   rows: integer("rows").notNull().default(5),
   zoneId: integer("zone_id").references(() => zonesTable.id, { onDelete: "set null" }),
   sideId: integer("side_id").references(() => sidesTable.id, { onDelete: "set null" }),
+  sideMode: text("side_mode").notNull().default("unilateral"),
   visualZoneId: integer("visual_zone_id").references(() => visualZonesTable.id, { onDelete: "set null" }),
   alphanumericIds: integer("alphanumeric_ids").array().default([]),
   columnStart: integer("column_start").notNull().default(1),

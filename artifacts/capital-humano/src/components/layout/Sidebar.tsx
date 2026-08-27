@@ -262,6 +262,7 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
           </div>
         </div>
         <Button
+          type="button"
           variant="outline"
           className="w-full justify-start text-sidebar-foreground border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground bg-transparent"
           onClick={() => logout()}

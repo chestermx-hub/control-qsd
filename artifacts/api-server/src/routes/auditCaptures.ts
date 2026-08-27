@@ -4,8 +4,8 @@ import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
-const SIDE_POSITIONS = ["right", "left"] as const;
-type SidePosition = typeof SIDE_POSITIONS[number];
+const VALID_SIDE_POSITIONS = ["right", "left", "center"] as const;
+type SidePosition = typeof VALID_SIDE_POSITIONS[number];
 const CENTER_POSITION = "center";
 const CAPTURE_DELETE_EMAIL = "sistemas@qis-servicio.com";
 
@@ -34,14 +34,21 @@ async function getCurrentUser(req: Request) {
 async function getPanelContext(panelId?: number) {
   if (panelId === undefined) return undefined;
   const [panel] = await db
-    .select({ sideId: panelsTable.sideId, isActive: panelsTable.isActive })
+    .select({
+      sideId: panelsTable.sideId,
+      sideMode: panelsTable.sideMode,
+      isActive: panelsTable.isActive,
+    })
     .from(panelsTable)
     .where(eq(panelsTable.id, panelId));
   return panel;
 }
 
 async function panelRequiresSide(panelId?: number) {
-  return (await getPanelContext(panelId))?.sideId != null;
+  const panel = await getPanelContext(panelId);
+  return panel
+    ? panel.sideMode === "bilateral" || (panel.sideMode == null && panel.sideId != null)
+    : false;
 }
 
 async function panelIsActive(panelId?: number) {
@@ -137,12 +144,12 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
   }
   const requiresSide = await panelRequiresSide(panel_id);
   const hasValidSidePosition = side_position !== undefined
-    && SIDE_POSITIONS.includes(side_position as SidePosition);
+    && VALID_SIDE_POSITIONS.includes(side_position as SidePosition);
   if (requiresSide && !hasValidSidePosition) {
-    res.status(400).json({ error: "Selecciona LH o RH para este panel" });
+    res.status(400).json({ error: "Selecciona LH, Centro o RH para este panel" });
     return;
   }
-  if (!requiresSide && side_position !== undefined && side_position !== CENTER_POSITION && !hasValidSidePosition) {
+  if (!requiresSide && side_position !== undefined && side_position !== CENTER_POSITION) {
     res.status(400).json({ error: "La posición de auditoría no es válida" });
     return;
   }
@@ -158,9 +165,7 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zoneId: zone_id,
     panelId: panel_id,
     sideId: side_id,
-    sidePosition: requiresSide
-      ? side_position!
-      : (hasValidSidePosition ? side_position! : CENTER_POSITION),
+    sidePosition: requiresSide ? side_position! : CENTER_POSITION,
     visualZoneId: visual_zone_id,
     alphanumericId: alphanumeric_id,
     gridCol: grid_col,
@@ -197,11 +202,11 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   };
   const requiresSide = await panelRequiresSide(panel_id ?? existing.panelId ?? undefined);
   const hasValidSidePosition = side_position !== undefined
-    && SIDE_POSITIONS.includes(side_position as SidePosition);
+    && VALID_SIDE_POSITIONS.includes(side_position as SidePosition);
   if (requiresSide && side_position !== undefined && !hasValidSidePosition) {
-    res.status(400).json({ error: "La posición debe ser LH o RH" }); return;
+    res.status(400).json({ error: "La posición debe ser LH, Centro o RH" }); return;
   }
-  if (!requiresSide && side_position !== undefined && side_position !== CENTER_POSITION && !hasValidSidePosition) {
+  if (!requiresSide && side_position !== undefined && side_position !== CENTER_POSITION) {
     res.status(400).json({ error: "La posición de auditoría no es válida" }); return;
   }
   if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {

@@ -1,5 +1,6 @@
 import { createContext, useContext, useCallback, ReactNode } from "react";
 import { useLocation } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import { useGetMe, useLogin, useLogout, User, getGetMeQueryKey } from "@workspace/api-client-react";
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   const { data: user, isLoading, refetch } = useGetMe({
     query: {
@@ -72,9 +74,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logoutMutation = useLogout({
     mutation: {
       onSuccess: () => {
-        refetch();
+        queryClient.setQueryData(getGetMeQueryKey(), undefined);
+        queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
         setLocation("/login");
-      }
+      },
+      onError: () => {
+        // El estado local no debe dejar la aplicación bloqueada aunque el
+        // servidor ya haya invalidado la sesión o responda con un error.
+        queryClient.setQueryData(getGetMeQueryKey(), undefined);
+        queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
+        setLocation("/login");
+      },
     }
   });
 

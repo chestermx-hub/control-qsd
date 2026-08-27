@@ -154,8 +154,8 @@ export default function NuevoRegistro() {
       toast({ title: "Selecciona un panel y una fecha primero", variant: "destructive" });
       return;
     }
-    if (selectedPanel?.side_id && sidePosition === "center") {
-      toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+    if (selectedPanel?.side_mode === "bilateral" && !sidePosition) {
+      toast({ title: "Selecciona LH, Centro o RH antes de registrar", variant: "destructive" });
       return;
     }
     setDialogCell({ colIndex, rowIndex, colLabel, rowLabel });
@@ -166,8 +166,8 @@ export default function NuevoRegistro() {
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
-    if (selectedPanel?.side_id && sidePosition === "center") {
-      toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+    if (selectedPanel?.side_mode === "bilateral" && !sidePosition) {
+      toast({ title: "Selecciona LH, Centro o RH antes de registrar", variant: "destructive" });
       return;
     }
     if (isZonaU && !zonaUDefect) {
@@ -201,9 +201,7 @@ export default function NuevoRegistro() {
         zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
-        side_position: selectedPanel?.side_id && (sidePosition === "left" || sidePosition === "right")
-          ? sidePosition
-          : undefined,
+        side_position: selectedPanel?.side_mode === "bilateral" ? sidePosition : "center",
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
          grid_col: dialogCell.colIndex + 1,
          grid_col_label: dialogCell.colLabel,
@@ -299,6 +297,8 @@ export default function NuevoRegistro() {
               <Select
                 onValueChange={(val) => {
                   setPanelId(Number(val));
+                  const nextPanel = activePanels?.find((panel) => panel.id === Number(val));
+                  if (nextPanel?.side_mode !== "bilateral") setSidePosition("center");
                   if (!isContinuing) {
                     setSavedCaptures([]);
                     setCapturedCells([]);
@@ -319,7 +319,7 @@ export default function NuevoRegistro() {
 
           {selectedPanel && (
             <div className="grid grid-cols-2 gap-4 pt-2 border-t sm:grid-cols-3">
-              {selectedPanel.side_id && (
+              {selectedPanel.side_mode === "bilateral" && (
               <div className="space-y-1">
                 <Label>Posición de auditoría</Label>
                 <div

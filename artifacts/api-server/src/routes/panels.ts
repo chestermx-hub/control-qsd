@@ -6,6 +6,12 @@ import type { Request, Response } from "express";
 const router = Router();
 
 const LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
+const SIDE_MODES = ["bilateral", "unilateral"] as const;
+type SideMode = typeof SIDE_MODES[number];
+
+function isSideMode(value: unknown): value is SideMode {
+  return typeof value === "string" && SIDE_MODES.includes(value as SideMode);
+}
 
 function spreadsheetLabel(index: number): string {
   let value = Math.max(0, index);
@@ -137,6 +143,9 @@ function toJson(
     row_heights: row.rowHeights ?? [],
     zone_id: row.zoneId,
     side_id: row.sideId,
+    side_mode: isSideMode(row.sideMode)
+      ? row.sideMode
+      : (row.sideId != null ? "bilateral" : "unilateral"),
     visual_zone_id: row.visualZoneId,
     alphanumeric_ids: row.alphanumericIds ?? [],
     created_at: row.createdAt,
@@ -158,7 +167,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     grid_offset_x, grid_offset_y,
     column_widths, row_heights,
     column_labels, row_labels,
-    zone_id, side_id, visual_zone_id, alphanumeric_ids,
+    zone_id, side_id, side_mode, visual_zone_id, alphanumeric_ids,
   } = req.body as {
     name: string; is_active?: boolean; description?: string; diagram_url: string;
     columns: number; rows: number;
@@ -169,7 +178,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     grid_offset_x?: number; grid_offset_y?: number;
     column_widths?: number[]; row_heights?: number[];
     column_labels?: string[]; row_labels?: string[];
-    zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
+     zone_id?: number; side_id?: number; side_mode?: string; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
   if (column_labels !== undefined || row_labels !== undefined) {
     if (!validLabels(column_labels, columns) || !validLabels(row_labels, rows)) {
@@ -179,6 +188,10 @@ router.post("/panels", async (req: Request, res: Response) => {
   }
   if (!validDiagramTint(diagram_tint ?? null)) {
     res.status(400).json({ error: "El tinte debe ser un color hexadecimal válido" });
+    return;
+  }
+  if (side_mode !== undefined && !isSideMode(side_mode)) {
+    res.status(400).json({ error: "La modalidad debe ser bilateral o unilateral" });
     return;
   }
   const userId = currentUserId(req);
@@ -206,7 +219,9 @@ router.post("/panels", async (req: Request, res: Response) => {
     gridOffsetY: grid_offset_y ?? 0,
     columnWidths: column_widths ?? [],
     rowHeights: row_heights ?? [],
-    zoneId: zone_id, sideId: side_id, visualZoneId: visual_zone_id,
+    zoneId: zone_id, sideId: side_id,
+    sideMode: side_mode ?? (side_id != null ? "bilateral" : "unilateral"),
+    visualZoneId: visual_zone_id,
     alphanumericIds: alphanumeric_ids ?? [],
   }).returning();
   if (diagram_tint !== undefined && userId) {
@@ -233,7 +248,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     grid_offset_x, grid_offset_y,
     column_widths, row_heights,
     column_labels, row_labels,
-    zone_id, side_id, visual_zone_id, alphanumeric_ids,
+    zone_id, side_id, side_mode, visual_zone_id, alphanumeric_ids,
   } = req.body as {
     name?: string; is_active?: boolean; description?: string; diagram_url?: string;
     columns?: number; rows?: number;
@@ -244,7 +259,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     grid_offset_x?: number; grid_offset_y?: number;
     column_widths?: number[]; row_heights?: number[];
     column_labels?: string[]; row_labels?: string[];
-    zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
+    zone_id?: number; side_id?: number; side_mode?: string; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
   const [currentPanel] = await db.select().from(panelsTable).where(eq(panelsTable.id, id));
   if (!currentPanel) { res.status(404).json({ error: "Not found" }); return; }
@@ -267,6 +282,10 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   }
   if (diagram_tint !== undefined && !validDiagramTint(diagram_tint)) {
     res.status(400).json({ error: "El tinte debe ser un color hexadecimal válido" });
+    return;
+  }
+  if (side_mode !== undefined && !isSideMode(side_mode)) {
+    res.status(400).json({ error: "La modalidad debe ser bilateral o unilateral" });
     return;
   }
   const userId = currentUserId(req);
@@ -316,6 +335,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   }
   if (zone_id !== undefined) updates.zoneId = zone_id;
   if (side_id !== undefined) updates.sideId = side_id;
+  if (side_mode !== undefined) updates.sideMode = side_mode;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;
   if (alphanumeric_ids !== undefined) updates.alphanumericIds = alphanumeric_ids;
   let row = currentPanel;

@@ -85,7 +85,10 @@ test(
       createdFlow.panel = await expectStatus("/panels", 201, {
         method: "POST",
         body: JSON.stringify(
-          panelPayload(`Panel flujo unidades ${suffix}`, ["1", "2"], ["A", "B"]),
+          {
+            ...panelPayload(`Panel flujo unidades ${suffix}`, ["1", "2"], ["A", "B"]),
+            side_mode: "bilateral",
+          },
         ),
       });
       assert.equal(createdFlow.panel.is_active, true);
@@ -251,10 +254,12 @@ test(
       ),
     });
     created.panels.push(textPanel);
+    assert.equal(textPanel.side_mode, "bilateral");
     assert.deepEqual(textPanel.column_labels, ["Frente", "Centro"]);
     assert.deepEqual(textPanel.row_labels, ["Superior", "Inferior"]);
 
     const fetchedPanel = await expectStatus(`/panels/${textPanel.id}`, 200);
+    assert.equal(fetchedPanel.side_mode, "bilateral");
     assert.deepEqual(fetchedPanel.column_labels, ["Frente", "Centro"]);
     assert.deepEqual(fetchedPanel.row_labels, ["Superior", "Inferior"]);
 
@@ -308,7 +313,7 @@ test(
     assert.deepEqual(unchangedAfterRejectedLabels.column_labels, ["4", "3", "2", "1"]);
     assert.deepEqual(unchangedAfterRejectedLabels.row_labels, ["D", "C", "B", "A"]);
 
-    const centerRejected = await request("/audit-captures", {
+    const centerCapture = await expectStatus("/audit-captures", 201, {
       method: "POST",
       body: JSON.stringify({
         unit_number: 900000,
@@ -322,8 +327,8 @@ test(
         quantity: 1,
       }),
     });
-    assert.equal(centerRejected.response.status, 400);
-    assert.match(centerRejected.body.error, /LH o RH/i);
+    created.captures.push(centerCapture);
+    assert.equal(centerCapture.side_position, "center");
 
     for (const [index, position] of ["left", "left"].entries()) {
       const capture = await expectStatus("/audit-captures", 201, {
@@ -358,10 +363,10 @@ test(
       `/audit-captures?date=${today}&panel_id=${textPanel.id}`,
       200,
     );
-    assert.equal(historicalCompatibleCaptures.length, 2);
+    assert.equal(historicalCompatibleCaptures.length, 3);
     assert.deepEqual(
       historicalCompatibleCaptures.map((capture) => capture.side_position).sort(),
-      ["right", "right"],
+      ["right", "right", "right"],
     );
     assert.ok(
       historicalCompatibleCaptures.every(
@@ -369,12 +374,11 @@ test(
       ),
     );
 
-    const centerUpdateRejected = await request(`/audit-captures/${created.captures[0].id}`, {
+    const centerUpdate = await expectStatus(`/audit-captures/${created.captures[0].id}`, 200, {
       method: "PATCH",
       body: JSON.stringify({ side_position: "center" }),
     });
-    assert.equal(centerUpdateRejected.response.status, 400);
-    assert.match(centerUpdateRejected.body.error, /LH o RH/i);
+    assert.equal(centerUpdate.side_position, "center");
 
     await Promise.all(
       created.captures.map((capture) =>
@@ -388,11 +392,82 @@ test(
       `/audit-captures?date=${today}&panel_id=${textPanel.id}`,
       200,
     );
-    assert.equal(reopenedAudit.length, 2);
+    assert.equal(reopenedAudit.length, 3);
     assert.deepEqual(
       reopenedAudit.map((capture) => capture.side_position).sort(),
-      ["left", "left"],
+      ["left", "left", "left"],
     );
+  },
+  { timeout: 30_000 },
+);
+
+test(
+  "persiste la modalidad unilateral y normaliza su posición a Centro",
+  async () => {
+    await expectStatus("/auth/login", 200, {
+      method: "POST",
+      body: JSON.stringify({
+        email: "sistemas@qis-servicio.com",
+        password: "QIS2025!",
+      }),
+    });
+
+    const panel = await expectStatus("/panels", 201, {
+      method: "POST",
+      body: JSON.stringify({
+        ...panelPayload(`Panel unilateral ${suffix}`, ["1"], ["A"]),
+        side_mode: "unilateral",
+      }),
+    });
+    created.panels.push(panel);
+    assert.equal(panel.side_mode, "unilateral");
+
+    const reopened = await expectStatus(`/panels/${panel.id}`, 200);
+    assert.equal(reopened.side_mode, "unilateral");
+
+    const sideRejected = await request("/audit-captures", {
+      method: "POST",
+      body: JSON.stringify({
+        unit_number: 930000,
+        week_number: 35,
+        date: today,
+        panel_id: panel.id,
+        side_position: "left",
+        grid_col: 1,
+        grid_col_label: "1",
+        grid_row: "A",
+        quantity: 1,
+      }),
+    });
+    assert.equal(sideRejected.response.status, 400);
+
+    const capture = await expectStatus("/audit-captures", 201, {
+      method: "POST",
+      body: JSON.stringify({
+        unit_number: 930000,
+        week_number: 35,
+        date: today,
+        panel_id: panel.id,
+        grid_col: 1,
+        grid_col_label: "1",
+        grid_row: "A",
+        quantity: 1,
+      }),
+    });
+    created.captures.push(capture);
+    assert.equal(capture.side_position, "center");
+
+    const bilateral = await expectStatus(`/panels/${panel.id}`, 200, {
+      method: "PATCH",
+      body: JSON.stringify({ side_mode: "bilateral" }),
+    });
+    assert.equal(bilateral.side_mode, "bilateral");
+
+    const unilateralAgain = await expectStatus(`/panels/${panel.id}`, 200, {
+      method: "PATCH",
+      body: JSON.stringify({ side_mode: "unilateral" }),
+    });
+    assert.equal(unilateralAgain.side_mode, "unilateral");
   },
   { timeout: 30_000 },
 );

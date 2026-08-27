@@ -429,6 +429,7 @@ export const listPanelsResponseGridOffsetXDefault = 0;
 export const listPanelsResponseGridOffsetYDefault = 0;
 export const listPanelsResponseColumnWidthsDefault = [];
 export const listPanelsResponseRowHeightsDefault = [];
+export const listPanelsResponseSideModeDefault = `unilateral`;
 export const listPanelsResponseAlphanumericIdsDefault = [];
 
 export const ListPanelsResponseItem = zod.object({
@@ -459,6 +460,7 @@ export const ListPanelsResponseItem = zod.object({
   "row_heights": zod.array(zod.number()).default(listPanelsResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
+  "side_mode": zod.enum(['bilateral', 'unilateral']).default(listPanelsResponseSideModeDefault).describe('Capture modality for this panel'),
   "visual_zone_id": zod.number().nullish(),
   "alphanumeric_ids": zod.array(zod.number()).default(listPanelsResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
@@ -471,7 +473,7 @@ export const ListPanelsResponse = zod.array(ListPanelsResponseItem)
  */
 export const createPanelBodyIsActiveDefault = true;
 export const createPanelBodyDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
-
+export const createPanelBodySideModeDefault = `unilateral`;
 
 export const CreatePanelBody = zod.object({
   "name": zod.string(),
@@ -500,6 +502,7 @@ export const CreatePanelBody = zod.object({
   "row_heights": zod.array(zod.number()).optional(),
   "zone_id": zod.number().optional(),
   "side_id": zod.number().optional(),
+  "side_mode": zod.enum(['bilateral', 'unilateral']).default(createPanelBodySideModeDefault).describe('Capture modality for this panel'),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_ids": zod.array(zod.number()).optional()
 })
@@ -521,6 +524,7 @@ export const createPanelResponseGridOffsetXDefault = 0;
 export const createPanelResponseGridOffsetYDefault = 0;
 export const createPanelResponseColumnWidthsDefault = [];
 export const createPanelResponseRowHeightsDefault = [];
+export const createPanelResponseSideModeDefault = `unilateral`;
 export const createPanelResponseAlphanumericIdsDefault = [];
 
 export const CreatePanelResponse = zod.object({
@@ -551,6 +555,7 @@ export const CreatePanelResponse = zod.object({
   "row_heights": zod.array(zod.number()).default(createPanelResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
+  "side_mode": zod.enum(['bilateral', 'unilateral']).default(createPanelResponseSideModeDefault).describe('Capture modality for this panel'),
   "visual_zone_id": zod.number().nullish(),
   "alphanumeric_ids": zod.array(zod.number()).default(createPanelResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
@@ -581,6 +586,7 @@ export const getPanelResponseGridOffsetXDefault = 0;
 export const getPanelResponseGridOffsetYDefault = 0;
 export const getPanelResponseColumnWidthsDefault = [];
 export const getPanelResponseRowHeightsDefault = [];
+export const getPanelResponseSideModeDefault = `unilateral`;
 export const getPanelResponseAlphanumericIdsDefault = [];
 
 export const GetPanelResponse = zod.object({
@@ -611,6 +617,7 @@ export const GetPanelResponse = zod.object({
   "row_heights": zod.array(zod.number()).default(getPanelResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
+  "side_mode": zod.enum(['bilateral', 'unilateral']).default(getPanelResponseSideModeDefault).describe('Capture modality for this panel'),
   "visual_zone_id": zod.number().nullish(),
   "alphanumeric_ids": zod.array(zod.number()).default(getPanelResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
@@ -654,6 +661,7 @@ export const UpdatePanelBody = zod.object({
   "row_heights": zod.array(zod.number()).optional(),
   "zone_id": zod.number().optional(),
   "side_id": zod.number().optional(),
+  "side_mode": zod.enum(['bilateral', 'unilateral']).optional().describe('Capture modality for this panel'),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_ids": zod.array(zod.number()).optional()
 })
@@ -675,6 +683,7 @@ export const updatePanelResponseGridOffsetXDefault = 0;
 export const updatePanelResponseGridOffsetYDefault = 0;
 export const updatePanelResponseColumnWidthsDefault = [];
 export const updatePanelResponseRowHeightsDefault = [];
+export const updatePanelResponseSideModeDefault = `unilateral`;
 export const updatePanelResponseAlphanumericIdsDefault = [];
 
 export const UpdatePanelResponse = zod.object({
@@ -705,6 +714,7 @@ export const UpdatePanelResponse = zod.object({
   "row_heights": zod.array(zod.number()).default(updatePanelResponseRowHeightsDefault),
   "zone_id": zod.number().nullish(),
   "side_id": zod.number().nullish(),
+  "side_mode": zod.enum(['bilateral', 'unilateral']).default(updatePanelResponseSideModeDefault).describe('Capture modality for this panel'),
   "visual_zone_id": zod.number().nullish(),
   "alphanumeric_ids": zod.array(zod.number()).default(updatePanelResponseAlphanumericIdsDefault),
   "created_at": zod.coerce.date()
@@ -989,7 +999,7 @@ export const CreateAuditCaptureBody = zod.object({
   "zone_id": zod.number().optional(),
   "panel_id": zod.number().optional(),
   "side_id": zod.number().optional(),
-  "side_position": zod.enum(['right', 'left']).optional(),
+  "side_position": zod.enum(['right', 'left', 'center']).optional(),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_id": zod.number().optional(),
   "grid_col": zod.number(),
@@ -1078,7 +1088,7 @@ export const UpdateAuditCaptureBody = zod.object({
   "zone_id": zod.number().optional(),
   "panel_id": zod.number().optional(),
   "side_id": zod.number().optional(),
-  "side_position": zod.enum(['right', 'left']).optional(),
+  "side_position": zod.enum(['right', 'left', 'center']).optional(),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_id": zod.number().optional(),
   "grid_col": zod.number().optional(),

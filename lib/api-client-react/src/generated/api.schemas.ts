@@ -150,6 +150,17 @@ export interface ZoneUpdate {
   udn_id?: number;
 }
 
+/**
+ * Capture modality for this panel
+ */
+export type PanelSideMode = typeof PanelSideMode[keyof typeof PanelSideMode];
+
+
+export const PanelSideMode = {
+  bilateral: 'bilateral',
+  unilateral: 'unilateral',
+} as const;
+
 export interface Panel {
   id: number;
   name: string;
@@ -195,11 +206,24 @@ export interface Panel {
   zone_id?: number | null;
   /** @nullable */
   side_id?: number | null;
+  /** Capture modality for this panel */
+  side_mode: PanelSideMode;
   /** @nullable */
   visual_zone_id?: number | null;
   alphanumeric_ids?: number[];
   created_at: string;
 }
+
+/**
+ * Capture modality for this panel
+ */
+export type PanelInputSideMode = typeof PanelInputSideMode[keyof typeof PanelInputSideMode];
+
+
+export const PanelInputSideMode = {
+  bilateral: 'bilateral',
+  unilateral: 'unilateral',
+} as const;
 
 export interface PanelInput {
   name: string;
@@ -233,9 +257,22 @@ export interface PanelInput {
   row_heights?: number[];
   zone_id?: number;
   side_id?: number;
+  /** Capture modality for this panel */
+  side_mode?: PanelInputSideMode;
   visual_zone_id?: number;
   alphanumeric_ids?: number[];
 }
+
+/**
+ * Capture modality for this panel
+ */
+export type PanelUpdateSideMode = typeof PanelUpdateSideMode[keyof typeof PanelUpdateSideMode];
+
+
+export const PanelUpdateSideMode = {
+  bilateral: 'bilateral',
+  unilateral: 'unilateral',
+} as const;
 
 export interface PanelUpdate {
   name?: string;
@@ -269,6 +306,8 @@ export interface PanelUpdate {
   row_heights?: number[];
   zone_id?: number;
   side_id?: number;
+  /** Capture modality for this panel */
+  side_mode?: PanelUpdateSideMode;
   visual_zone_id?: number;
   alphanumeric_ids?: number[];
 }
@@ -316,6 +355,7 @@ export type AuditCaptureInputSidePosition = typeof AuditCaptureInputSidePosition
 export const AuditCaptureInputSidePosition = {
   right: 'right',
   left: 'left',
+  center: 'center',
 } as const;
 
 export interface AuditCaptureInput {
@@ -343,6 +383,7 @@ export type AuditCaptureUpdateSidePosition = typeof AuditCaptureUpdateSidePositi
 export const AuditCaptureUpdateSidePosition = {
   right: 'right',
   left: 'left',
+  center: 'center',
 } as const;
 
 export interface AuditCaptureUpdate {

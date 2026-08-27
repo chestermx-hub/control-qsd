@@ -105,7 +105,12 @@ router.get("/auth/debug/users", async (_req: Request, res: Response) => {
 });
 
 router.post("/auth/logout", (req: Request, res: Response) => {
-  req.session.destroy(() => {
+  req.session.destroy((error) => {
+    if (error) {
+      res.status(500).json({ error: "No se pudo cerrar la sesión" });
+      return;
+    }
+    res.clearCookie("connect.sid");
     res.json({ success: true });
   });
 });

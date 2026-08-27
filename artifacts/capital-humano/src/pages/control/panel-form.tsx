@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -42,6 +43,7 @@ const panelSchema = z.object({
   diagram_offset_y: z.number().min(0).max(500).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
   diagram_tint: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Selecciona un color válido").nullable().default(null),
+  side_mode: z.enum(["bilateral", "unilateral"]).default("unilateral"),
   visual_zone_id: z.coerce.number().optional(),
   column_widths: z.array(z.number()).default([]),
   row_heights: z.array(z.number()).default([]),
@@ -165,6 +167,7 @@ export default function PanelFormPage() {
       cell_width: 48, cell_height: 32, grid_offset_x: 0, grid_offset_y: 0,
       column_widths: [], row_heights: [],
        diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5, diagram_tint: null,
+      side_mode: "unilateral",
     },
   });
 
@@ -193,6 +196,7 @@ export default function PanelFormPage() {
         diagram_offset_y: existingPanel.diagram_offset_y ?? 0,
         diagram_opacity: existingPanel.diagram_opacity ?? 0.5,
         diagram_tint: existingPanel.diagram_tint ?? null,
+        side_mode: existingPanel.side_mode ?? "unilateral",
         visual_zone_id: existingPanel.visual_zone_id || undefined,
       });
       const automaticColumnLabels = generateGridLabels(
@@ -488,6 +492,33 @@ export default function PanelFormPage() {
                 )} />
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem className="col-span-2"><FormLabel>Descripción</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="side_mode" render={({ field }) => (
+                  <FormItem className="col-span-2">
+                    <div className="flex items-center justify-between rounded-md border bg-muted/20 px-3 py-2">
+                      <div>
+                        <FormLabel>Modalidad de captura</FormLabel>
+                        <p className="text-xs text-muted-foreground">
+                          {field.value === "bilateral"
+                            ? "Permite registrar LH, Centro o RH."
+                            : "Registra automáticamente la posición Centro."}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">
+                          {field.value === "bilateral" ? "Bilateral" : "Unilateral"}
+                        </span>
+                        <FormControl>
+                          <Switch
+                            checked={field.value === "bilateral"}
+                            onCheckedChange={(checked) => field.onChange(checked ? "bilateral" : "unilateral")}
+                            aria-label="Modalidad Bilateral o Unilateral"
+                          />
+                        </FormControl>
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
                 )} />
               </div>
               <div className="flex justify-end border-t pt-4">

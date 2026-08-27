@@ -1299,7 +1299,7 @@ components:
     # PANEL
     Panel:
       type: object
-      required: [id, name, is_active, columns, rows, column_start, row_start, columns_asc, rows_asc, created_at]
+      required: [id, name, is_active, columns, rows, column_start, row_start, columns_asc, rows_asc, side_mode, created_at]
       properties:
         id:
           type: integer
@@ -1394,6 +1394,11 @@ components:
           type: ["integer", "null"]
         side_id:
           type: ["integer", "null"]
+        side_mode:
+          type: string
+          enum: [bilateral, unilateral]
+          default: unilateral
+          description: Capture modality for this panel
         visual_zone_id:
           type: ["integer", "null"]
         alphanumeric_ids:
@@ -1477,6 +1482,11 @@ components:
           type: integer
         side_id:
           type: integer
+        side_mode:
+          type: string
+          enum: [bilateral, unilateral]
+          default: unilateral
+          description: Capture modality for this panel
         visual_zone_id:
           type: integer
         alphanumeric_ids:
@@ -1554,6 +1564,10 @@ components:
           type: integer
         side_id:
           type: integer
+        side_mode:
+          type: string
+          enum: [bilateral, unilateral]
+          description: Capture modality for this panel
         visual_zone_id:
           type: integer
         alphanumeric_ids:
@@ -1627,7 +1641,7 @@ components:
           type: integer
         side_position:
           type: string
-          enum: [right, left]
+          enum: [right, left, center]
         visual_zone_id:
           type: integer
         alphanumeric_id:
@@ -1658,7 +1672,7 @@ components:
           type: integer
         side_position:
           type: string
-          enum: [right, left]
+          enum: [right, left, center]
         visual_zone_id:
           type: integer
         alphanumeric_id:
