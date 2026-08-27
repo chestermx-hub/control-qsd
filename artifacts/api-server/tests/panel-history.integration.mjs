@@ -5,7 +5,7 @@ const baseUrl = (process.env.TEST_API_URL || "http://127.0.0.1:8080").replace(/\
 const today = new Date().toISOString().slice(0, 10);
 const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 let cookie = "";
-const created = { panels: [], captures: [], user: null };
+const created = { panels: [], sides: [], captures: [], user: null };
 
 async function request(path, options = {}) {
   const headers = new Headers(options.headers);
@@ -219,14 +219,26 @@ test(
     assert.deepEqual(numericPanel.column_labels, ["10", "11", "12"]);
     assert.deepEqual(numericPanel.row_labels, ["A", "B"]);
 
+    const configuredSide = await expectStatus("/sides", 201, {
+      method: "POST",
+      body: JSON.stringify({
+        name: `Lado panel textual ${suffix}`,
+        description: "Lado temporal para validar LH y RH",
+      }),
+    });
+    created.sides.push(configuredSide);
+
     const textPanel = await expectStatus("/panels", 201, {
       method: "POST",
       body: JSON.stringify(
-        panelPayload(
-          `Panel textual ${suffix}`,
-          ["Frente", "Centro"],
-          ["Superior", "Inferior"],
-        ),
+        {
+          ...panelPayload(
+            `Panel textual ${suffix}`,
+            ["Frente", "Centro"],
+            ["Superior", "Inferior"],
+          ),
+          side_id: configuredSide.id,
+        },
       ),
     });
     created.panels.push(textPanel);
@@ -302,7 +314,7 @@ test(
       }),
     });
     assert.equal(centerRejected.response.status, 400);
-    assert.match(centerRejected.body.error, /Centro/i);
+    assert.match(centerRejected.body.error, /LH o RH/i);
 
     for (const [index, position] of ["left", "left"].entries()) {
       const capture = await expectStatus("/audit-captures", 201, {
@@ -353,7 +365,7 @@ test(
       body: JSON.stringify({ side_position: "center" }),
     });
     assert.equal(centerUpdateRejected.response.status, 400);
-    assert.match(centerUpdateRejected.body.error, /Centro/i);
+    assert.match(centerUpdateRejected.body.error, /LH o RH/i);
 
     await Promise.all(
       created.captures.map((capture) =>
@@ -436,6 +448,9 @@ test.after(async () => {
   }
   for (const panel of created.panels) {
     await expectStatus(`/panels/${panel.id}`, 204, { method: "DELETE" }).catch(() => {});
+  }
+  for (const side of created.sides) {
+    await expectStatus(`/sides/${side.id}`, 204, { method: "DELETE" }).catch(() => {});
   }
   if (created.user) {
     await expectStatus(`/users/${created.user.id}`, 204, { method: "DELETE" }).catch(() => {});
