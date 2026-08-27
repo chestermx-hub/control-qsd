@@ -190,13 +190,22 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     column_labels?: string[]; row_labels?: string[];
     zone_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_ids?: number[];
   };
+  const [currentPanel] = await db.select().from(panelsTable).where(eq(panelsTable.id, id));
+  if (!currentPanel) { res.status(404).json({ error: "Not found" }); return; }
+
+  const nextColumns = columns ?? currentPanel.columns;
+  const nextRows = rows ?? currentPanel.rows;
+  const columnConfigurationChanged =
+    columns !== undefined || column_start !== undefined || columns_asc !== undefined;
+  const rowConfigurationChanged =
+    rows !== undefined || row_start !== undefined || rows_asc !== undefined;
+
   if (column_labels !== undefined || row_labels !== undefined) {
     if (!(await isAdministrator(req))) { res.status(403).json({ error: "Sólo un administrador puede editar etiquetas de cuadrícula" }); return; }
-    const current = await db.select({ columns: panelsTable.columns, rows: panelsTable.rows }).from(panelsTable).where(eq(panelsTable.id, id));
-    const currentPanel = current[0];
-    if (!currentPanel ||
-      (column_labels !== undefined && !validLabels(column_labels, currentPanel.columns)) ||
-      (row_labels !== undefined && !validLabels(row_labels, currentPanel.rows))) {
+    if (
+      (column_labels !== undefined && !validLabels(column_labels, nextColumns)) ||
+      (row_labels !== undefined && !validLabels(row_labels, nextRows))
+    ) {
       res.status(400).json({ error: "Las etiquetas deben ser valores alfanuméricos válidos" }); return;
     }
   }
@@ -222,13 +231,28 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (column_widths !== undefined) updates.columnWidths = column_widths;
   if (row_heights !== undefined) updates.rowHeights = row_heights;
   if (column_labels !== undefined) updates.columnLabels = column_labels;
+  else if (columnConfigurationChanged) {
+    updates.columnLabels = generatedLabels(
+      nextColumns,
+      String(column_start ?? currentPanel.columnStart),
+      columns_asc ?? currentPanel.columnsAsc,
+      false,
+    );
+  }
   if (row_labels !== undefined) updates.rowLabels = row_labels;
+  else if (rowConfigurationChanged) {
+    updates.rowLabels = generatedLabels(
+      nextRows,
+      row_start !== undefined ? String(row_start) : spreadsheetLabel(currentPanel.rowStart),
+      rows_asc ?? currentPanel.rowsAsc,
+      true,
+    );
+  }
   if (zone_id !== undefined) updates.zoneId = zone_id;
   if (side_id !== undefined) updates.sideId = side_id;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;
   if (alphanumeric_ids !== undefined) updates.alphanumericIds = alphanumeric_ids;
   const [row] = await db.update(panelsTable).set(updates).where(eq(panelsTable.id, id)).returning();
-  if (!row) { res.status(404).json({ error: "Not found" }); return; }
   res.json(toJson(row));
 });
 

@@ -162,8 +162,8 @@ export default function PanelFormPage() {
         diagram_url: existingPanel.diagram_url || "",
         columns: existingPanel.columns,
         rows: existingPanel.rows,
-        column_start: existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1),
-        row_start_label: existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0),
+        column_start: String(existingPanel.column_start ?? 1),
+        row_start_label: indexToLetter(existingPanel.row_start ?? 0),
         columns_asc: existingPanel.columns_asc ?? true,
         rows_asc: existingPanel.rows_asc ?? true,
         cell_width: existingPanel.cell_width ?? 48,
@@ -181,12 +181,12 @@ export default function PanelFormPage() {
       });
       const automaticColumnLabels = generateGridLabels(
         existingPanel.columns,
-        existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1),
+        String(existingPanel.column_start ?? 1),
         existingPanel.columns_asc ?? true,
       );
       const automaticRowLabels = generateGridLabels(
         existingPanel.rows,
-        existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0),
+        indexToLetter(existingPanel.row_start ?? 0),
         existingPanel.rows_asc ?? true,
       );
       setLabelOverrides({
@@ -204,8 +204,8 @@ export default function PanelFormPage() {
       pendingLabelBaseRef.current = labelConfigurationKey(
         existingPanel.columns,
         existingPanel.rows,
-        existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1),
-        existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0),
+        String(existingPanel.column_start ?? 1),
+        indexToLetter(existingPanel.row_start ?? 0),
         existingPanel.columns_asc ?? true,
         existingPanel.rows_asc ?? true,
       );

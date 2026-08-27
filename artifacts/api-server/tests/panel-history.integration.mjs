@@ -207,6 +207,56 @@ test(
     assert.deepEqual(fetchedPanel.column_labels, ["Frente", "Centro"]);
     assert.deepEqual(fetchedPanel.row_labels, ["Superior", "Inferior"]);
 
+    const savedLabels = await expectStatus(`/panels/${textPanel.id}`, 200, {
+      method: "PATCH",
+      body: JSON.stringify({
+        columns: 3,
+        rows: 3,
+        column_labels: ["1", "2", "14"],
+        row_labels: ["A", "B", "16"],
+      }),
+    });
+    assert.deepEqual(savedLabels.column_labels, ["1", "2", "14"]);
+    assert.deepEqual(savedLabels.row_labels, ["A", "B", "16"]);
+
+    const reopenedWithSavedLabels = await expectStatus(`/panels/${textPanel.id}`, 200);
+    assert.deepEqual(reopenedWithSavedLabels.column_labels, ["1", "2", "14"]);
+    assert.deepEqual(reopenedWithSavedLabels.row_labels, ["A", "B", "16"]);
+
+    const regeneratedLabels = await expectStatus(`/panels/${textPanel.id}`, 200, {
+      method: "PATCH",
+      body: JSON.stringify({
+        columns: 4,
+        rows: 4,
+        columns_asc: false,
+        rows_asc: false,
+      }),
+    });
+    assert.deepEqual(regeneratedLabels.column_labels, ["4", "3", "2", "1"]);
+    assert.deepEqual(regeneratedLabels.row_labels, ["D", "C", "B", "A"]);
+
+    const duplicateRejected = await request(`/panels/${textPanel.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        column_labels: ["1", "1", "3", "4"],
+        row_labels: ["A", "B", "C", "D"],
+      }),
+    });
+    assert.equal(duplicateRejected.response.status, 400);
+
+    const invalidRejected = await request(`/panels/${textPanel.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        column_labels: ["1", "", "3", "4"],
+        row_labels: ["A", "B", "C", "D"],
+      }),
+    });
+    assert.equal(invalidRejected.response.status, 400);
+
+    const unchangedAfterRejectedLabels = await expectStatus(`/panels/${textPanel.id}`, 200);
+    assert.deepEqual(unchangedAfterRejectedLabels.column_labels, ["4", "3", "2", "1"]);
+    assert.deepEqual(unchangedAfterRejectedLabels.row_labels, ["D", "C", "B", "A"]);
+
     const centerRejected = await request("/audit-captures", {
       method: "POST",
       body: JSON.stringify({
