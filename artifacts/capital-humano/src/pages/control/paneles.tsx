@@ -341,7 +341,7 @@ export function PanelGrid({
               key={`hc-${c}`}
               className="sticky top-0 z-20 bg-gray-100 border-r border-b border-red-500 flex items-center justify-center relative pointer-events-auto"
             >
-              <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
+              <span className="text-[11px] font-mono font-bold text-blue-700 leading-none select-none">
                 {getColLabel(c)}
               </span>
               {onLabelDoubleClick && (
@@ -372,7 +372,7 @@ export function PanelGrid({
               <div
                 className="sticky left-0 z-10 bg-gray-100 border-r border-b-2 border-red-500 flex items-center justify-center relative pointer-events-auto"
               >
-                <span className="text-[9px] font-mono font-bold text-blue-700 leading-none select-none">
+                <span className="text-[11px] font-mono font-bold text-blue-700 leading-none select-none">
                   {getRowLabel(r)}
                 </span>
                 {onLabelDoubleClick && (
@@ -410,7 +410,7 @@ export function PanelGrid({
                     onDoubleClick={onCellDoubleClick ? () => onCellDoubleClick(c, r, colLabel, rowLabel) : undefined}
                     title={onCellDoubleClick ? `${rowLabel}${colLabel} — doble clic para registrar defecto` : undefined}
                   >
-                    <span className="text-[8px] font-mono font-bold text-blue-700 leading-none select-none absolute top-0.5 left-0.5">
+                    <span className="text-[10px] font-mono font-bold text-blue-700 leading-none select-none absolute top-0.5 left-0.5">
                       {rowLabel}{colLabel}
                     </span>
                     {highlighted && (highlighted.count ?? 0) > 0 && (
