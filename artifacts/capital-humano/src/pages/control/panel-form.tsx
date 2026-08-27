@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -46,6 +47,13 @@ const panelSchema = z.object({
 });
 
 type PanelFormValues = z.infer<typeof panelSchema>;
+type LabelEdit = {
+  kind: "column" | "row";
+  index: number;
+  value: string;
+};
+
+const GRID_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
 
 function AlphanumericMultiSelect({
   alphanumericList,
@@ -105,8 +113,12 @@ export default function PanelFormPage() {
 
   const [naturalImgSize, setNaturalImgSize] = useState<{ w: number; h: number } | null>(null);
   const [selectedAlphanumericIds, setSelectedAlphanumericIds] = useState<number[]>([]);
-  const [savedColumnLabels, setSavedColumnLabels] = useState<string[]>([]);
-  const [savedRowLabels, setSavedRowLabels] = useState<string[]>([]);
+  const [labelOverrides, setLabelOverrides] = useState<{
+    column: Record<number, string>;
+    row: Record<number, string>;
+  }>({ column: {}, row: {} });
+  const [labelEdit, setLabelEdit] = useState<LabelEdit | null>(null);
+  const [labelEditValue, setLabelEditValue] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -150,8 +162,28 @@ export default function PanelFormPage() {
         diagram_opacity: existingPanel.diagram_opacity ?? 0.5,
         visual_zone_id: existingPanel.visual_zone_id || undefined,
       });
-      setSavedColumnLabels(existingPanel.column_labels ?? []);
-      setSavedRowLabels(existingPanel.row_labels ?? []);
+      const automaticColumnLabels = generateGridLabels(
+        existingPanel.columns,
+        existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1),
+        existingPanel.columns_asc ?? true,
+      );
+      const automaticRowLabels = generateGridLabels(
+        existingPanel.rows,
+        existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0),
+        existingPanel.rows_asc ?? true,
+      );
+      setLabelOverrides({
+        column: Object.fromEntries(
+          (existingPanel.column_labels ?? []).flatMap((label, index) =>
+            label !== automaticColumnLabels[index] ? [[index, label]] : []
+          ),
+        ),
+        row: Object.fromEntries(
+          (existingPanel.row_labels ?? []).flatMap((label, index) =>
+            label !== automaticRowLabels[index] ? [[index, label]] : []
+          ),
+        ),
+      });
     }
   }, [existingPanel, form]);
 
@@ -173,14 +205,20 @@ export default function PanelFormPage() {
   const formDiagramOpacity = form.watch("diagram_opacity");
   const formColumnWidths = form.watch("column_widths");
   const formRowHeights = form.watch("row_heights");
-  const preserveExistingPreviewLabels = isEditing &&
-    existingPanel &&
-    existingPanel.columns === formColumns &&
-    existingPanel.rows === formRows &&
-    (existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1)) === formColumnStart &&
-    (existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0)) === formRowStartLabel &&
-    (existingPanel.columns_asc ?? true) === formColumnsAsc &&
-    (existingPanel.rows_asc ?? true) === formRowsAsc;
+  const automaticColumnLabels = useMemo(
+    () => generateGridLabels(formColumns || 1, formColumnStart || "1", formColumnsAsc),
+    [formColumns, formColumnStart, formColumnsAsc],
+  );
+  const automaticRowLabels = useMemo(
+    () => generateGridLabels(formRows || 1, formRowStartLabel || "A", formRowsAsc),
+    [formRows, formRowStartLabel, formRowsAsc],
+  );
+  const previewColumnLabels = automaticColumnLabels.map(
+    (label, index) => labelOverrides.column[index] ?? label,
+  );
+  const previewRowLabels = automaticRowLabels.map(
+    (label, index) => labelOverrides.row[index] ?? label,
+  );
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -230,14 +268,10 @@ export default function PanelFormPage() {
 
   const onSubmit = (data: PanelFormValues) => {
     const { row_start_label, columns_asc, rows_asc, column_start, ...rest } = data;
-    const preserveLabels = isEditing &&
-      existingPanel &&
-      existingPanel.columns === data.columns &&
-      existingPanel.rows === data.rows &&
-      (existingPanel.column_labels?.[0] ?? String(existingPanel.column_start ?? 1)) === column_start &&
-      (existingPanel.row_labels?.[0] ?? indexToLetter(existingPanel.row_start ?? 0)) === row_start_label &&
-      (existingPanel.columns_asc ?? true) === columns_asc &&
-      (existingPanel.rows_asc ?? true) === rows_asc;
+    const columnLabels = generateGridLabels(data.columns, column_start, columns_asc)
+      .map((label, index) => labelOverrides.column[index] ?? label);
+    const rowLabels = generateGridLabels(data.rows, row_start_label, rows_asc)
+      .map((label, index) => labelOverrides.row[index] ?? label);
     const payload = {
       ...rest,
       column_start,
@@ -245,12 +279,8 @@ export default function PanelFormPage() {
       columns_asc,
       rows_asc,
       ...(canEditLabels || !isEditing ? {
-        column_labels: preserveLabels && savedColumnLabels.length === data.columns
-          ? savedColumnLabels
-          : generateGridLabels(data.columns, column_start, columns_asc),
-        row_labels: preserveLabels && savedRowLabels.length === data.rows
-          ? savedRowLabels
-          : generateGridLabels(data.rows, row_start_label, rows_asc),
+        column_labels: columnLabels,
+        row_labels: rowLabels,
       } : {}),
       alphanumeric_ids: selectedAlphanumericIds,
     };
@@ -259,6 +289,46 @@ export default function PanelFormPage() {
     } else {
       createPanel.mutate({ data: payload });
     }
+  };
+
+  const startLabelEdit = (kind: LabelEdit["kind"], index: number, value: string) => {
+    if (isEditing && !canEditLabels) return;
+    setLabelEdit({ kind, index, value });
+    setLabelEditValue(value);
+  };
+
+  const saveLabelEdit = () => {
+    if (!labelEdit) return;
+    const value = labelEditValue.trim();
+    const labels = labelEdit.kind === "column" ? previewColumnLabels : previewRowLabels;
+    if (!GRID_LABEL_PATTERN.test(value)) {
+      toast({
+        title: "Etiqueta no válida",
+        description: "Usa hasta 32 caracteres alfanuméricos, espacios, guiones o guiones bajos.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (labels.some((label, index) => index !== labelEdit.index && label.trim().toLocaleLowerCase() === value.toLocaleLowerCase())) {
+      toast({
+        title: "Etiqueta repetida",
+        description: "Cada etiqueta debe ser única dentro de sus columnas o filas.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const automaticLabel = labelEdit.kind === "column"
+      ? automaticColumnLabels[labelEdit.index]
+      : automaticRowLabels[labelEdit.index];
+    setLabelOverrides((current) => {
+      const axis = labelEdit.kind;
+      const nextAxis = { ...current[axis] };
+      if (value === automaticLabel) delete nextAxis[labelEdit.index];
+      else nextAxis[labelEdit.index] = value;
+      return { ...current, [axis]: nextAxis };
+    });
+    setLabelEdit(null);
   };
 
   return (
@@ -459,13 +529,9 @@ export default function PanelFormPage() {
                 rows={formRows || 1}
                 diagramUrl={formDiagramUrl}
                 columnStart={Number(formColumnStart) || 1}
-                 rowStart={0}
-                 columnLabels={preserveExistingPreviewLabels && savedColumnLabels.length === formColumns
-                   ? savedColumnLabels
-                   : generateGridLabels(formColumns || 1, formColumnStart || "1", formColumnsAsc)}
-                 rowLabels={preserveExistingPreviewLabels && savedRowLabels.length === formRows
-                   ? savedRowLabels
-                   : generateGridLabels(formRows || 1, formRowStartLabel || "A", formRowsAsc)}
+                rowStart={0}
+                columnLabels={previewColumnLabels}
+                rowLabels={previewRowLabels}
                 columnsAsc={formColumnsAsc}
                 rowsAsc={formRowsAsc}
                 cellWidth={formCellWidth ?? 48}
@@ -486,8 +552,49 @@ export default function PanelFormPage() {
                   form.setValue("diagram_offset_y", Math.round(y));
                 }}
                 onImageNaturalSize={(w, h) => setNaturalImgSize({ w, h })}
+                onLabelDoubleClick={startLabelEdit}
               />
+              <p className="text-xs text-muted-foreground">
+                Doble clic en una etiqueta del encabezado para cambiarla manualmente. Los cambios se guardan con el panel.
+              </p>
             </div>
+
+            <Dialog open={labelEdit !== null} onOpenChange={(open) => !open && setLabelEdit(null)}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    Editar etiqueta de {labelEdit?.kind === "column" ? "columna" : "fila"}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="space-y-2">
+                  <Label htmlFor="grid-label-edit">Nueva etiqueta</Label>
+                  <Input
+                    id="grid-label-edit"
+                    value={labelEditValue}
+                    onChange={(event) => setLabelEditValue(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        saveLabelEdit();
+                      }
+                    }}
+                    maxLength={32}
+                    autoFocus
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Debe ser única dentro de las {labelEdit?.kind === "column" ? "columnas" : "filas"}.
+                  </p>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setLabelEdit(null)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={saveLabelEdit}>
+                    Aplicar etiqueta
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Botones */}
             <div className="flex items-center gap-3 pt-2">
