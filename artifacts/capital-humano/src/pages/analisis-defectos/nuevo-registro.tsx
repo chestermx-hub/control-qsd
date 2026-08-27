@@ -18,7 +18,12 @@ import { useToast } from "@/hooks/use-toast";
 import { PanelGrid } from "@/pages/control/paneles";
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 type DialogCell = {

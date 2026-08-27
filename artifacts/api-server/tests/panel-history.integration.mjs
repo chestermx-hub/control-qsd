@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const baseUrl = (process.env.TEST_API_URL || "http://127.0.0.1:8080").replace(/\/$/, "");
-const today = new Date().toISOString().slice(0, 10);
+const today = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Mexico_City",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(new Date());
 const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 let cookie = "";
 const created = { panels: [], sides: [], captures: [], user: null };

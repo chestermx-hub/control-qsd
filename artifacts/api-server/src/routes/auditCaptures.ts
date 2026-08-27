@@ -8,6 +8,17 @@ const SIDE_POSITIONS = ["right", "left"] as const;
 type SidePosition = typeof SIDE_POSITIONS[number];
 const CENTER_POSITION = "center";
 
+function currentMexicoDate() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Mexico_City",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
 function isAdministrator(req: Request) {
   const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
   return userId
@@ -115,7 +126,7 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     side_position?: string; grid_col: number; grid_col_label?: string; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
   };
-  if (date !== new Date().toISOString().slice(0, 10)) {
+  if (date !== currentMexicoDate()) {
     res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
     return;
   }
@@ -172,7 +183,7 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
   const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-  if (existing.date !== new Date().toISOString().slice(0, 10)) {
+  if (existing.date !== currentMexicoDate()) {
     res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
     return;
   }
@@ -221,7 +232,7 @@ router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
     res.status(403).json({ error: "Sólo un administrador puede eliminar registros" });
     return;
   }
-  if (existing.date !== new Date().toISOString().slice(0, 10)) {
+  if (existing.date !== currentMexicoDate()) {
     res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
     return;
   }
