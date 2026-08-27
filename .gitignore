@@ -29,6 +29,7 @@ node_modules
 
 # misc
 /.sass-cache
+/artifacts/capital-humano/test-results/
 /connect.lock
 /coverage
 /libpeerconnection.log
