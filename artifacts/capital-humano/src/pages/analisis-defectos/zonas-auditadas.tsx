@@ -1156,28 +1156,28 @@ export default function AnalisisZonasAuditadas() {
               <Button
                 type="button"
                 variant="outline"
-                className="h-auto min-h-24 flex-col items-start gap-1 p-4 text-left"
+                className="h-auto min-h-24 w-full min-w-0 flex-col items-start gap-1 whitespace-normal p-4 text-left"
                 onClick={openNewPanelCapture}
               >
-                <span className="flex items-center gap-2 font-semibold">
+                <span className="flex w-full items-center gap-2 whitespace-normal font-semibold">
                   <Grid3X3 className="h-4 w-4 text-primary" />
                   Nuevo panel
                 </span>
-                <span className="text-xs font-normal text-muted-foreground">
+                <span className="block w-full whitespace-normal break-words text-xs font-normal leading-5 text-muted-foreground">
                   Conserva la unidad #{newCaptureStart?.latestUnitNumber} y permite seleccionar otro panel.
                 </span>
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                className="h-auto min-h-24 flex-col items-start gap-1 p-4 text-left"
+                className="h-auto min-h-24 w-full min-w-0 flex-col items-start gap-1 whitespace-normal p-4 text-left"
                 onClick={openNewUnitCapture}
               >
-                <span className="flex items-center gap-2 font-semibold">
+                <span className="flex w-full items-center gap-2 whitespace-normal font-semibold">
                   <Plus className="h-4 w-4 text-primary" />
                   Nueva unidad
                 </span>
-                <span className="text-xs font-normal text-muted-foreground">
+                <span className="block w-full whitespace-normal break-words text-xs font-normal leading-5 text-muted-foreground">
                   Inicia la unidad #{newCaptureStart?.nextUnitNumber}.
                 </span>
               </Button>
