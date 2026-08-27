@@ -107,9 +107,11 @@ test("cierra la sesión y regresa a la ventana de login", async ({ page }) => {
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 
+  await page.getByRole("button", { name: "Abrir menú" }).click();
   await page.getByRole("button", { name: "Cerrar Sesión" }).click();
 
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.getByRole("button", { name: "Ingresar" })).toBeVisible();
-  await expect(page.request.get("/api/auth/me")).resolves.toMatchObject({ status: 401 });
+  const meResponse = await page.request.get("/api/auth/me");
+  expect(meResponse.status()).toBe(401);
 });

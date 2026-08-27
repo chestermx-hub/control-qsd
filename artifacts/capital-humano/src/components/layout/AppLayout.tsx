@@ -20,6 +20,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
             size="icon"
             onClick={() => setSidebarOpen(true)}
             className="h-8 w-8"
+            aria-label="Abrir menú"
           >
             <Menu className="h-5 w-5" />
           </Button>
