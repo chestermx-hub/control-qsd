@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, auditCapturesTable, panelsTable } from "@workspace/db";
+import { db, auditCapturesTable, panelsTable, usersTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
@@ -7,6 +7,17 @@ const router = Router();
 const SIDE_POSITIONS = ["right", "left"] as const;
 type SidePosition = typeof SIDE_POSITIONS[number];
 const CENTER_POSITION = "center";
+
+function isAdministrator(req: Request) {
+  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
+  return userId
+    ? db
+        .select({ role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .then(([user]) => user?.role === "admin" || user?.role === "superadmin")
+    : Promise.resolve(false);
+}
 
 async function getPanelContext(panelId?: number) {
   if (panelId === undefined) return undefined;
@@ -206,6 +217,10 @@ router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
   const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
+  if (!(await isAdministrator(req))) {
+    res.status(403).json({ error: "Sólo un administrador puede eliminar registros" });
+    return;
+  }
   if (existing.date !== new Date().toISOString().slice(0, 10)) {
     res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
     return;

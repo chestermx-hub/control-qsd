@@ -554,6 +554,7 @@ export default function AnalisisZonasAuditadas() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
+  const canDeleteCaptures = user?.role === "admin" || user?.role === "superadmin";
 
   const params = {
     ...(filterDate ? { date: filterDate } : {}),
@@ -628,6 +629,9 @@ export default function AnalisisZonasAuditadas() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListAuditCapturesQueryKey() });
         toast({ title: "Registro eliminado" });
+      },
+      onError: (error) => {
+        toast({ title: error.message || "Sólo un administrador puede eliminar registros", variant: "destructive" });
       },
     },
   });
@@ -1099,7 +1103,7 @@ export default function AnalisisZonasAuditadas() {
                               <Badge variant="secondary" className="shrink-0">
                                 Cant: {cap.quantity}
                               </Badge>
-                              {editable && <Button
+                               {editable && canDeleteCaptures && <Button
                                 variant="ghost"
                                 size="icon"
                                 className="h-7 w-7 text-destructive shrink-0"
