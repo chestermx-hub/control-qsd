@@ -21,6 +21,7 @@ timeoutMs = 20000
 
 [nix]
 channel = "stable-25_05"
+packages = ["chromium"]
 
 [objectStorage]
 defaultBucketID = "replit-objstore-e4a2d6ee-14fc-4cae-8504-2f2d55586631"
