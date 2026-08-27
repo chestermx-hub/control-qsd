@@ -49,10 +49,17 @@ export default function Apariencia() {
                   </div>
                   {isSelected && <Check className="h-5 w-5 shrink-0 text-primary" />}
                 </div>
-                <div className="flex gap-2 mt-5">
-                  {["--primary", "--accent", "--sidebar-primary"].map((color) => (
+                <div className="mt-5 flex gap-2" aria-label="Muestra de colores de la paleta">
+                  {[
+                    ["--background", "Fondo"],
+                    ["--card", "Tarjetas"],
+                    ["--sidebar", "Menú"],
+                    ["--primary", "Principal"],
+                    ["--accent", "Acento"],
+                  ].map(([color, label]) => (
                     <span
                       key={color}
+                      title={label}
                       className="h-8 flex-1 rounded-md border"
                       style={{ backgroundColor: `hsl(${palette.colors[color]})` }}
                     />
