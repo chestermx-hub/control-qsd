@@ -1373,7 +1373,7 @@ components:
         diagram_tint:
           type: ["string", "null"]
           pattern: "^#[0-9A-Fa-f]{6}$"
-          description: Optional hex color tint applied to the panel diagram
+          description: Optional hex color tint applied to the panel diagram for the current user
         grid_offset_x:
           type: integer
           default: 0
@@ -1460,7 +1460,7 @@ components:
         diagram_tint:
           type: ["string", "null"]
           pattern: "^#[0-9A-Fa-f]{6}$"
-          description: Optional hex color tint applied to the panel diagram
+          description: Optional hex color tint applied to the panel diagram for the current user
         grid_offset_x:
           type: integer
         grid_offset_y:
@@ -1537,7 +1537,7 @@ components:
         diagram_tint:
           type: ["string", "null"]
           pattern: "^#[0-9A-Fa-f]{6}$"
-          description: Optional hex color tint applied to the panel diagram
+          description: Optional hex color tint applied to the panel diagram for the current user
         grid_offset_x:
           type: integer
         grid_offset_y:

@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { db, panelsTable, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { db, panelsTable, panelAppearancePreferencesTable, usersTable } from "@workspace/db";
+import { and, eq } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
@@ -60,14 +60,49 @@ function validDiagramTint(value: unknown): value is string | null {
   return value === null || (typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value));
 }
 
+function currentUserId(req: Request): number | null {
+  const rawUserId = (req.session as unknown as Record<string, unknown>).userId;
+  const userId = Number(rawUserId);
+  return Number.isInteger(userId) && userId > 0 ? userId : null;
+}
+
+async function getDiagramTintPreferences(userId: number | null) {
+  if (!userId) return new Map<number, string | null>();
+  const preferences = await db
+    .select({
+      panelId: panelAppearancePreferencesTable.panelId,
+      diagramTint: panelAppearancePreferencesTable.diagramTint,
+    })
+    .from(panelAppearancePreferencesTable)
+    .where(eq(panelAppearancePreferencesTable.userId, userId));
+  return new Map(preferences.map((preference) => [preference.panelId, preference.diagramTint]));
+}
+
+async function saveDiagramTintPreference(userId: number, panelId: number, diagramTint: string | null) {
+  await db
+    .insert(panelAppearancePreferencesTable)
+    .values({ userId, panelId, diagramTint })
+    .onConflictDoUpdate({
+      target: [
+        panelAppearancePreferencesTable.userId,
+        panelAppearancePreferencesTable.panelId,
+      ],
+      set: { diagramTint },
+    });
+}
+
 function isAdministrator(req: Request) {
-  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
+  const userId = currentUserId(req);
   return userId
     ? db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId)).then(([user]) => user?.role === "admin" || user?.role === "superadmin")
     : Promise.resolve(false);
 }
 
-function toJson(row: typeof panelsTable.$inferSelect) {
+function toJson(
+  row: typeof panelsTable.$inferSelect,
+  userDiagramTint?: string | null,
+  hasUserPreference = false,
+) {
   const columnLabels = validLabels(row.columnLabels, row.columns)
     ? row.columnLabels
     : generatedLabels(row.columns, String(row.columnStart), row.columnsAsc, false);
@@ -95,7 +130,7 @@ function toJson(row: typeof panelsTable.$inferSelect) {
     diagram_offset_x: row.diagramOffsetX,
     diagram_offset_y: row.diagramOffsetY,
     diagram_opacity: row.diagramOpacity,
-    diagram_tint: row.diagramTint,
+    diagram_tint: hasUserPreference ? userDiagramTint : row.diagramTint,
     grid_offset_x: row.gridOffsetX,
     grid_offset_y: row.gridOffsetY,
     column_widths: row.columnWidths ?? [],
@@ -108,9 +143,10 @@ function toJson(row: typeof panelsTable.$inferSelect) {
   };
 }
 
-router.get("/panels", async (_req: Request, res: Response) => {
+router.get("/panels", async (req: Request, res: Response) => {
   const rows = await db.select().from(panelsTable).orderBy(panelsTable.name);
-  res.json(rows.map(toJson));
+  const preferences = await getDiagramTintPreferences(currentUserId(req));
+  res.json(rows.map((row) => toJson(row, preferences.get(row.id), preferences.has(row.id))));
 });
 
 router.post("/panels", async (req: Request, res: Response) => {
@@ -145,6 +181,11 @@ router.post("/panels", async (req: Request, res: Response) => {
     res.status(400).json({ error: "El tinte debe ser un color hexadecimal válido" });
     return;
   }
+  const userId = currentUserId(req);
+  if (diagram_tint !== undefined && !userId) {
+    res.status(401).json({ error: "Inicia sesión para guardar la apariencia del panel" });
+    return;
+  }
   const [row] = await db.insert(panelsTable).values({
     name, isActive: is_active ?? true, description, diagramUrl: diagram_url, columns, rows,
     columnStart: legacyColumnStart(column_start),
@@ -160,7 +201,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     diagramOffsetX: diagram_offset_x ?? 0.0,
     diagramOffsetY: diagram_offset_y ?? 0.0,
     diagramOpacity: diagram_opacity ?? 0.5,
-    diagramTint: diagram_tint ?? null,
+    diagramTint: null,
     gridOffsetX: grid_offset_x ?? 0,
     gridOffsetY: grid_offset_y ?? 0,
     columnWidths: column_widths ?? [],
@@ -168,14 +209,18 @@ router.post("/panels", async (req: Request, res: Response) => {
     zoneId: zone_id, sideId: side_id, visualZoneId: visual_zone_id,
     alphanumericIds: alphanumeric_ids ?? [],
   }).returning();
-  res.status(201).json(toJson(row!));
+  if (diagram_tint !== undefined && userId) {
+    await saveDiagramTintPreference(userId, row!.id, diagram_tint);
+  }
+  res.status(201).json(toJson(row!, diagram_tint, diagram_tint !== undefined));
 });
 
 router.get("/panels/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
   const [row] = await db.select().from(panelsTable).where(eq(panelsTable.id, id));
   if (!row) { res.status(404).json({ error: "Not found" }); return; }
-  res.json(toJson(row));
+  const preferences = await getDiagramTintPreferences(currentUserId(req));
+  res.json(toJson(row, preferences.get(row.id), preferences.has(row.id)));
 });
 
 router.patch("/panels/:id", async (req: Request, res: Response) => {
@@ -224,6 +269,11 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     res.status(400).json({ error: "El tinte debe ser un color hexadecimal válido" });
     return;
   }
+  const userId = currentUserId(req);
+  if (diagram_tint !== undefined && !userId) {
+    res.status(401).json({ error: "Inicia sesión para guardar la apariencia del panel" });
+    return;
+  }
   const updates: Partial<typeof panelsTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
   if (is_active !== undefined) updates.isActive = is_active;
@@ -242,7 +292,6 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (diagram_offset_x !== undefined) updates.diagramOffsetX = diagram_offset_x;
   if (diagram_offset_y !== undefined) updates.diagramOffsetY = diagram_offset_y;
   if (diagram_opacity !== undefined) updates.diagramOpacity = diagram_opacity;
-  if (diagram_tint !== undefined) updates.diagramTint = diagram_tint;
   if (grid_offset_x !== undefined) updates.gridOffsetX = grid_offset_x;
   if (grid_offset_y !== undefined) updates.gridOffsetY = grid_offset_y;
   if (column_widths !== undefined) updates.columnWidths = column_widths;
@@ -269,8 +318,16 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (side_id !== undefined) updates.sideId = side_id;
   if (visual_zone_id !== undefined) updates.visualZoneId = visual_zone_id;
   if (alphanumeric_ids !== undefined) updates.alphanumericIds = alphanumeric_ids;
-  const [row] = await db.update(panelsTable).set(updates).where(eq(panelsTable.id, id)).returning();
-  res.json(toJson(row));
+  let row = currentPanel;
+  if (Object.keys(updates).length > 0) {
+    const [updatedRow] = await db.update(panelsTable).set(updates).where(eq(panelsTable.id, id)).returning();
+    row = updatedRow ?? currentPanel;
+  }
+  if (diagram_tint !== undefined && userId) {
+    await saveDiagramTintPreference(userId, id, diagram_tint);
+  }
+  const preferences = await getDiagramTintPreferences(userId);
+  res.json(toJson(row, preferences.get(id), preferences.has(id)));
 });
 
 router.delete("/panels/:id", async (req: Request, res: Response) => {

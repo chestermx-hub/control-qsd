@@ -3,6 +3,7 @@ export * from "./udns";
 export * from "./profiles";
 export * from "./zones";
 export * from "./panels";
+export * from "./panelAppearancePreferences";
 export * from "./defects";
 export * from "./sides";
 export * from "./visualZones";
