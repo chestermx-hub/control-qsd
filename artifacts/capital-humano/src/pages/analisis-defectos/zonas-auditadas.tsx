@@ -259,7 +259,7 @@ function AgregarDefectosDialog({
   };
 
   const handleCellDoubleClick = (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => {
-    if (sidePosition === "center") {
+    if (panel.side_id && sidePosition === "center") {
       toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
       return;
     }
@@ -271,7 +271,7 @@ function AgregarDefectosDialog({
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
-    if (sidePosition === "center") {
+    if (panel.side_id && sidePosition === "center") {
       toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
       return;
     }
@@ -289,7 +289,7 @@ function AgregarDefectosDialog({
         zone_id: selectedZoneId ?? undefined,
         panel_id: panel.id,
         side_id: panel.side_id ?? undefined,
-         side_position: sidePosition,
+        side_position: panel.side_id ? sidePosition : undefined,
         visual_zone_id: panel.visual_zone_id ?? undefined,
         alphanumeric_id: selectedAlphaId ?? undefined,
          grid_col: dialogCell.colIndex + 1,

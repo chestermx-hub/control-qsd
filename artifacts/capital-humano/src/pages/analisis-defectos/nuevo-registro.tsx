@@ -139,7 +139,7 @@ export default function NuevoRegistro() {
       toast({ title: "Selecciona un panel y una fecha primero", variant: "destructive" });
       return;
     }
-    if (sidePosition === "center") {
+    if (selectedPanel?.side_id && sidePosition === "center") {
       toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
       return;
     }
@@ -151,7 +151,7 @@ export default function NuevoRegistro() {
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
-    if (sidePosition === "center") {
+    if (selectedPanel?.side_id && sidePosition === "center") {
       toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
       return;
     }
@@ -178,7 +178,7 @@ export default function NuevoRegistro() {
         zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
-         side_position: sidePosition,
+        side_position: selectedPanel?.side_id ? sidePosition : undefined,
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
         alphanumeric_id: selectedAlphanumericId ?? undefined,
          grid_col: dialogCell.colIndex + 1,
@@ -295,7 +295,8 @@ export default function NuevoRegistro() {
           </div>
 
           {selectedPanel && (
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 pt-2 border-t">
+            <div className="grid grid-cols-2 gap-4 pt-2 border-t sm:grid-cols-3">
+              {selectedPanel.side_id && (
               <div className="space-y-1">
                 <Label>Posición de auditoría</Label>
                 <div
@@ -340,6 +341,7 @@ export default function NuevoRegistro() {
                   ))}
                 </div>
               </div>
+              )}
               <div className="space-y-1">
                 <Label>Zona Visual (del panel)</Label>
                 <Input

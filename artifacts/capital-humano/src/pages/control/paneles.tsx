@@ -590,19 +590,19 @@ export default function Paneles() {
 
         {/* View Grid Modal */}
         <Dialog open={!!viewingGrid} onOpenChange={() => setViewingGrid(null)}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] max-w-[1100px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-4 sm:p-6">
             <DialogHeader>
               <DialogTitle>Vista de Panel: {viewingGrid?.name}</DialogTitle>
             </DialogHeader>
             {viewingGrid && (
-              <div className="space-y-2">
-                <div className="flex gap-4 text-sm text-muted-foreground flex-wrap">
+              <div className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
+                <div className="flex flex-none flex-wrap gap-4 text-sm text-muted-foreground">
                   {viewingGrid.visual_zone_id && (
                     <span>Zona Visual: <span className="font-medium text-foreground">{visualZones?.find((v) => v.id === viewingGrid.visual_zone_id)?.name}</span></span>
                   )}
                   <span>Etiquetas editables: <span className="font-medium text-foreground">{canEditLabels ? "doble clic" : "sólo administradores"}</span></span>
                 </div>
-                <div className="h-[60vh]">
+                <div className="flex min-h-0 min-w-0 flex-1 items-center justify-center overflow-hidden rounded-md border bg-white">
                   <PanelGrid
                     columns={viewingGrid.columns}
                     rows={viewingGrid.rows}
@@ -624,6 +624,8 @@ export default function Paneles() {
                     diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
                     diagramOffsetY={viewingGrid.diagram_offset_y ?? 0}
                     diagramOpacity={viewingGrid.diagram_opacity ?? 0.5}
+                    fitToContainer
+                    className="mt-0"
                     onLabelDoubleClick={canEditLabels ? (kind, index, value) => {
                       setEditingLabel({ panel: viewingGrid, kind, index, value });
                       setLabelValue(value);

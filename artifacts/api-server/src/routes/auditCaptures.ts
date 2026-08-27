@@ -1,11 +1,21 @@
 import { Router } from "express";
-import { db, auditCapturesTable } from "@workspace/db";
+import { db, auditCapturesTable, panelsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
 const SIDE_POSITIONS = ["right", "left"] as const;
 type SidePosition = typeof SIDE_POSITIONS[number];
+const CENTER_POSITION = "center";
+
+async function panelRequiresSide(panelId?: number) {
+  if (panelId === undefined) return false;
+  const [panel] = await db
+    .select({ sideId: panelsTable.sideId })
+    .from(panelsTable)
+    .where(eq(panelsTable.id, panelId));
+  return panel?.sideId != null;
+}
 
 function toJson(row: typeof auditCapturesTable.$inferSelect) {
   return {
@@ -89,8 +99,15 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
     return;
   }
-  if (!side_position || !SIDE_POSITIONS.includes(side_position as SidePosition)) {
-    res.status(400).json({ error: "La posición debe ser LH o RH; Centro no puede guardar defectos" });
+  const requiresSide = await panelRequiresSide(panel_id);
+  const hasValidSidePosition = side_position !== undefined
+    && SIDE_POSITIONS.includes(side_position as SidePosition);
+  if (requiresSide && !hasValidSidePosition) {
+    res.status(400).json({ error: "Selecciona LH o RH para este panel" });
+    return;
+  }
+  if (!requiresSide && side_position !== undefined && side_position !== CENTER_POSITION && !hasValidSidePosition) {
+    res.status(400).json({ error: "La posición de auditoría no es válida" });
     return;
   }
   if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
@@ -105,7 +122,9 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zoneId: zone_id,
     panelId: panel_id,
     sideId: side_id,
-    sidePosition: side_position,
+    sidePosition: requiresSide
+      ? side_position!
+      : (hasValidSidePosition ? side_position! : CENTER_POSITION),
     visualZoneId: visual_zone_id,
     alphanumericId: alphanumeric_id,
     gridCol: grid_col,
@@ -140,8 +159,14 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
     skill_number?: string; zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     side_position?: string; grid_col?: number; grid_col_label?: string; grid_row?: string; defect_id?: number; defect_other?: string; quantity?: number;
   };
-  if (side_position !== undefined && !SIDE_POSITIONS.includes(side_position as SidePosition)) {
-    res.status(400).json({ error: "La posición debe ser LH o RH; Centro no puede guardar defectos" }); return;
+  const requiresSide = await panelRequiresSide(panel_id ?? existing.panelId ?? undefined);
+  const hasValidSidePosition = side_position !== undefined
+    && SIDE_POSITIONS.includes(side_position as SidePosition);
+  if (requiresSide && side_position !== undefined && !hasValidSidePosition) {
+    res.status(400).json({ error: "La posición debe ser LH o RH" }); return;
+  }
+  if (!requiresSide && side_position !== undefined && side_position !== CENTER_POSITION && !hasValidSidePosition) {
+    res.status(400).json({ error: "La posición de auditoría no es válida" }); return;
   }
   if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
     res.status(400).json({ error: "La etiqueta de columna no es válida" }); return;

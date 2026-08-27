@@ -1588,7 +1588,7 @@ components:
 
     AuditCaptureInput:
       type: object
-      required: [unit_number, week_number, date, side_position, grid_col, grid_row, quantity]
+      required: [unit_number, week_number, date, grid_col, grid_row, quantity]
       properties:
         unit_number:
           type: integer
