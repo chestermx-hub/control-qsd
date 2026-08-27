@@ -25,6 +25,12 @@ export const appearancePalettes: AppearancePalette[] = [
     colors: { "--primary": "262 83% 58%", "--ring": "262 83% 58%", "--accent": "252 100% 97%", "--sidebar-primary": "262 83% 58%" },
   },
   {
+    id: "rosa",
+    name: "Rosa",
+    description: "Una apariencia cálida y distintiva para la operación diaria.",
+    colors: { "--primary": "330 81% 60%", "--ring": "330 81% 60%", "--accent": "330 100% 96%", "--sidebar-primary": "330 81% 60%" },
+  },
+  {
     id: "ambar",
     name: "Ámbar",
     description: "Cálida y visible para operación diaria.",

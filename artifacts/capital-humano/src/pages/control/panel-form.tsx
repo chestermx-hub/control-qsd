@@ -55,6 +55,44 @@ type LabelEdit = {
 
 const GRID_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
 
+function GridLabelList({
+  title,
+  labels,
+  disabled,
+  onChange,
+}: {
+  title: string;
+  labels: string[];
+  disabled?: boolean;
+  onChange: (index: number, value: string) => void;
+}) {
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <Label className="text-sm font-semibold">{title}</Label>
+        <span className="text-xs text-muted-foreground">{labels.length} etiquetas</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+        {labels.map((label, index) => (
+          <div key={`${title}-${index}`} className="flex items-center gap-1.5">
+            <span className="w-6 shrink-0 text-right text-[11px] text-muted-foreground">
+              {index + 1}.
+            </span>
+            <Input
+              value={label}
+              disabled={disabled}
+              maxLength={32}
+              aria-label={`${title}, posición ${index + 1}`}
+              onChange={(event) => onChange(index, event.target.value)}
+              className="h-8 px-2 text-sm"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function labelConfigurationKey(
   columns: number | undefined,
   rows: number | undefined,
@@ -371,6 +409,18 @@ export default function PanelFormPage() {
     setLabelEdit(null);
   };
 
+  const updateLabelFromList = (kind: LabelEdit["kind"], index: number, value: string) => {
+    const automaticLabel = kind === "column"
+      ? automaticColumnLabels[index]
+      : automaticRowLabels[index];
+    setLabelOverrides((current) => {
+      const nextAxis = { ...current[kind] };
+      if (value.trim() === automaticLabel) delete nextAxis[index];
+      else nextAxis[index] = value;
+      return { ...current, [kind]: nextAxis };
+    });
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6 max-w-4xl mx-auto">
@@ -492,6 +542,30 @@ export default function PanelFormPage() {
                     </FormItem>
                   )} />
                 </div>
+              </div>
+            </div>
+
+            {/* Listado editable de etiquetas */}
+            <div className="border rounded-lg bg-card p-4 space-y-3">
+              <div>
+                <h2 className="font-semibold text-base">Listado de etiquetas de la cuadrícula</h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Se llenan automáticamente con la configuración anterior. Puedes corregir cualquier posición aquí o con doble clic en el encabezado del diagrama.
+                </p>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-2">
+                <GridLabelList
+                  title="Columnas"
+                  labels={previewColumnLabels}
+                  disabled={isEditing && !canEditLabels}
+                  onChange={(index, value) => updateLabelFromList("column", index, value)}
+                />
+                <GridLabelList
+                  title="Filas"
+                  labels={previewRowLabels}
+                  disabled={isEditing && !canEditLabels}
+                  onChange={(index, value) => updateLabelFromList("row", index, value)}
+                />
               </div>
             </div>
 
