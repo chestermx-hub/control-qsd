@@ -182,7 +182,7 @@ export interface Panel {
   diagram_offset_y?: number;
   diagram_opacity?: number;
   /**
-     * Optional hex color tint applied to the panel diagram
+     * Optional hex color tint applied to the panel diagram for the current user
      * @nullable
      * @pattern ^#[0-9A-Fa-f]{6}$
      */
@@ -222,7 +222,7 @@ export interface PanelInput {
   diagram_offset_y?: number;
   diagram_opacity?: number;
   /**
-     * Optional hex color tint applied to the panel diagram
+     * Optional hex color tint applied to the panel diagram for the current user
      * @nullable
      * @pattern ^#[0-9A-Fa-f]{6}$
      */
@@ -258,7 +258,7 @@ export interface PanelUpdate {
   diagram_offset_y?: number;
   diagram_opacity?: number;
   /**
-     * Optional hex color tint applied to the panel diagram
+     * Optional hex color tint applied to the panel diagram for the current user
      * @nullable
      * @pattern ^#[0-9A-Fa-f]{6}$
      */

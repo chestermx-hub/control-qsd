@@ -7,3 +7,4 @@
 - [Audit capture positions](audit-capture-positions.md) — new defects require LH/RH; historical Centro rows remain readable and correctable.
 - [Automatic cell keys](automatic-cell-keys.md) — new capture keys come from row and column labels; legacy alphanumeric fields remain only for historical compatibility.
 - [Playwright in Nix](playwright-nix.md) — use the system Chromium executable for browser tests when the bundled browser lacks Nix runtime libraries.
+- [Panel appearance preferences](panel-appearance-preferences.md) — panel image tint is user-scoped; explicit null means “Original” and overrides legacy shared defaults.

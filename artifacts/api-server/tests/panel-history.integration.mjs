@@ -477,6 +477,120 @@ test(
   { timeout: 30_000 },
 );
 
+test(
+  "mantiene el tinte del panel separado por usuario y permite quitarlo explícitamente",
+  async () => {
+    let panel = null;
+    let userA = null;
+    let userB = null;
+
+    try {
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: "sistemas@qis-servicio.com",
+          password: "QIS2025!",
+        }),
+      });
+
+      panel = await expectStatus("/panels", 201, {
+        method: "POST",
+        body: JSON.stringify(panelPayload(`Panel preferencias ${suffix}`, ["1"], ["A"])),
+      });
+      created.panels.push(panel);
+
+      userA = await expectStatus("/users", 201, {
+        method: "POST",
+        body: JSON.stringify({
+          name: `Usuario apariencia A ${suffix}`,
+          email: `panel-appearance-a-${suffix}@example.test`,
+          password: "Prueba2026!",
+          puesto: "Auditor",
+          area: "Calidad",
+          role: "user",
+        }),
+      });
+      userB = await expectStatus("/users", 201, {
+        method: "POST",
+        body: JSON.stringify({
+          name: `Usuario apariencia B ${suffix}`,
+          email: `panel-appearance-b-${suffix}@example.test`,
+          password: "Prueba2026!",
+          puesto: "Auditor",
+          area: "Calidad",
+          role: "user",
+        }),
+      });
+
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: userA.email,
+          password: "Prueba2026!",
+        }),
+      });
+      const savedByA = await expectStatus(`/panels/${panel.id}`, 200, {
+        method: "PATCH",
+        body: JSON.stringify({ diagram_tint: "#ff0000" }),
+      });
+      assert.equal(savedByA.diagram_tint, "#ff0000");
+      assert.equal((await expectStatus(`/panels/${panel.id}`, 200)).diagram_tint, "#ff0000");
+      assert.equal(
+        (await expectStatus("/panels", 200)).find((candidate) => candidate.id === panel.id).diagram_tint,
+        "#ff0000",
+      );
+
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: userB.email,
+          password: "Prueba2026!",
+        }),
+      });
+      assert.equal((await expectStatus(`/panels/${panel.id}`, 200)).diagram_tint, null);
+      const savedByB = await expectStatus(`/panels/${panel.id}`, 200, {
+        method: "PATCH",
+        body: JSON.stringify({ diagram_tint: "#0000ff" }),
+      });
+      assert.equal(savedByB.diagram_tint, "#0000ff");
+
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: userA.email,
+          password: "Prueba2026!",
+        }),
+      });
+      const removedByA = await expectStatus(`/panels/${panel.id}`, 200, {
+        method: "PATCH",
+        body: JSON.stringify({ diagram_tint: null }),
+      });
+      assert.equal(removedByA.diagram_tint, null);
+
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: userB.email,
+          password: "Prueba2026!",
+        }),
+      });
+      assert.equal((await expectStatus(`/panels/${panel.id}`, 200)).diagram_tint, "#0000ff");
+    } finally {
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: "sistemas@qis-servicio.com",
+          password: "QIS2025!",
+        }),
+      }).catch(() => {});
+      if (panel) await expectStatus(`/panels/${panel.id}`, 204, { method: "DELETE" }).catch(() => {});
+      if (userA) await expectStatus(`/users/${userA.id}`, 204, { method: "DELETE" }).catch(() => {});
+      if (userB) await expectStatus(`/users/${userB.id}`, 204, { method: "DELETE" }).catch(() => {});
+    }
+  },
+  { timeout: 30_000 },
+);
+
 test.after(async () => {
   for (const capture of created.captures) {
     await expectStatus(`/audit-captures/${capture.id}`, 204, { method: "DELETE" }).catch(() => {});
