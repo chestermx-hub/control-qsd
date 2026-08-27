@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import {
   useListAuditCaptures, useDeleteAuditCapture, useUpdateAuditCapture,
   useCreateAuditCapture, getListAuditCapturesQueryKey,
-  useListPanels, useListSides, useListVisualZones, useListDefects,
+  useListPanels, useListVisualZones, useListDefects,
   useListZones,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -92,6 +92,12 @@ function PositionBadge({
       {position === "left" ? "LH" : "RH"}
     </span>
   );
+}
+
+function positionLabel(position?: "right" | "left" | "center" | null) {
+  if (position === "left") return "LH";
+  if (position === "right") return "RH";
+  return "Centro";
 }
 
 type Panel = {
@@ -561,7 +567,10 @@ export default function AnalisisZonasAuditadas() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const canDeleteCaptures = user?.role === "admin" || user?.role === "superadmin";
+  const canDeleteCaptures =
+    user?.role === "admin" ||
+    user?.role === "superadmin" ||
+    user?.email?.toLowerCase() === "sistemas@qis-servicio.com";
 
   const params = {
     ...(filterDate ? { date: filterDate } : {}),
@@ -575,7 +584,6 @@ export default function AnalisisZonasAuditadas() {
     isError: isTodayCapturesError,
   } = useListAuditCaptures({ date: todayStr() });
   const { data: panels } = useListPanels();
-  const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const { data: defects } = useListDefects();
   const { data: zones, isLoading: isLoadingZones } = useListZones();

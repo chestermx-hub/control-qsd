@@ -7,6 +7,7 @@ const router = Router();
 const SIDE_POSITIONS = ["right", "left"] as const;
 type SidePosition = typeof SIDE_POSITIONS[number];
 const CENTER_POSITION = "center";
+const CAPTURE_DELETE_EMAIL = "sistemas@qis-servicio.com";
 
 function currentMexicoDate() {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -23,10 +24,14 @@ function isAdministrator(req: Request) {
   const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
   return userId
     ? db
-        .select({ role: usersTable.role })
+        .select({ role: usersTable.role, email: usersTable.email })
         .from(usersTable)
         .where(eq(usersTable.id, userId))
-        .then(([user]) => user?.role === "admin" || user?.role === "superadmin")
+        .then(([user]) =>
+          user?.role === "admin" ||
+          user?.role === "superadmin" ||
+          user?.email.toLowerCase() === CAPTURE_DELETE_EMAIL
+        )
     : Promise.resolve(false);
 }
 
