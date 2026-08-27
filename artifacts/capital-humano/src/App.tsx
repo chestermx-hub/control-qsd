@@ -15,7 +15,6 @@ import ZonaVisual from "@/pages/control/zona-visual";
 import Paneles from "@/pages/control/paneles";
 import Defectos from "@/pages/control/defectos";
 import Lados from "@/pages/control/lados";
-import Alfanumerico from "@/pages/control/alfanumerico";
 
 // Analysis Module Pages
 import AnalisisDashboard from "@/pages/analisis-defectos/dashboard";
@@ -65,7 +64,6 @@ function AppRouter() {
       <Route path="/control/paneles" component={() => <ProtectedRoute component={Paneles} permission="paneles" />} />
       <Route path="/control/defectos" component={() => <ProtectedRoute component={Defectos} permission="defectos" />} />
       <Route path="/control/lados" component={() => <ProtectedRoute component={Lados} permission="lados" />} />
-      <Route path="/control/alfanumerico" component={() => <ProtectedRoute component={Alfanumerico} permission="alfanumerico" />} />
       <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
       <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
       <Route path="/control/apariencia" component={() => <ProtectedRoute component={Apariencia} permission="paneles" />} />

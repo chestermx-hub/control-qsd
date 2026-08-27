@@ -4,7 +4,7 @@ import {
   useListAuditCaptures, useDeleteAuditCapture, useUpdateAuditCapture,
   useCreateAuditCapture, getListAuditCapturesQueryKey,
   useListPanels, useListSides, useListVisualZones, useListDefects,
-  useListAlphanumeric, useListZones,
+  useListZones,
 } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -125,7 +125,6 @@ function AgregarDefectosDialog({
   group,
   panel,
   defects,
-  alphanumericList,
   visualZones,
   zones,
   onClose,
@@ -133,7 +132,6 @@ function AgregarDefectosDialog({
   group: UnitGroup;
   panel: Panel;
   defects: { id: number; code: string; name: string }[] | undefined;
-  alphanumericList: { id: number; code: string; name: string }[] | undefined;
   visualZones: { id: number; name: string }[] | undefined;
   zones: { id: number; name: string }[] | undefined;
   onClose: () => void;
@@ -142,18 +140,12 @@ function AgregarDefectosDialog({
   const { toast } = useToast();
 
   const panelVZ = visualZones?.find((v) => v.id === panel.visual_zone_id);
-  const panelAlphaOptions = useMemo(() => {
-    if (!panel.alphanumeric_ids || !alphanumericList) return [];
-    return alphanumericList.filter((a) => panel.alphanumeric_ids!.includes(a.id));
-  }, [panel, alphanumericList]);
-
   const hasSkill = !!group.skill_number;
 
   const [skillInput, setSkillInput] = useState(group.skill_number ?? "");
   const [skillSaving, setSkillSaving] = useState(false);
   const [sideSaving, setSideSaving] = useState(false);
   const [selectedZoneId, setSelectedZoneId] = useState<number | null>(group.captures[0]?.zone_id ?? null);
-  const [selectedAlphaId, setSelectedAlphaId] = useState<number | null>(group.captures[0]?.alphanumeric_id ?? null);
   const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">(group.captures[0]?.side_position ?? "center");
   const sidePositionOptions = [
     { value: "left" as const, label: "LH", ariaLabel: "LH, izquierda" },
@@ -289,9 +281,10 @@ function AgregarDefectosDialog({
         zone_id: selectedZoneId ?? undefined,
         panel_id: panel.id,
         side_id: panel.side_id ?? undefined,
-        side_position: panel.side_id ? sidePosition : undefined,
+        side_position: panel.side_id && (sidePosition === "left" || sidePosition === "right")
+          ? sidePosition
+          : undefined,
         visual_zone_id: panel.visual_zone_id ?? undefined,
-        alphanumeric_id: selectedAlphaId ?? undefined,
          grid_col: dialogCell.colIndex + 1,
          grid_col_label: dialogCell.colLabel,
         grid_row: dialogCell.rowLabel,
@@ -420,24 +413,6 @@ function AgregarDefectosDialog({
                 </div>
               )}
 
-              {/* Alfanumérico */}
-              {panelAlphaOptions.length > 0 && (
-                <div className="space-y-1">
-                  <Label className="text-xs">Alfanumérico</Label>
-                  {group.captures.length > 0 ? (
-                    <div className="h-8 text-sm flex items-center px-2.5 border rounded-md bg-muted text-muted-foreground">
-                      {panelAlphaOptions.find((a) => a.id === selectedAlphaId)?.code ?? "Sin selección"}
-                    </div>
-                  ) : (
-                    <Select onValueChange={(v) => setSelectedAlphaId(Number(v))} value={selectedAlphaId?.toString() || ""}>
-                      <SelectTrigger className="h-8 text-sm"><SelectValue placeholder="Selecciona" /></SelectTrigger>
-                      <SelectContent>
-                        {panelAlphaOptions.map((a) => <SelectItem key={a.id} value={a.id.toString()}>{a.code} — {a.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
             </div>
           </div>
 
@@ -594,7 +569,6 @@ export default function AnalisisZonasAuditadas() {
   const { data: sides } = useListSides();
   const { data: visualZones } = useListVisualZones();
   const { data: defects } = useListDefects();
-  const { data: alphanumericList } = useListAlphanumeric();
   const { data: zones, isLoading: isLoadingZones } = useListZones();
 
   const startNewCapture = (zoneId: number) => {
@@ -1198,7 +1172,6 @@ export default function AnalisisZonasAuditadas() {
             group={addDialog}
             panel={panel}
             defects={defects as { id: number; code: string; name: string }[] | undefined}
-            alphanumericList={alphanumericList as { id: number; code: string; name: string }[] | undefined}
             visualZones={visualZones as { id: number; name: string }[] | undefined}
             zones={zones as { id: number; name: string }[] | undefined}
             onClose={() => setAddDialog(null)}

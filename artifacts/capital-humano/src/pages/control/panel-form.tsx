@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import {
-  useListPanels, useListVisualZones, useListAlphanumeric,
+  useListVisualZones,
   useCreatePanel, useUpdatePanel, useGetPanel,
   getListPanelsQueryKey, getGetPanelQueryKey,
 } from "@workspace/api-client-react";
@@ -110,42 +110,6 @@ function labelConfigurationKey(
   return [columns ?? 0, rows ?? 0, columnStart ?? "", rowStart ?? "", columnsAsc ? "asc" : "desc", rowsAsc ? "asc" : "desc"].join("|");
 }
 
-function AlphanumericMultiSelect({
-  alphanumericList,
-  value,
-  onChange,
-}: {
-  alphanumericList: { id: number; name: string; code: string }[];
-  value: number[];
-  onChange: (ids: number[]) => void;
-}) {
-  const toggle = (id: number) => {
-    if (value.includes(id)) onChange(value.filter((v) => v !== id));
-    else onChange([...value, id]);
-  };
-  return (
-    <div className="flex flex-wrap gap-2 min-h-[40px] border rounded-md p-2">
-      {alphanumericList.length === 0 && (
-        <span className="text-xs text-muted-foreground">Sin registros alfanuméricos disponibles</span>
-      )}
-      {alphanumericList.map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => toggle(a.id)}
-          className={`text-xs px-2 py-1 rounded border transition-colors ${
-            value.includes(a.id)
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-muted text-muted-foreground border-border hover:bg-accent"
-          }`}
-        >
-          {a.code} — {a.name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export default function PanelFormPage() {
   const searchString = useSearch();
   const searchParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
@@ -158,16 +122,13 @@ export default function PanelFormPage() {
   const { user } = useAuth();
   const canEditLabels = user?.role === "admin" || user?.role === "superadmin";
 
-  const { data: panels } = useListPanels();
   const { data: visualZones } = useListVisualZones();
-  const { data: alphanumericList } = useListAlphanumeric();
   const { data: existingPanel } = useGetPanel(
     editingId ?? 0,
     { query: { queryKey: getGetPanelQueryKey(editingId ?? 0), enabled: isEditing } }
   );
 
   const [naturalImgSize, setNaturalImgSize] = useState<{ w: number; h: number } | null>(null);
-  const [selectedAlphanumericIds, setSelectedAlphanumericIds] = useState<number[]>([]);
   const [labelOverrides, setLabelOverrides] = useState<{
     column: Record<number, string>;
     row: Record<number, string>;
@@ -195,7 +156,6 @@ export default function PanelFormPage() {
   // Populate form when editing
   useEffect(() => {
     if (existingPanel) {
-      setSelectedAlphanumericIds(existingPanel.alphanumeric_ids ?? []);
       form.reset({
         name: existingPanel.name,
         description: existingPanel.description || "",
@@ -374,7 +334,6 @@ export default function PanelFormPage() {
         column_labels: columnLabels,
         row_labels: rowLabels,
       } : {}),
-      alphanumeric_ids: selectedAlphanumericIds,
     };
     if (isEditing && editingId) {
       updatePanel.mutate({ id: editingId, data: payload });
@@ -581,19 +540,6 @@ export default function PanelFormPage() {
                   onChange={(index, value) => updateLabelFromList("row", index, value)}
                 />
               </div>
-            </div>
-
-            {/* Alfanuméricos */}
-            <div className="border rounded-lg bg-card p-4">
-              <Label className="mb-2 block">Alfanuméricos Asociados</Label>
-              <AlphanumericMultiSelect
-                alphanumericList={alphanumericList ?? []}
-                value={selectedAlphanumericIds}
-                onChange={setSelectedAlphanumericIds}
-              />
-              {selectedAlphanumericIds.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">{selectedAlphanumericIds.length} seleccionado(s)</p>
-              )}
             </div>
 
             {/* Vista previa + ajuste de imagen */}

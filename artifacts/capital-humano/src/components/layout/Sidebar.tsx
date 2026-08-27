@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   BoxSelect,
   Eye,
-  Type,
   BarChart3,
   ClipboardCheck,
   LogOut,
@@ -52,7 +51,6 @@ const controlModuloZA: { key: string; title: string; items: NavItem[] } = {
     { href: "/control/paneles", label: "Paneles", icon: LayoutGrid, permission: "paneles" },
     { href: "/control/defectos", label: "Defectos", icon: AlertTriangle, permission: "defectos" },
     { href: "/control/lados", label: "Lados", icon: BoxSelect, permission: "lados" },
-    { href: "/control/alfanumerico", label: "Alfanumérico", icon: Type, permission: "alfanumerico" },
     { href: "/control/apariencia", label: "Apariencia", icon: Palette, permission: "paneles" },
   ],
 };

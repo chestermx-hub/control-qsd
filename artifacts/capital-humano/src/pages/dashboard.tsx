@@ -14,7 +14,6 @@ import {
   LayoutGrid,
   AlertTriangle,
   BoxSelect,
-  Type,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -96,13 +95,6 @@ const modules: ModuleCard[] = [
     icon: BoxSelect,
     href: "/control/lados",
     permission: "lados",
-  },
-  {
-    title: "Alfanumérico",
-    description: "Códigos alfanuméricos",
-    icon: Type,
-    href: "/control/alfanumerico",
-    permission: "alfanumerico",
   },
 ];
 

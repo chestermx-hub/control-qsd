@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import {
-  useListPanels, useListVisualZones, useListAlphanumeric,
+  useListPanels, useListVisualZones,
   useListDefects, useCreateAuditCapture, useGetAuditDailyCounter,
   useListZones, getListAuditCapturesQueryKey,
 } from "@workspace/api-client-react";
@@ -50,7 +50,6 @@ export default function NuevoRegistro() {
 
   const { data: panels } = useListPanels();
   const { data: visualZones } = useListVisualZones();
-  const { data: alphanumericList } = useListAlphanumeric();
   const { data: defects } = useListDefects();
   const { data: zones } = useListZones();
 
@@ -58,7 +57,6 @@ export default function NuevoRegistro() {
   const [skillNumber, setSkillNumber] = useState(existingSkillNumber);
   const [zoneId, setZoneId] = useState<number | null>(existingZoneId);
   const [panelId, setPanelId] = useState<number | null>(existingPanelId);
-  const [selectedAlphanumericId, setSelectedAlphanumericId] = useState<number | null>(null);
   const [sidePosition, setSidePosition] = useState<"right" | "left" | "center">("center");
 
   const { data: dailyCounter } = useGetAuditDailyCounter({
@@ -76,12 +74,6 @@ export default function NuevoRegistro() {
     { value: "right" as const, label: "RH", ariaLabel: "RH, derecha" },
   ];
   const sidePositionIndex = sidePositionOptions.findIndex((option) => option.value === sidePosition);
-
-  const panelAlphanumericOptions = useMemo(() => {
-    if (!selectedPanel || !alphanumericList) return [];
-    const ids = selectedPanel.alphanumeric_ids ?? [];
-    return alphanumericList.filter((a) => ids.includes(a.id));
-  }, [selectedPanel, alphanumericList]);
 
   const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState<string>("");
@@ -178,9 +170,10 @@ export default function NuevoRegistro() {
         zone_id: zoneId ?? undefined,
         panel_id: panelId ?? undefined,
         side_id: selectedPanel?.side_id ?? undefined,
-        side_position: selectedPanel?.side_id ? sidePosition : undefined,
+        side_position: selectedPanel?.side_id && (sidePosition === "left" || sidePosition === "right")
+          ? sidePosition
+          : undefined,
         visual_zone_id: selectedPanel?.visual_zone_id ?? undefined,
-        alphanumeric_id: selectedAlphanumericId ?? undefined,
          grid_col: dialogCell.colIndex + 1,
          grid_col_label: dialogCell.colLabel,
         grid_row: dialogCell.rowLabel,
@@ -275,7 +268,6 @@ export default function NuevoRegistro() {
               <Select
                 onValueChange={(val) => {
                   setPanelId(Number(val));
-                  setSelectedAlphanumericId(null);
                   if (!isContinuing) {
                     setSavedCaptures([]);
                     setCapturedCells([]);
@@ -350,22 +342,6 @@ export default function NuevoRegistro() {
                   className="bg-muted text-muted-foreground"
                 />
               </div>
-              {panelAlphanumericOptions.length > 0 && (
-                <div className="space-y-1">
-                  <Label>Alfanumérico</Label>
-                  <Select
-                    onValueChange={(val) => setSelectedAlphanumericId(val ? Number(val) : null)}
-                    value={selectedAlphanumericId?.toString() || ""}
-                  >
-                    <SelectTrigger><SelectValue placeholder="Selecciona" /></SelectTrigger>
-                    <SelectContent>
-                      {panelAlphanumericOptions.map((a) => (
-                        <SelectItem key={a.id} value={a.id.toString()}>{a.code} — {a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
             </div>
           )}
         </div>

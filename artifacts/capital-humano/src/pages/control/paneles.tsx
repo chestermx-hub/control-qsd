@@ -430,45 +430,6 @@ export function PanelGrid({
   );
 }
 
-function AlphanumericMultiSelect({
-  alphanumericList,
-  value,
-  onChange,
-}: {
-  alphanumericList: { id: number; name: string; code: string }[];
-  value: number[];
-  onChange: (ids: number[]) => void;
-}) {
-  const toggle = (id: number) => {
-    if (value.includes(id)) {
-      onChange(value.filter((v) => v !== id));
-    } else {
-      onChange([...value, id]);
-    }
-  };
-  return (
-    <div className="flex flex-wrap gap-2 min-h-[40px] border rounded-md p-2">
-      {alphanumericList.length === 0 && (
-        <span className="text-xs text-muted-foreground">Sin registros alfanuméricos disponibles</span>
-      )}
-      {alphanumericList.map((a) => (
-        <button
-          key={a.id}
-          type="button"
-          onClick={() => toggle(a.id)}
-          className={`text-xs px-2 py-1 rounded border transition-colors ${
-            value.includes(a.id)
-              ? "bg-primary text-primary-foreground border-primary"
-              : "bg-muted text-muted-foreground border-border hover:bg-accent"
-          }`}
-        >
-          {a.code} — {a.name}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 export default function Paneles() {
   const { data: panels, isLoading } = useListPanels();
   const { data: zones } = useListZones();

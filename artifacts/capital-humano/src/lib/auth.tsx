@@ -54,7 +54,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           { permission: "paneles", route: "/control/paneles" },
           { permission: "defectos", route: "/control/defectos" },
           { permission: "lados", route: "/control/lados" },
-          { permission: "alfanumerico", route: "/control/alfanumerico" },
         ];
 
         const firstAccessible = moduleRoutes.find((m) =>

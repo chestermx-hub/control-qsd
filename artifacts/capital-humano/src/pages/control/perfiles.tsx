@@ -17,7 +17,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 const PERMISSION_OPTIONS = [
-  "usuarios", "udns", "perfiles", "zonas_auditadas", "paneles", "defectos", "lados", "zona_visual", "alfanumerico", "analisis_defectos", "checklist_operacion"
+  "usuarios", "udns", "perfiles", "zonas_auditadas", "paneles", "defectos", "lados", "zona_visual", "analisis_defectos", "checklist_operacion"
 ];
 
 const profileSchema = z.object({

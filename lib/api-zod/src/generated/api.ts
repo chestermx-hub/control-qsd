@@ -962,7 +962,7 @@ export const CreateAuditCaptureBody = zod.object({
   "zone_id": zod.number().optional(),
   "panel_id": zod.number().optional(),
   "side_id": zod.number().optional(),
-  "side_position": zod.enum(['right', 'left']),
+  "side_position": zod.enum(['right', 'left']).optional(),
   "visual_zone_id": zod.number().optional(),
   "alphanumeric_id": zod.number().optional(),
   "grid_col": zod.number(),
