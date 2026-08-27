@@ -4,3 +4,4 @@
 - [audit_captures skill_number is nullable](audit-captures-schema.md) — skill_number column is nullable (no .notNull()); frontend and backend treat it as optional.
 - [Audit capture rules](audit-capture-rules.md) — unit numbering is scoped by date and audited zone; previous dates are immutable.
 - [Limpiezas completion rule](limpiezas-completion-rule.md) — completion must be re-evaluated after either activity updates or area readiness changes.
+- [Audit capture positions](audit-capture-positions.md) — new defects require LH/RH; historical Centro rows remain readable and correctable.

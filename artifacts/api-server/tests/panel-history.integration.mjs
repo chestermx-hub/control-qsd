@@ -50,7 +50,7 @@ function panelPayload(name, columnLabels, rowLabels) {
 }
 
 test(
-  "conserva etiquetas de panel y posiciones de capturas para históricos",
+  "conserva LH y RH al cerrar y volver a abrir una auditoría",
   async () => {
     await expectStatus("/auth/login", 200, {
       method: "POST",
@@ -88,39 +88,90 @@ test(
     assert.deepEqual(fetchedPanel.column_labels, ["Frente", "Centro"]);
     assert.deepEqual(fetchedPanel.row_labels, ["Superior", "Inferior"]);
 
-    for (const [index, position] of ["right", "left", "center"].entries()) {
+    const centerRejected = await request("/audit-captures", {
+      method: "POST",
+      body: JSON.stringify({
+        unit_number: 900000,
+        week_number: 35,
+        date: today,
+        panel_id: textPanel.id,
+        side_position: "center",
+        grid_col: 1,
+        grid_col_label: "Frente",
+        grid_row: "Superior",
+        quantity: 1,
+      }),
+    });
+    assert.equal(centerRejected.response.status, 400);
+    assert.match(centerRejected.body.error, /Centro/i);
+
+    for (const [index, position] of ["left", "left"].entries()) {
       const capture = await expectStatus("/audit-captures", 201, {
         method: "POST",
         body: JSON.stringify({
-          unit_number: 900000 + index,
+          unit_number: 900000,
           week_number: 35,
           date: today,
           panel_id: textPanel.id,
           side_position: position,
-          grid_col: index === 1 ? 2 : 1,
+          grid_col: index + 1,
           grid_col_label: index === 1 ? "Centro" : "Frente",
           grid_row: index === 1 ? "Inferior" : "Superior",
           quantity: index + 1,
         }),
       });
       created.captures.push(capture);
-      assert.equal(capture.side_position, position);
+      assert.equal(capture.side_position, "left");
       assert.equal(capture.grid_col_label, index === 1 ? "Centro" : "Frente");
     }
+
+    await Promise.all(
+      created.captures.map((capture) =>
+        expectStatus(`/audit-captures/${capture.id}`, 200, {
+          method: "PATCH",
+          body: JSON.stringify({ side_position: "right" }),
+        }),
+      ),
+    );
 
     const historicalCompatibleCaptures = await expectStatus(
       `/audit-captures?date=${today}&panel_id=${textPanel.id}`,
       200,
     );
-    assert.equal(historicalCompatibleCaptures.length, 3);
+    assert.equal(historicalCompatibleCaptures.length, 2);
     assert.deepEqual(
       historicalCompatibleCaptures.map((capture) => capture.side_position).sort(),
-      ["center", "left", "right"],
+      ["right", "right"],
     );
     assert.ok(
       historicalCompatibleCaptures.every(
         (capture) => capture.grid_col_label && capture.grid_row,
       ),
+    );
+
+    const centerUpdateRejected = await request(`/audit-captures/${created.captures[0].id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ side_position: "center" }),
+    });
+    assert.equal(centerUpdateRejected.response.status, 400);
+    assert.match(centerUpdateRejected.body.error, /Centro/i);
+
+    await Promise.all(
+      created.captures.map((capture) =>
+        expectStatus(`/audit-captures/${capture.id}`, 200, {
+          method: "PATCH",
+          body: JSON.stringify({ side_position: "left" }),
+        }),
+      ),
+    );
+    const reopenedAudit = await expectStatus(
+      `/audit-captures?date=${today}&panel_id=${textPanel.id}`,
+      200,
+    );
+    assert.equal(reopenedAudit.length, 2);
+    assert.deepEqual(
+      reopenedAudit.map((capture) => capture.side_position).sort(),
+      ["left", "left"],
     );
   },
   { timeout: 30_000 },

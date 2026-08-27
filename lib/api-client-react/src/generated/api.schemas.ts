@@ -295,7 +295,6 @@ export type AuditCaptureInputSidePosition = typeof AuditCaptureInputSidePosition
 export const AuditCaptureInputSidePosition = {
   right: 'right',
   left: 'left',
-  center: 'center',
 } as const;
 
 export interface AuditCaptureInput {
@@ -306,7 +305,7 @@ export interface AuditCaptureInput {
   zone_id?: number;
   panel_id?: number;
   side_id?: number;
-  side_position?: AuditCaptureInputSidePosition;
+  side_position: AuditCaptureInputSidePosition;
   visual_zone_id?: number;
   alphanumeric_id?: number;
   grid_col: number;
@@ -323,7 +322,6 @@ export type AuditCaptureUpdateSidePosition = typeof AuditCaptureUpdateSidePositi
 export const AuditCaptureUpdateSidePosition = {
   right: 'right',
   left: 'left',
-  center: 'center',
 } as const;
 
 export interface AuditCaptureUpdate {

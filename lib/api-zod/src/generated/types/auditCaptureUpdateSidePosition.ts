@@ -12,5 +12,4 @@ export type AuditCaptureUpdateSidePosition = typeof AuditCaptureUpdateSidePositi
 export const AuditCaptureUpdateSidePosition = {
   right: 'right',
   left: 'left',
-  center: 'center',
 } as const;

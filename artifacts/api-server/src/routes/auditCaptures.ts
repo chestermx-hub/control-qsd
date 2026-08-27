@@ -4,7 +4,7 @@ import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
 const router = Router();
-const SIDE_POSITIONS = ["right", "left", "center"] as const;
+const SIDE_POSITIONS = ["right", "left"] as const;
 type SidePosition = typeof SIDE_POSITIONS[number];
 
 function toJson(row: typeof auditCapturesTable.$inferSelect) {
@@ -89,8 +89,8 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
     return;
   }
-  if (side_position !== undefined && !SIDE_POSITIONS.includes(side_position as SidePosition)) {
-    res.status(400).json({ error: "La posición debe ser Derecha, Izquierda o Centro" });
+  if (!side_position || !SIDE_POSITIONS.includes(side_position as SidePosition)) {
+    res.status(400).json({ error: "La posición debe ser LH o RH; Centro no puede guardar defectos" });
     return;
   }
   if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
@@ -105,7 +105,7 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zoneId: zone_id,
     panelId: panel_id,
     sideId: side_id,
-    sidePosition: side_position ?? "center",
+    sidePosition: side_position,
     visualZoneId: visual_zone_id,
     alphanumericId: alphanumeric_id,
     gridCol: grid_col,
@@ -141,7 +141,7 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
     side_position?: string; grid_col?: number; grid_col_label?: string; grid_row?: string; defect_id?: number; defect_other?: string; quantity?: number;
   };
   if (side_position !== undefined && !SIDE_POSITIONS.includes(side_position as SidePosition)) {
-    res.status(400).json({ error: "La posición debe ser Derecha, Izquierda o Centro" }); return;
+    res.status(400).json({ error: "La posición debe ser LH o RH; Centro no puede guardar defectos" }); return;
   }
   if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
     res.status(400).json({ error: "La etiqueta de columna no es válida" }); return;

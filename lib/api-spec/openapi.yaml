@@ -1588,7 +1588,7 @@ components:
 
     AuditCaptureInput:
       type: object
-      required: [unit_number, week_number, date, grid_col, grid_row, quantity]
+      required: [unit_number, week_number, date, side_position, grid_col, grid_row, quantity]
       properties:
         unit_number:
           type: integer
@@ -1607,7 +1607,7 @@ components:
           type: integer
         side_position:
           type: string
-          enum: [right, left, center]
+          enum: [right, left]
         visual_zone_id:
           type: integer
         alphanumeric_id:
@@ -1638,7 +1638,7 @@ components:
           type: integer
         side_position:
           type: string
-          enum: [right, left, center]
+          enum: [right, left]
         visual_zone_id:
           type: integer
         alphanumeric_id:
