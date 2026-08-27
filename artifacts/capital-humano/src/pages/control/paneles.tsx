@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Loader2, Grid3X3 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -455,6 +456,16 @@ export default function Paneles() {
     },
   });
 
+  const updatePanelStatus = useUpdatePanel({
+    mutation: {
+      onSuccess: (_panel, variables) => {
+        queryClient.invalidateQueries({ queryKey: getListPanelsQueryKey() });
+        toast({ title: variables.data.is_active ? "Panel activado" : "Panel desactivado" });
+      },
+      onError: (error) => toast({ title: error.message || "No se pudo actualizar el estado del panel", variant: "destructive" }),
+    },
+  });
+
   const deletePanel = useDeletePanel({
     mutation: {
       onSuccess: () => {
@@ -487,13 +498,14 @@ export default function Paneles() {
                 <TableHead>Zona</TableHead>
                 <TableHead>Zona Visual</TableHead>
                 <TableHead>Cuadrícula</TableHead>
+                <TableHead>Estado</TableHead>
                 <TableHead className="w-[120px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </TableCell>
                 </TableRow>
@@ -523,6 +535,22 @@ export default function Paneles() {
                       {" · "}Filas: {(panel.row_labels?.slice(0, 3).join(", ") || `${indexToLetter(panel.row_start ?? 0)}...`)}
                     </span>
                   </TableCell>
+                   <TableCell>
+                     <div className="flex items-center gap-2">
+                       <Switch
+                         checked={panel.is_active}
+                         disabled={updatePanelStatus.isPending}
+                         onCheckedChange={(checked) => updatePanelStatus.mutate({
+                           id: panel.id,
+                           data: { is_active: checked },
+                         })}
+                         aria-label={`${panel.is_active ? "Desactivar" : "Activar"} panel ${panel.name}`}
+                       />
+                       <span className="text-xs text-muted-foreground">
+                         {panel.is_active ? "Activo" : "Inactivo"}
+                       </span>
+                     </div>
+                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => setViewingGrid(panel)}>

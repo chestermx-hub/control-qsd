@@ -153,6 +153,7 @@ export interface ZoneUpdate {
 export interface Panel {
   id: number;
   name: string;
+  is_active: boolean;
   /** @nullable */
   description?: string | null;
   /** @nullable */
@@ -196,6 +197,7 @@ export interface Panel {
 
 export interface PanelInput {
   name: string;
+  is_active?: boolean;
   description?: string;
   diagram_url: string;
   columns: number;
@@ -225,6 +227,7 @@ export interface PanelInput {
 
 export interface PanelUpdate {
   name?: string;
+  is_active?: boolean;
   description?: string;
   diagram_url?: string;
   columns?: number;

@@ -1299,12 +1299,15 @@ components:
     # PANEL
     Panel:
       type: object
-      required: [id, name, columns, rows, column_start, row_start, columns_asc, rows_asc, created_at]
+      required: [id, name, is_active, columns, rows, column_start, row_start, columns_asc, rows_asc, created_at]
       properties:
         id:
           type: integer
         name:
           type: string
+        is_active:
+          type: boolean
+          default: true
         description:
           type: ["string", "null"]
         diagram_url:
@@ -1404,6 +1407,9 @@ components:
       properties:
         name:
           type: string
+        is_active:
+          type: boolean
+          default: true
         description:
           type: string
         diagram_url:
@@ -1475,6 +1481,8 @@ components:
       properties:
         name:
           type: string
+        is_active:
+          type: boolean
         description:
           type: string
         diagram_url:

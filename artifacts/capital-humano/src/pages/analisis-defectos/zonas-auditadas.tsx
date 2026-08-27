@@ -92,6 +92,7 @@ function PositionBadge({
 type Panel = {
   id: number;
   name: string;
+  is_active?: boolean;
   columns: number;
   rows: number;
   side_id?: number | null;
@@ -1010,6 +1011,11 @@ export default function AnalisisZonasAuditadas() {
                           <span className="font-bold text-base shrink-0">Unidad #{group.unit_number}</span>
                            {auditedZone && <span className="text-sm font-medium text-foreground shrink-0">· {auditedZone.name}</span>}
                           {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
+                           {panel?.is_active === false && (
+                             <Badge variant="outline" className="text-muted-foreground">
+                               Panel inactivo
+                             </Badge>
+                           )}
                            <PositionBadge position={group.captures[0]?.side_position} />
                         </button>
 
@@ -1065,7 +1071,7 @@ export default function AnalisisZonasAuditadas() {
                             </Button>
                           )}
 
-                          {panel && (
+                           {panel && panel.is_active !== false && (
                            <Button
                              type="button"
                              variant="outline"

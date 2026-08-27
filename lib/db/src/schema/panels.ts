@@ -8,6 +8,7 @@ import { visualZonesTable } from "./visualZones";
 export const panelsTable = pgTable("panels", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
   description: text("description"),
   diagramUrl: text("diagram_url"),
   columns: integer("columns").notNull().default(5),

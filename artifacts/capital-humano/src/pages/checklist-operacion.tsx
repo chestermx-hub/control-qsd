@@ -46,7 +46,9 @@ export default function ChecklistOperacion() {
     }, 1000);
   };
 
-  const filteredPanels = panels?.filter(p => p.zone_id?.toString() === selectedZone);
+  const filteredPanels = panels?.filter(
+    (p) => p.is_active !== false && p.zone_id?.toString() === selectedZone,
+  );
 
   return (
     <AppLayout>

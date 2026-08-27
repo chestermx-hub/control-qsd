@@ -8,13 +8,22 @@ const SIDE_POSITIONS = ["right", "left"] as const;
 type SidePosition = typeof SIDE_POSITIONS[number];
 const CENTER_POSITION = "center";
 
-async function panelRequiresSide(panelId?: number) {
-  if (panelId === undefined) return false;
+async function getPanelContext(panelId?: number) {
+  if (panelId === undefined) return undefined;
   const [panel] = await db
-    .select({ sideId: panelsTable.sideId })
+    .select({ sideId: panelsTable.sideId, isActive: panelsTable.isActive })
     .from(panelsTable)
     .where(eq(panelsTable.id, panelId));
-  return panel?.sideId != null;
+  return panel;
+}
+
+async function panelRequiresSide(panelId?: number) {
+  return (await getPanelContext(panelId))?.sideId != null;
+}
+
+async function panelIsActive(panelId?: number) {
+  const panel = await getPanelContext(panelId);
+  return panel?.isActive !== false;
 }
 
 function toJson(row: typeof auditCapturesTable.$inferSelect) {
@@ -97,6 +106,10 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
   };
   if (date !== new Date().toISOString().slice(0, 10)) {
     res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
+    return;
+  }
+  if (!(await panelIsActive(panel_id))) {
+    res.status(400).json({ error: "No se pueden registrar capturas en un panel inactivo" });
     return;
   }
   const requiresSide = await panelRequiresSide(panel_id);

@@ -73,6 +73,7 @@ function toJson(row: typeof panelsTable.$inferSelect) {
   return {
     id: row.id,
     name: row.name,
+    is_active: row.isActive,
     description: row.description,
     diagram_url: row.diagramUrl,
     columns: row.columns,
@@ -109,7 +110,7 @@ router.get("/panels", async (_req: Request, res: Response) => {
 
 router.post("/panels", async (req: Request, res: Response) => {
   const {
-    name, description, diagram_url, columns, rows,
+    name, is_active, description, diagram_url, columns, rows,
     column_start, row_start, columns_asc, rows_asc,
     cell_width, cell_height,
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
@@ -118,7 +119,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     column_labels, row_labels,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
-    name: string; description?: string; diagram_url: string;
+    name: string; is_active?: boolean; description?: string; diagram_url: string;
     columns: number; rows: number;
     column_start?: string | number; row_start?: string | number;
     columns_asc?: boolean; rows_asc?: boolean;
@@ -136,7 +137,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     }
   }
   const [row] = await db.insert(panelsTable).values({
-    name, description, diagramUrl: diagram_url, columns, rows,
+    name, isActive: is_active ?? true, description, diagramUrl: diagram_url, columns, rows,
     columnStart: legacyColumnStart(column_start),
     rowStart: legacyRowStart(row_start),
     columnLabels: validLabels(column_labels, columns) ? column_labels : generatedLabels(columns, String(column_start ?? 1), columns_asc ?? true, false),
@@ -170,7 +171,7 @@ router.get("/panels/:id", async (req: Request, res: Response) => {
 router.patch("/panels/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
   const {
-    name, description, diagram_url, columns, rows,
+    name, is_active, description, diagram_url, columns, rows,
     column_start, row_start, columns_asc, rows_asc,
     cell_width, cell_height,
     diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
@@ -179,7 +180,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     column_labels, row_labels,
     zone_id, side_id, visual_zone_id, alphanumeric_ids,
   } = req.body as {
-    name?: string; description?: string; diagram_url?: string;
+    name?: string; is_active?: boolean; description?: string; diagram_url?: string;
     columns?: number; rows?: number;
     column_start?: string | number; row_start?: string | number;
     columns_asc?: boolean; rows_asc?: boolean;
@@ -211,6 +212,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   }
   const updates: Partial<typeof panelsTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
+  if (is_active !== undefined) updates.isActive = is_active;
   if (description !== undefined) updates.description = description;
   if (diagram_url !== undefined) updates.diagramUrl = diagram_url;
   if (columns !== undefined) updates.columns = columns;

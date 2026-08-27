@@ -52,6 +52,10 @@ export default function NuevoRegistro() {
   const { data: visualZones } = useListVisualZones();
   const { data: defects } = useListDefects();
   const { data: zones } = useListZones();
+  const activePanels = useMemo(
+    () => panels?.filter((panel) => panel.is_active !== false),
+    [panels],
+  );
 
   const [date, setDate] = useState(existingDate ?? todayStr());
   const [skillNumber, setSkillNumber] = useState(existingSkillNumber);
@@ -66,7 +70,7 @@ export default function NuevoRegistro() {
 
   const resolvedUnitNumber = isContinuing ? existingUnitNumber! : (dailyCounter?.next_unit_number ?? 1);
 
-  const selectedPanel = useMemo(() => panels?.find((p) => p.id === panelId), [panels, panelId]);
+  const selectedPanel = useMemo(() => activePanels?.find((p) => p.id === panelId), [activePanels, panelId]);
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
   const sidePositionOptions = [
     { value: "left" as const, label: "LH", ariaLabel: "LH, izquierda" },
@@ -278,7 +282,7 @@ export default function NuevoRegistro() {
               >
                 <SelectTrigger><SelectValue placeholder="Selecciona un panel" /></SelectTrigger>
                 <SelectContent>
-                  {panels?.map((p) => (
+                  {activePanels?.map((p) => (
                     <SelectItem key={p.id} value={p.id.toString()}>{p.name}</SelectItem>
                   ))}
                 </SelectContent>

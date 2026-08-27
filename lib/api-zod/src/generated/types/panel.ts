@@ -9,6 +9,7 @@
 export interface Panel {
   id: number;
   name: string;
+  is_active: boolean;
   /** @nullable */
   description?: string | null;
   /** @nullable */

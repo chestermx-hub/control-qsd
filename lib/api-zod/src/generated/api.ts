@@ -412,6 +412,7 @@ export const DeleteZoneResponse = zod.void()
 /**
  * @summary List all panels
  */
+export const listPanelsResponseIsActiveDefault = true;
 export const listPanelsResponseColumnStartDefault = 1;
 export const listPanelsResponseRowStartDefault = 0;
 export const listPanelsResponseColumnsAscDefault = true;
@@ -432,6 +433,7 @@ export const listPanelsResponseAlphanumericIdsDefault = [];
 export const ListPanelsResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "is_active": zod.boolean().default(listPanelsResponseIsActiveDefault),
   "description": zod.string().nullish(),
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
@@ -465,8 +467,11 @@ export const ListPanelsResponse = zod.array(ListPanelsResponseItem)
 /**
  * @summary Create a panel
  */
+export const createPanelBodyIsActiveDefault = true;
+
 export const CreatePanelBody = zod.object({
   "name": zod.string(),
+  "is_active": zod.boolean().default(createPanelBodyIsActiveDefault),
   "description": zod.string().optional(),
   "diagram_url": zod.string(),
   "columns": zod.number(),
@@ -494,6 +499,7 @@ export const CreatePanelBody = zod.object({
   "alphanumeric_ids": zod.array(zod.number()).optional()
 })
 
+export const createPanelResponseIsActiveDefault = true;
 export const createPanelResponseColumnStartDefault = 1;
 export const createPanelResponseRowStartDefault = 0;
 export const createPanelResponseColumnsAscDefault = true;
@@ -514,6 +520,7 @@ export const createPanelResponseAlphanumericIdsDefault = [];
 export const CreatePanelResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "is_active": zod.boolean().default(createPanelResponseIsActiveDefault),
   "description": zod.string().nullish(),
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
@@ -550,6 +557,7 @@ export const GetPanelParams = zod.object({
   "id": zod.coerce.number()
 })
 
+export const getPanelResponseIsActiveDefault = true;
 export const getPanelResponseColumnStartDefault = 1;
 export const getPanelResponseRowStartDefault = 0;
 export const getPanelResponseColumnsAscDefault = true;
@@ -570,6 +578,7 @@ export const getPanelResponseAlphanumericIdsDefault = [];
 export const GetPanelResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "is_active": zod.boolean().default(getPanelResponseIsActiveDefault),
   "description": zod.string().nullish(),
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),
@@ -608,6 +617,7 @@ export const UpdatePanelParams = zod.object({
 
 export const UpdatePanelBody = zod.object({
   "name": zod.string().optional(),
+  "is_active": zod.boolean().optional(),
   "description": zod.string().optional(),
   "diagram_url": zod.string().optional(),
   "columns": zod.number().optional(),
@@ -635,6 +645,7 @@ export const UpdatePanelBody = zod.object({
   "alphanumeric_ids": zod.array(zod.number()).optional()
 })
 
+export const updatePanelResponseIsActiveDefault = true;
 export const updatePanelResponseColumnStartDefault = 1;
 export const updatePanelResponseRowStartDefault = 0;
 export const updatePanelResponseColumnsAscDefault = true;
@@ -655,6 +666,7 @@ export const updatePanelResponseAlphanumericIdsDefault = [];
 export const UpdatePanelResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "is_active": zod.boolean().default(updatePanelResponseIsActiveDefault),
   "description": zod.string().nullish(),
   "diagram_url": zod.string().nullish(),
   "columns": zod.number().describe('Number of columns (numbered)'),

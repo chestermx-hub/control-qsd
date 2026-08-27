@@ -79,6 +79,36 @@ test(
           panelPayload(`Panel flujo unidades ${suffix}`, ["1", "2"], ["A", "B"]),
         ),
       });
+      assert.equal(createdFlow.panel.is_active, true);
+
+      const deactivatedPanel = await expectStatus(`/panels/${createdFlow.panel.id}`, 200, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: false }),
+      });
+      assert.equal(deactivatedPanel.is_active, false);
+      const reopenedInactivePanel = await expectStatus(`/panels/${createdFlow.panel.id}`, 200);
+      assert.equal(reopenedInactivePanel.is_active, false);
+      const inactiveCaptureRejected = await request("/audit-captures", {
+        method: "POST",
+        body: JSON.stringify({
+          unit_number: 1,
+          week_number: 1,
+          date: today,
+          zone_id: createdFlow.zone.id,
+          panel_id: createdFlow.panel.id,
+          grid_col: 1,
+          grid_col_label: "1",
+          grid_row: "A",
+          quantity: 1,
+        }),
+      });
+      assert.equal(inactiveCaptureRejected.response.status, 400);
+      assert.match(inactiveCaptureRejected.body.error, /inactivo/i);
+      const reactivatedPanel = await expectStatus(`/panels/${createdFlow.panel.id}`, 200, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: true }),
+      });
+      assert.equal(reactivatedPanel.is_active, true);
 
       const counterAtStart = await expectStatus(
         `/audit-captures/daily-counter?date=${today}&zone_id=${createdFlow.zone.id}`,

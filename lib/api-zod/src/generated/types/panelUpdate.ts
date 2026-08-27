@@ -8,6 +8,7 @@
 
 export interface PanelUpdate {
   name?: string;
+  is_active?: boolean;
   description?: string;
   diagram_url?: string;
   columns?: number;
