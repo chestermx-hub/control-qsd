@@ -75,6 +75,39 @@ type NewCaptureStart = {
   skillNumber: string;
 };
 
+const ZONE_CARD_STYLES = [
+  {
+    card: "border-sky-200 bg-sky-50/80 hover:bg-sky-100/90 hover:border-sky-300",
+    icon: "bg-sky-100 text-sky-700",
+    stat: "border-sky-200/80 bg-white/70",
+  },
+  {
+    card: "border-emerald-200 bg-emerald-50/80 hover:bg-emerald-100/90 hover:border-emerald-300",
+    icon: "bg-emerald-100 text-emerald-700",
+    stat: "border-emerald-200/80 bg-white/70",
+  },
+  {
+    card: "border-amber-200 bg-amber-50/80 hover:bg-amber-100/90 hover:border-amber-300",
+    icon: "bg-amber-100 text-amber-700",
+    stat: "border-amber-200/80 bg-white/70",
+  },
+  {
+    card: "border-violet-200 bg-violet-50/80 hover:bg-violet-100/90 hover:border-violet-300",
+    icon: "bg-violet-100 text-violet-700",
+    stat: "border-violet-200/80 bg-white/70",
+  },
+  {
+    card: "border-rose-200 bg-rose-50/80 hover:bg-rose-100/90 hover:border-rose-300",
+    icon: "bg-rose-100 text-rose-700",
+    stat: "border-rose-200/80 bg-white/70",
+  },
+  {
+    card: "border-cyan-200 bg-cyan-50/80 hover:bg-cyan-100/90 hover:border-cyan-300",
+    icon: "bg-cyan-100 text-cyan-700",
+    stat: "border-cyan-200/80 bg-white/70",
+  },
+] as const;
+
 function PositionBadge({
   position,
   className = "",
@@ -591,6 +624,18 @@ export default function AnalisisZonasAuditadas() {
   const { data: defects } = useListDefects();
   const { data: zones, isLoading: isLoadingZones } = useListZones();
 
+  const zoneCardStats = useMemo(() => {
+    const stats = new Map<number, { units: Set<number>; defects: number }>();
+    for (const capture of (todayCaptures as AuditCapture[] | undefined) ?? []) {
+      if (capture.zone_id == null) continue;
+      const zoneStats = stats.get(capture.zone_id) ?? { units: new Set<number>(), defects: 0 };
+      zoneStats.units.add(capture.unit_number);
+      zoneStats.defects += capture.quantity ?? 1;
+      stats.set(capture.zone_id, zoneStats);
+    }
+    return stats;
+  }, [todayCaptures]);
+
   const startNewCapture = (zoneId: number) => {
     if (isLoadingTodayCaptures) {
       toast({ title: "Cargando las capturas de hoy, intenta de nuevo en un momento" });
@@ -850,21 +895,45 @@ export default function AnalisisZonasAuditadas() {
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {zones.map((zone) => (
+                {zones.map((zone, index) => {
+                  const stats = zoneCardStats.get(zone.id);
+                  const cardStyle = ZONE_CARD_STYLES[index % ZONE_CARD_STYLES.length];
+                  return (
                   <button
                     key={zone.id}
                     onClick={() => startNewCapture(zone.id)}
                     disabled={isLoadingTodayCaptures}
-                    className="flex flex-col items-center justify-center gap-3 border rounded-xl bg-card p-6 hover:bg-accent hover:border-primary/50 transition-all active:scale-[0.98] min-h-[140px]"
+                    className={`flex flex-col items-center justify-center gap-3 rounded-xl border p-4 transition-all active:scale-[0.98] min-h-[190px] ${cardStyle.card}`}
                   >
-                    {isLoadingTodayCaptures ? (
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    ) : (
-                      <MapPin className="h-8 w-8 text-primary" />
-                    )}
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-full ${cardStyle.icon}`}>
+                      {isLoadingTodayCaptures ? (
+                        <Loader2 className="h-7 w-7 animate-spin" />
+                      ) : (
+                        <MapPin className="h-7 w-7" />
+                      )}
+                    </span>
                     <span className="text-base font-semibold text-center leading-tight">{zone.name}</span>
+                    <span className="grid w-full max-w-[220px] grid-cols-2 gap-2">
+                      <span className={`flex flex-col rounded-lg border px-2 py-2 text-center ${cardStyle.stat}`}>
+                        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Unidades
+                        </span>
+                        <span className="text-xl font-bold leading-none text-foreground">
+                          {stats?.units.size ?? 0}
+                        </span>
+                      </span>
+                      <span className={`flex flex-col rounded-lg border px-2 py-2 text-center ${cardStyle.stat}`}>
+                        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Defectos
+                        </span>
+                        <span className="text-xl font-bold leading-none text-foreground">
+                          {stats?.defects ?? 0}
+                        </span>
+                      </span>
+                    </span>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             )}
           </TabsContent>
