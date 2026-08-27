@@ -50,6 +50,125 @@ function panelPayload(name, columnLabels, rowLabels) {
 }
 
 test(
+  "mantiene la unidad al agregar paneles y solo avanza al iniciar una nueva",
+  async () => {
+    const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const createdFlow = { zone: null, panel: null, captures: [] };
+
+    try {
+      await expectStatus("/auth/login", 200, {
+        method: "POST",
+        body: JSON.stringify({
+          email: "sistemas@qis-servicio.com",
+          password: "QIS2025!",
+        }),
+      });
+      const authenticatedUser = await expectStatus("/auth/me", 200);
+      assert.equal(authenticatedUser.email, "sistemas@qis-servicio.com");
+
+      createdFlow.zone = await expectStatus("/zones", 201, {
+        method: "POST",
+        body: JSON.stringify({
+          name: `Zona flujo unidades ${suffix}`,
+          description: "Zona temporal para verificar el contador de unidades",
+        }),
+      });
+      createdFlow.panel = await expectStatus("/panels", 201, {
+        method: "POST",
+        body: JSON.stringify(
+          panelPayload(`Panel flujo unidades ${suffix}`, ["1", "2"], ["A", "B"]),
+        ),
+      });
+
+      const counterAtStart = await expectStatus(
+        `/audit-captures/daily-counter?date=${today}&zone_id=${createdFlow.zone.id}`,
+        200,
+      );
+      assert.equal(counterAtStart.next_unit_number, 1);
+
+      const createCapture = async (unitNumber, gridCol, gridRow) => {
+        const capture = await expectStatus("/audit-captures", 201, {
+          method: "POST",
+          body: JSON.stringify({
+            unit_number: unitNumber,
+            week_number: counterAtStart.week_number,
+            date: today,
+            zone_id: createdFlow.zone.id,
+            panel_id: createdFlow.panel.id,
+            side_position: "left",
+            grid_col: gridCol,
+            grid_col_label: String(gridCol),
+            grid_row: gridRow,
+            quantity: 1,
+          }),
+        });
+        createdFlow.captures.push(capture);
+        return capture;
+      };
+
+      // "Nuevo panel": varios defectos siguen perteneciendo a la unidad inicial.
+      await createCapture(counterAtStart.next_unit_number, 1, "A");
+      await createCapture(counterAtStart.next_unit_number, 2, "A");
+      await createCapture(counterAtStart.next_unit_number, 1, "B");
+
+      const afterNewPanel = await expectStatus(
+        `/audit-captures/daily-counter?date=${today}&zone_id=${createdFlow.zone.id}`,
+        200,
+      );
+      assert.equal(afterNewPanel.next_unit_number, 2);
+
+      // Cancelar la decisión no escribe capturas ni consume el siguiente número.
+      const afterCancel = await expectStatus(
+        `/audit-captures/daily-counter?date=${today}&zone_id=${createdFlow.zone.id}`,
+        200,
+      );
+      assert.equal(afterCancel.next_unit_number, 2);
+
+      // "Nueva unidad": el siguiente número queda separado en el resumen persistido.
+      await createCapture(afterCancel.next_unit_number, 1, "A");
+      await createCapture(afterCancel.next_unit_number, 2, "B");
+
+      const reopenedSummary = await expectStatus(
+        `/audit-captures?date=${today}&zone_id=${createdFlow.zone.id}`,
+        200,
+      );
+      assert.equal(reopenedSummary.length, 5);
+      assert.deepEqual(
+        reopenedSummary.map((capture) => capture.unit_number),
+        [1, 1, 1, 2, 2],
+      );
+      assert.deepEqual(
+        [...new Set(reopenedSummary.map((capture) => capture.unit_number))],
+        [1, 2],
+      );
+
+      const counterAfterNewUnit = await expectStatus(
+        `/audit-captures/daily-counter?date=${today}&zone_id=${createdFlow.zone.id}`,
+        200,
+      );
+      assert.equal(counterAfterNewUnit.next_unit_number, 3);
+    } finally {
+      for (const capture of createdFlow.captures) {
+        await expectStatus(`/audit-captures/${capture.id}`, 204, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+      if (createdFlow.panel) {
+        await expectStatus(`/panels/${createdFlow.panel.id}`, 204, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+      if (createdFlow.zone) {
+        await expectStatus(`/zones/${createdFlow.zone.id}`, 204, {
+          method: "DELETE",
+        }).catch(() => {});
+      }
+    }
+  },
+  { timeout: 30_000 },
+);
+
+test(
   "conserva LH y RH al cerrar y volver a abrir una auditoría",
   async () => {
     await expectStatus("/auth/login", 200, {
