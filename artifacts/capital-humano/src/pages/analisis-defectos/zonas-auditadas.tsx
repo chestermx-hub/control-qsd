@@ -115,14 +115,14 @@ function PositionBadge({
   position?: "right" | "left" | "center" | null;
   className?: string;
 }) {
-  if (position !== "left" && position !== "right") return null;
+  if (position !== "left" && position !== "right" && position !== "center") return null;
   return (
     <span
       className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold text-white ${
-        position === "left" ? "bg-green-600" : "bg-red-600"
+        position === "left" ? "bg-green-600" : position === "right" ? "bg-red-600" : "bg-gray-500"
       } ${className}`}
     >
-      {position === "left" ? "LH" : "RH"}
+      {position === "left" ? "LH" : position === "right" ? "RH" : "Centro"}
     </span>
   );
 }
@@ -1048,9 +1048,6 @@ export default function AnalisisZonasAuditadas() {
                             <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
                             <TableCell className="whitespace-nowrap">
                               <PositionBadge position={row.capture.side_position} />
-                              {row.capture.side_position === "center" && (
-                                <span className="text-muted-foreground">Centro</span>
-                              )}
                               {!row.capture.side_position && <span className="text-muted-foreground">—</span>}
                             </TableCell>
                             <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
