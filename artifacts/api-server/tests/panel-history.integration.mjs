@@ -405,6 +405,21 @@ test(
     });
     created.panels.push(panel);
 
+    const capture = await expectStatus("/audit-captures", 201, {
+      method: "POST",
+      body: JSON.stringify({
+        unit_number: 910000,
+        week_number: 35,
+        date: today,
+        panel_id: panel.id,
+        grid_col: 1,
+        grid_col_label: "1",
+        grid_row: "A",
+        quantity: 1,
+      }),
+    });
+    created.captures.push(capture);
+
     created.user = await expectStatus("/users", 201, {
       method: "POST",
       body: JSON.stringify({
@@ -438,6 +453,21 @@ test(
     const unchanged = await expectStatus(`/panels/${panel.id}`, 200);
     assert.deepEqual(unchanged.column_labels, ["1", "2"]);
     assert.deepEqual(unchanged.row_labels, ["A", "B"]);
+
+    const rejectedDelete = await request(`/audit-captures/${capture.id}`, {
+      method: "DELETE",
+    });
+    assert.equal(rejectedDelete.response.status, 403);
+    assert.match(rejectedDelete.body.error, /administrador/i);
+
+    await expectStatus("/auth/login", 200, {
+      method: "POST",
+      body: JSON.stringify({
+        email: "sistemas@qis-servicio.com",
+        password: "QIS2025!",
+      }),
+    });
+    await expectStatus(`/audit-captures/${capture.id}`, 204, { method: "DELETE" });
   },
   { timeout: 30_000 },
 );
