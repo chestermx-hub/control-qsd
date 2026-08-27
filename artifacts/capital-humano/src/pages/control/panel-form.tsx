@@ -55,6 +55,12 @@ type LabelEdit = {
 
 const GRID_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
 
+function validGridLabels(labels: string[]) {
+  const normalized = labels.map((label) => label.trim().toLocaleLowerCase());
+  return labels.every((label) => GRID_LABEL_PATTERN.test(label.trim()))
+    && new Set(normalized).size === labels.length;
+}
+
 function GridLabelList({
   title,
   labels,
@@ -350,6 +356,14 @@ export default function PanelFormPage() {
       .map((label, index) => labelOverrides.column[index] ?? label);
     const rowLabels = generateGridLabels(data.rows, row_start_label, rows_asc)
       .map((label, index) => labelOverrides.row[index] ?? label);
+    if (!validGridLabels(columnLabels) || !validGridLabels(rowLabels)) {
+      toast({
+        title: "Revisa las etiquetas de la cuadrícula",
+        description: "Cada etiqueta debe ser válida y única dentro de sus columnas o filas.",
+        variant: "destructive",
+      });
+      return;
+    }
     const payload = {
       ...rest,
       column_start,
