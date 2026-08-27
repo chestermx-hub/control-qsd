@@ -52,6 +52,7 @@ type LabelEdit = {
   index: number;
   value: string;
 };
+type SaveIntent = "list" | "capture";
 
 const GRID_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
 
@@ -136,9 +137,11 @@ export default function PanelFormPage() {
   const [labelEdit, setLabelEdit] = useState<LabelEdit | null>(null);
   const [labelEditValue, setLabelEditValue] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [saveIntent, setSaveIntent] = useState<SaveIntent>("list");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const labelBaseRef = useRef<string | null>(null);
   const pendingLabelBaseRef = useRef<string | null>(null);
+  const saveIntentRef = useRef<SaveIntent>("list");
 
   const form = useForm<PanelFormValues>({
     resolver: zodResolver(panelSchema),
@@ -292,10 +295,15 @@ export default function PanelFormPage() {
 
   const createPanel = useCreatePanel({
     mutation: {
-      onSuccess: () => {
+      onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListPanelsQueryKey() });
         toast({ title: "Panel creado exitosamente" });
-        setLocation("/control/paneles");
+        const nextLocation = saveIntentRef.current === "capture"
+          ? `/analisis-defectos/nuevo-registro?panelId=${data.id}`
+          : "/control/paneles";
+        saveIntentRef.current = "list";
+        setSaveIntent("list");
+        setLocation(nextLocation);
       },
     },
   });
@@ -305,12 +313,19 @@ export default function PanelFormPage() {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListPanelsQueryKey() });
         toast({ title: "Panel actualizado exitosamente" });
-        setLocation("/control/paneles");
+        const nextLocation = saveIntentRef.current === "capture"
+          ? `/analisis-defectos/nuevo-registro?panelId=${editingId}`
+          : "/control/paneles";
+        saveIntentRef.current = "list";
+        setSaveIntent("list");
+        setLocation(nextLocation);
       },
     },
   });
 
   const onSubmit = (data: PanelFormValues) => {
+    const currentSaveIntent = saveIntentRef.current;
+    saveIntentRef.current = "list";
     const { row_start_label, columns_asc, rows_asc, column_start, ...rest } = data;
     const columnLabels = generateGridLabels(data.columns, column_start, columns_asc)
       .map((label, index) => labelOverrides.column[index] ?? label);
@@ -322,8 +337,10 @@ export default function PanelFormPage() {
         description: "Cada etiqueta debe ser válida y única dentro de sus columnas o filas.",
         variant: "destructive",
       });
+      setSaveIntent("list");
       return;
     }
+    saveIntentRef.current = currentSaveIntent;
     const payload = {
       ...rest,
       column_start,
@@ -458,6 +475,21 @@ export default function PanelFormPage() {
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem className="col-span-2"><FormLabel>Descripción</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
+              </div>
+              <div className="flex justify-end border-t pt-4">
+                <Button
+                  type="submit"
+                  onClick={() => {
+                    saveIntentRef.current = "capture";
+                    setSaveIntent("capture");
+                  }}
+                  disabled={createPanel.isPending || updatePanel.isPending}
+                >
+                  {saveIntent === "capture" && (createPanel.isPending || updatePanel.isPending) && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Guardar y continuar captura
+                </Button>
               </div>
             </div>
 
@@ -673,7 +705,14 @@ export default function PanelFormPage() {
             {/* Botones */}
             <div className="flex items-center gap-3 pt-2">
               <Button type="button" variant="outline" onClick={() => setLocation("/control/paneles")}>Cancelar</Button>
-              <Button type="submit" disabled={createPanel.isPending || updatePanel.isPending}>
+              <Button
+                type="submit"
+                onClick={() => {
+                  saveIntentRef.current = "list";
+                  setSaveIntent("list");
+                }}
+                disabled={createPanel.isPending || updatePanel.isPending}
+              >
                 {(createPanel.isPending || updatePanel.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar
               </Button>
