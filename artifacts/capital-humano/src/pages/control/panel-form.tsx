@@ -41,6 +41,7 @@ const panelSchema = z.object({
   diagram_offset_x: z.number().min(0).max(500).default(0),
   diagram_offset_y: z.number().min(0).max(500).default(0),
   diagram_opacity: z.number().min(0.05).max(1).default(0.5),
+  diagram_tint: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Selecciona un color válido").nullable().default(null),
   visual_zone_id: z.coerce.number().optional(),
   column_widths: z.array(z.number()).default([]),
   row_heights: z.array(z.number()).default([]),
@@ -53,6 +54,17 @@ type LabelEdit = {
   value: string;
 };
 type SaveIntent = "list" | "capture";
+
+const DIAGRAM_TINT_OPTIONS = [
+  { value: "#ef4444", label: "Rojo" },
+  { value: "#f97316", label: "Naranja" },
+  { value: "#eab308", label: "Amarillo" },
+  { value: "#22c55e", label: "Verde" },
+  { value: "#06b6d4", label: "Cian" },
+  { value: "#3b82f6", label: "Azul" },
+  { value: "#8b5cf6", label: "Violeta" },
+  { value: "#ec4899", label: "Rosa" },
+] as const;
 
 const GRID_LABEL_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u;
 
@@ -152,7 +164,7 @@ export default function PanelFormPage() {
       columns_asc: true, rows_asc: true,
       cell_width: 48, cell_height: 32, grid_offset_x: 0, grid_offset_y: 0,
       column_widths: [], row_heights: [],
-      diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5,
+       diagram_scale_x: 1.0, diagram_scale_y: 1.0, diagram_offset_x: 0, diagram_offset_y: 0, diagram_opacity: 0.5, diagram_tint: null,
     },
   });
 
@@ -180,6 +192,7 @@ export default function PanelFormPage() {
         diagram_offset_x: existingPanel.diagram_offset_x ?? 0,
         diagram_offset_y: existingPanel.diagram_offset_y ?? 0,
         diagram_opacity: existingPanel.diagram_opacity ?? 0.5,
+        diagram_tint: existingPanel.diagram_tint ?? null,
         visual_zone_id: existingPanel.visual_zone_id || undefined,
       });
       const automaticColumnLabels = generateGridLabels(
@@ -231,6 +244,7 @@ export default function PanelFormPage() {
   const formDiagramOffsetX = form.watch("diagram_offset_x");
   const formDiagramOffsetY = form.watch("diagram_offset_y");
   const formDiagramOpacity = form.watch("diagram_opacity");
+  const formDiagramTint = form.watch("diagram_tint");
   const formColumnWidths = form.watch("column_widths");
   const formRowHeights = form.watch("row_heights");
   const automaticColumnLabels = useMemo(
@@ -625,6 +639,68 @@ export default function PanelFormPage() {
                         Ajustar imagen a la cuadrícula
                       </Button>
                     </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <Label htmlFor="diagram-tint-custom" className="text-xs text-muted-foreground">
+                          Color de imagen
+                        </Label>
+                        <span className="text-xs font-medium text-foreground">
+                          {formDiagramTint
+                            ? DIAGRAM_TINT_OPTIONS.find((option) => option.value === formDiagramTint)?.label ?? "Personalizado"
+                            : "Sin tinte"}
+                        </span>
+                      </div>
+                      <div
+                        className="flex h-8 overflow-hidden rounded-md border bg-background"
+                        role="group"
+                        aria-label="Barra de colores para la imagen"
+                      >
+                        <button
+                          type="button"
+                          aria-label="Quitar tinte"
+                          aria-pressed={!formDiagramTint}
+                          title="Sin tinte"
+                          className={`flex min-w-16 flex-1 items-center justify-center border-r text-[11px] font-medium transition-colors ${
+                            !formDiagramTint ? "bg-muted text-foreground ring-2 ring-inset ring-primary" : "text-muted-foreground hover:bg-muted/70"
+                          }`}
+                          onClick={() => form.setValue("diagram_tint", null, { shouldDirty: true })}
+                        >
+                          Original
+                        </button>
+                        {DIAGRAM_TINT_OPTIONS.map((option) => (
+                          <button
+                            key={option.value}
+                            type="button"
+                            aria-label={`Aplicar tinte ${option.label}`}
+                            aria-pressed={formDiagramTint === option.value}
+                            title={option.label}
+                            className={`min-w-8 flex-1 border-r transition-transform hover:brightness-110 ${
+                              formDiagramTint === option.value ? "z-10 scale-y-110 ring-2 ring-inset ring-white" : ""
+                            }`}
+                            style={{ backgroundColor: option.value }}
+                            onClick={() => form.setValue("diagram_tint", option.value, { shouldDirty: true })}
+                          />
+                        ))}
+                        <label
+                          htmlFor="diagram-tint-custom"
+                          className="flex min-w-10 cursor-pointer items-center justify-center bg-muted px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted/70"
+                          title="Elegir un color personalizado"
+                        >
+                          <span className="sr-only">Elegir color personalizado</span>
+                          <input
+                            id="diagram-tint-custom"
+                            type="color"
+                            value={formDiagramTint ?? "#ffffff"}
+                            onChange={(event) => form.setValue("diagram_tint", event.target.value, { shouldDirty: true })}
+                            className="h-5 w-7 cursor-pointer rounded border-0 bg-transparent p-0"
+                            aria-label="Elegir color personalizado"
+                          />
+                        </label>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        El tinte sólo afecta la imagen; la cuadrícula y sus etiquetas permanecen intactas.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -653,6 +729,7 @@ export default function PanelFormPage() {
                 diagramOffsetX={formDiagramOffsetX ?? 0}
                 diagramOffsetY={formDiagramOffsetY ?? 0}
                 diagramOpacity={formDiagramOpacity ?? 0.5}
+                diagramTint={formDiagramTint}
                 onImagePositionChange={(x, y) => {
                   form.setValue("diagram_offset_x", Math.round(x));
                   form.setValue("diagram_offset_y", Math.round(y));

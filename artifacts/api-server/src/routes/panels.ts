@@ -56,6 +56,10 @@ function validLabels(labels: unknown, count: number): labels is string[] {
     new Set(labels.map((label) => label.trim().toLocaleLowerCase())).size === count;
 }
 
+function validDiagramTint(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && /^#[0-9A-Fa-f]{6}$/.test(value));
+}
+
 function isAdministrator(req: Request) {
   const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
   return userId
@@ -91,6 +95,7 @@ function toJson(row: typeof panelsTable.$inferSelect) {
     diagram_offset_x: row.diagramOffsetX,
     diagram_offset_y: row.diagramOffsetY,
     diagram_opacity: row.diagramOpacity,
+    diagram_tint: row.diagramTint,
     grid_offset_x: row.gridOffsetX,
     grid_offset_y: row.gridOffsetY,
     column_widths: row.columnWidths ?? [],
@@ -113,7 +118,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     name, is_active, description, diagram_url, columns, rows,
     column_start, row_start, columns_asc, rows_asc,
     cell_width, cell_height,
-    diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
+    diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity, diagram_tint,
     grid_offset_x, grid_offset_y,
     column_widths, row_heights,
     column_labels, row_labels,
@@ -124,7 +129,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     column_start?: string | number; row_start?: string | number;
     columns_asc?: boolean; rows_asc?: boolean;
     cell_width?: number; cell_height?: number;
-    diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
+     diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number; diagram_tint?: string | null;
     grid_offset_x?: number; grid_offset_y?: number;
     column_widths?: number[]; row_heights?: number[];
     column_labels?: string[]; row_labels?: string[];
@@ -135,6 +140,10 @@ router.post("/panels", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Las etiquetas deben ser valores alfanuméricos válidos y coincidir con el tamaño de la cuadrícula" });
       return;
     }
+  }
+  if (!validDiagramTint(diagram_tint ?? null)) {
+    res.status(400).json({ error: "El tinte debe ser un color hexadecimal válido" });
+    return;
   }
   const [row] = await db.insert(panelsTable).values({
     name, isActive: is_active ?? true, description, diagramUrl: diagram_url, columns, rows,
@@ -151,6 +160,7 @@ router.post("/panels", async (req: Request, res: Response) => {
     diagramOffsetX: diagram_offset_x ?? 0.0,
     diagramOffsetY: diagram_offset_y ?? 0.0,
     diagramOpacity: diagram_opacity ?? 0.5,
+    diagramTint: diagram_tint ?? null,
     gridOffsetX: grid_offset_x ?? 0,
     gridOffsetY: grid_offset_y ?? 0,
     columnWidths: column_widths ?? [],
@@ -174,7 +184,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     name, is_active, description, diagram_url, columns, rows,
     column_start, row_start, columns_asc, rows_asc,
     cell_width, cell_height,
-    diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity,
+    diagram_scale_x, diagram_scale_y, diagram_offset_x, diagram_offset_y, diagram_opacity, diagram_tint,
     grid_offset_x, grid_offset_y,
     column_widths, row_heights,
     column_labels, row_labels,
@@ -185,7 +195,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
     column_start?: string | number; row_start?: string | number;
     columns_asc?: boolean; rows_asc?: boolean;
     cell_width?: number; cell_height?: number;
-    diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number;
+    diagram_scale_x?: number; diagram_scale_y?: number; diagram_offset_x?: number; diagram_offset_y?: number; diagram_opacity?: number; diagram_tint?: string | null;
     grid_offset_x?: number; grid_offset_y?: number;
     column_widths?: number[]; row_heights?: number[];
     column_labels?: string[]; row_labels?: string[];
@@ -210,6 +220,10 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Las etiquetas deben ser valores alfanuméricos válidos" }); return;
     }
   }
+  if (diagram_tint !== undefined && !validDiagramTint(diagram_tint)) {
+    res.status(400).json({ error: "El tinte debe ser un color hexadecimal válido" });
+    return;
+  }
   const updates: Partial<typeof panelsTable.$inferInsert> = {};
   if (name !== undefined) updates.name = name;
   if (is_active !== undefined) updates.isActive = is_active;
@@ -228,6 +242,7 @@ router.patch("/panels/:id", async (req: Request, res: Response) => {
   if (diagram_offset_x !== undefined) updates.diagramOffsetX = diagram_offset_x;
   if (diagram_offset_y !== undefined) updates.diagramOffsetY = diagram_offset_y;
   if (diagram_opacity !== undefined) updates.diagramOpacity = diagram_opacity;
+  if (diagram_tint !== undefined) updates.diagramTint = diagram_tint;
   if (grid_offset_x !== undefined) updates.gridOffsetX = grid_offset_x;
   if (grid_offset_y !== undefined) updates.gridOffsetY = grid_offset_y;
   if (column_widths !== undefined) updates.columnWidths = column_widths;

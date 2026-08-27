@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useListPanels, useListVisualZones,
   useListDefects, useCreateAuditCapture, useGetAuditDailyCounter,
@@ -77,6 +77,14 @@ export default function NuevoRegistro() {
 
   const selectedPanel = useMemo(() => activePanels?.find((p) => p.id === panelId), [activePanels, panelId]);
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
+  const isZonaU = useMemo(
+    () => zones?.find((zone) => zone.id === zoneId)?.name.trim().toLocaleUpperCase() === "ZONA U",
+    [zones, zoneId],
+  );
+  const zonaUDefect = useMemo(
+    () => defects?.find((defect) => defect.code.trim().toLocaleUpperCase() === "GOA") ?? null,
+    [defects],
+  );
   const sidePositionOptions = [
     { value: "left" as const, label: "LH", ariaLabel: "LH, izquierda" },
     { value: "center" as const, label: "", ariaLabel: "Centro" },
@@ -91,6 +99,12 @@ export default function NuevoRegistro() {
 
   const [savedCaptures, setSavedCaptures] = useState<SavedCapture[]>([]);
   const [capturedCells, setCapturedCells] = useState<{ col: number; row: number; count: number }[]>([]);
+
+  useEffect(() => {
+    if (dialogCell && isZonaU && zonaUDefect) {
+      setDialogDefectId(String(zonaUDefect.id));
+    }
+  }, [dialogCell, isZonaU, zonaUDefect]);
 
   const createCapture = useCreateAuditCapture({
     mutation: {
@@ -145,7 +159,7 @@ export default function NuevoRegistro() {
       return;
     }
     setDialogCell({ colIndex, rowIndex, colLabel, rowLabel });
-    setDialogDefectId("");
+    setDialogDefectId(isZonaU && zonaUDefect ? String(zonaUDefect.id) : "");
     setDialogDefectOther("");
     setDialogQuantity("1");
   };
@@ -154,6 +168,14 @@ export default function NuevoRegistro() {
     if (!dialogCell) return;
     if (selectedPanel?.side_id && sidePosition === "center") {
       toast({ title: "Mueve la posición a LH o RH antes de registrar", variant: "destructive" });
+      return;
+    }
+    if (isZonaU && !zonaUDefect) {
+      toast({ title: "No se encontró el defecto GOA para ZONA U", variant: "destructive" });
+      return;
+    }
+    if (isZonaU && zonaUDefect && dialogDefectId !== String(zonaUDefect.id)) {
+      setDialogDefectId(String(zonaUDefect.id));
       return;
     }
     if (!dialogDefectId) {
@@ -392,6 +414,7 @@ export default function NuevoRegistro() {
                     diagramOffsetX={selectedPanel.diagram_offset_x ?? 0}
                     diagramOffsetY={selectedPanel.diagram_offset_y ?? 0}
                     diagramOpacity={selectedPanel.diagram_opacity ?? 0.5}
+                    diagramTint={selectedPanel.diagram_tint}
                     onCellDoubleClick={handleCellDoubleClick}
                     highlightedCells={capturedCells}
                     className=""
@@ -447,15 +470,27 @@ export default function NuevoRegistro() {
               <Label>Defecto</Label>
               <select
                 value={dialogDefectId}
+                disabled={isZonaU && !!zonaUDefect}
                 onChange={(e) => setDialogDefectId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-100"
               >
-                <option value="">Selecciona un defecto</option>
-                {defects?.map((d) => (
-                  <option key={d.id} value={d.id.toString()}>{d.code} — {d.name}</option>
-                ))}
-                <option value="otro">Otro (especificar)</option>
+                {isZonaU && zonaUDefect ? (
+                  <option value={zonaUDefect.id.toString()}>{zonaUDefect.code} — {zonaUDefect.name}</option>
+                ) : (
+                  <>
+                    <option value="">Selecciona un defecto</option>
+                    {defects?.map((d) => (
+                      <option key={d.id} value={d.id.toString()}>{d.code} — {d.name}</option>
+                    ))}
+                    <option value="otro">Otro (especificar)</option>
+                  </>
+                )}
               </select>
+              {isZonaU && zonaUDefect && (
+                <p className="text-xs text-muted-foreground">
+                  ZONA U sólo registra el defecto fijo: {zonaUDefect.code} — {zonaUDefect.name}.
+                </p>
+              )}
             </div>
 
             {dialogDefectId === "otro" && (

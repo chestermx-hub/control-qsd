@@ -181,6 +181,12 @@ export interface Panel {
   diagram_offset_x?: number;
   diagram_offset_y?: number;
   diagram_opacity?: number;
+  /**
+     * Optional hex color tint applied to the panel diagram
+     * @nullable
+     * @pattern ^#[0-9A-Fa-f]{6}$
+     */
+  diagram_tint?: string | null;
   grid_offset_x?: number;
   grid_offset_y?: number;
   column_widths?: number[];
@@ -215,6 +221,12 @@ export interface PanelInput {
   diagram_offset_x?: number;
   diagram_offset_y?: number;
   diagram_opacity?: number;
+  /**
+     * Optional hex color tint applied to the panel diagram
+     * @nullable
+     * @pattern ^#[0-9A-Fa-f]{6}$
+     */
+  diagram_tint?: string | null;
   grid_offset_x?: number;
   grid_offset_y?: number;
   column_widths?: number[];
@@ -245,6 +257,12 @@ export interface PanelUpdate {
   diagram_offset_x?: number;
   diagram_offset_y?: number;
   diagram_opacity?: number;
+  /**
+     * Optional hex color tint applied to the panel diagram
+     * @nullable
+     * @pattern ^#[0-9A-Fa-f]{6}$
+     */
+  diagram_tint?: string | null;
   grid_offset_x?: number;
   grid_offset_y?: number;
   column_widths?: number[];

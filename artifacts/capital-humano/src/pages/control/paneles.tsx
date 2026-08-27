@@ -67,6 +67,7 @@ export function PanelGrid({
   diagramOffsetX = 0,
   diagramOffsetY = 0,
   diagramOpacity = 0.5,
+  diagramTint = null,
   onImagePositionChange,
   onImageNaturalSize,
   onCellDoubleClick,
@@ -97,6 +98,7 @@ export function PanelGrid({
   diagramOffsetX?: number;
   diagramOffsetY?: number;
   diagramOpacity?: number;
+  diagramTint?: string | null;
   onImagePositionChange?: (x: number, y: number) => void;
   onImageNaturalSize?: (w: number, h: number) => void;
   onCellDoubleClick?: (colIndex: number, rowIndex: number, colLabel: string, rowLabel: string) => void;
@@ -317,6 +319,21 @@ export function PanelGrid({
                 setIsDraggingImg(true);
               } : undefined}
             />
+            {diagramTint && imgLoaded && (
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute"
+                style={{
+                  left: HEADER_W + imgOffset.x,
+                  top: HEADER_H + imgOffset.y,
+                  width: `${Math.round(naturalImgWidth! * diagramScaleX)}px`,
+                  height: `${Math.round(naturalImgHeight! * diagramScaleY)}px`,
+                  backgroundColor: diagramTint,
+                  mixBlendMode: "color",
+                  opacity: 0.72,
+                }}
+              />
+            )}
           </div>
         )}
         <div
@@ -613,6 +630,7 @@ export default function Paneles() {
                     diagramOffsetX={viewingGrid.diagram_offset_x ?? 0}
                     diagramOffsetY={viewingGrid.diagram_offset_y ?? 0}
                     diagramOpacity={viewingGrid.diagram_opacity ?? 0.5}
+                    diagramTint={viewingGrid.diagram_tint}
                     fitToContainer
                     className="mt-0"
                     onLabelDoubleClick={canEditLabels ? (kind, index, value) => {

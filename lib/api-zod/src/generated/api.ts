@@ -424,6 +424,7 @@ export const listPanelsResponseDiagramScaleYDefault = 1;
 export const listPanelsResponseDiagramOffsetXDefault = 0;
 export const listPanelsResponseDiagramOffsetYDefault = 0;
 export const listPanelsResponseDiagramOpacityDefault = 0.5;
+export const listPanelsResponseDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
 export const listPanelsResponseGridOffsetXDefault = 0;
 export const listPanelsResponseGridOffsetYDefault = 0;
 export const listPanelsResponseColumnWidthsDefault = [];
@@ -451,6 +452,7 @@ export const ListPanelsResponseItem = zod.object({
   "diagram_offset_x": zod.number().default(listPanelsResponseDiagramOffsetXDefault),
   "diagram_offset_y": zod.number().default(listPanelsResponseDiagramOffsetYDefault),
   "diagram_opacity": zod.number().default(listPanelsResponseDiagramOpacityDefault),
+  "diagram_tint": zod.string().regex(listPanelsResponseDiagramTintRegExp).nullish().describe('Optional hex color tint applied to the panel diagram'),
   "grid_offset_x": zod.number().default(listPanelsResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(listPanelsResponseGridOffsetYDefault),
   "column_widths": zod.array(zod.number()).default(listPanelsResponseColumnWidthsDefault),
@@ -468,6 +470,8 @@ export const ListPanelsResponse = zod.array(ListPanelsResponseItem)
  * @summary Create a panel
  */
 export const createPanelBodyIsActiveDefault = true;
+export const createPanelBodyDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
+
 
 export const CreatePanelBody = zod.object({
   "name": zod.string(),
@@ -489,6 +493,7 @@ export const CreatePanelBody = zod.object({
   "diagram_offset_x": zod.number().optional(),
   "diagram_offset_y": zod.number().optional(),
   "diagram_opacity": zod.number().optional(),
+  "diagram_tint": zod.string().regex(createPanelBodyDiagramTintRegExp).nullish().describe('Optional hex color tint applied to the panel diagram'),
   "grid_offset_x": zod.number().optional(),
   "grid_offset_y": zod.number().optional(),
   "column_widths": zod.array(zod.number()).optional(),
@@ -511,6 +516,7 @@ export const createPanelResponseDiagramScaleYDefault = 1;
 export const createPanelResponseDiagramOffsetXDefault = 0;
 export const createPanelResponseDiagramOffsetYDefault = 0;
 export const createPanelResponseDiagramOpacityDefault = 0.5;
+export const createPanelResponseDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
 export const createPanelResponseGridOffsetXDefault = 0;
 export const createPanelResponseGridOffsetYDefault = 0;
 export const createPanelResponseColumnWidthsDefault = [];
@@ -538,6 +544,7 @@ export const CreatePanelResponse = zod.object({
   "diagram_offset_x": zod.number().default(createPanelResponseDiagramOffsetXDefault),
   "diagram_offset_y": zod.number().default(createPanelResponseDiagramOffsetYDefault),
   "diagram_opacity": zod.number().default(createPanelResponseDiagramOpacityDefault),
+  "diagram_tint": zod.string().regex(createPanelResponseDiagramTintRegExp).nullish().describe('Optional hex color tint applied to the panel diagram'),
   "grid_offset_x": zod.number().default(createPanelResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(createPanelResponseGridOffsetYDefault),
   "column_widths": zod.array(zod.number()).default(createPanelResponseColumnWidthsDefault),
@@ -569,6 +576,7 @@ export const getPanelResponseDiagramScaleYDefault = 1;
 export const getPanelResponseDiagramOffsetXDefault = 0;
 export const getPanelResponseDiagramOffsetYDefault = 0;
 export const getPanelResponseDiagramOpacityDefault = 0.5;
+export const getPanelResponseDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
 export const getPanelResponseGridOffsetXDefault = 0;
 export const getPanelResponseGridOffsetYDefault = 0;
 export const getPanelResponseColumnWidthsDefault = [];
@@ -596,6 +604,7 @@ export const GetPanelResponse = zod.object({
   "diagram_offset_x": zod.number().default(getPanelResponseDiagramOffsetXDefault),
   "diagram_offset_y": zod.number().default(getPanelResponseDiagramOffsetYDefault),
   "diagram_opacity": zod.number().default(getPanelResponseDiagramOpacityDefault),
+  "diagram_tint": zod.string().regex(getPanelResponseDiagramTintRegExp).nullish().describe('Optional hex color tint applied to the panel diagram'),
   "grid_offset_x": zod.number().default(getPanelResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(getPanelResponseGridOffsetYDefault),
   "column_widths": zod.array(zod.number()).default(getPanelResponseColumnWidthsDefault),
@@ -614,6 +623,9 @@ export const GetPanelResponse = zod.object({
 export const UpdatePanelParams = zod.object({
   "id": zod.coerce.number()
 })
+
+export const updatePanelBodyDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
+
 
 export const UpdatePanelBody = zod.object({
   "name": zod.string().optional(),
@@ -635,6 +647,7 @@ export const UpdatePanelBody = zod.object({
   "diagram_offset_x": zod.number().optional(),
   "diagram_offset_y": zod.number().optional(),
   "diagram_opacity": zod.number().optional(),
+  "diagram_tint": zod.string().regex(updatePanelBodyDiagramTintRegExp).nullish().describe('Optional hex color tint applied to the panel diagram'),
   "grid_offset_x": zod.number().optional(),
   "grid_offset_y": zod.number().optional(),
   "column_widths": zod.array(zod.number()).optional(),
@@ -657,6 +670,7 @@ export const updatePanelResponseDiagramScaleYDefault = 1;
 export const updatePanelResponseDiagramOffsetXDefault = 0;
 export const updatePanelResponseDiagramOffsetYDefault = 0;
 export const updatePanelResponseDiagramOpacityDefault = 0.5;
+export const updatePanelResponseDiagramTintRegExp = new RegExp('^#[0-9A-Fa-f]{6}$');
 export const updatePanelResponseGridOffsetXDefault = 0;
 export const updatePanelResponseGridOffsetYDefault = 0;
 export const updatePanelResponseColumnWidthsDefault = [];
@@ -684,6 +698,7 @@ export const UpdatePanelResponse = zod.object({
   "diagram_offset_x": zod.number().default(updatePanelResponseDiagramOffsetXDefault),
   "diagram_offset_y": zod.number().default(updatePanelResponseDiagramOffsetYDefault),
   "diagram_opacity": zod.number().default(updatePanelResponseDiagramOpacityDefault),
+  "diagram_tint": zod.string().regex(updatePanelResponseDiagramTintRegExp).nullish().describe('Optional hex color tint applied to the panel diagram'),
   "grid_offset_x": zod.number().default(updatePanelResponseGridOffsetXDefault),
   "grid_offset_y": zod.number().default(updatePanelResponseGridOffsetYDefault),
   "column_widths": zod.array(zod.number()).default(updatePanelResponseColumnWidthsDefault),

@@ -121,6 +121,7 @@ type Panel = {
   diagram_offset_x?: number | null;
   diagram_offset_y?: number | null;
   diagram_opacity?: number | null;
+  diagram_tint?: string | null;
 };
 /* ──────────────────────────────────────────────
    Diálogo: Agregar Defectos a unidad existente
@@ -451,6 +452,7 @@ function AgregarDefectosDialog({
                 diagramOffsetX={panel.diagram_offset_x ?? 0}
                 diagramOffsetY={panel.diagram_offset_y ?? 0}
                 diagramOpacity={panel.diagram_opacity ?? 0.5}
+                diagramTint={panel.diagram_tint}
                 onCellDoubleClick={handleCellDoubleClick}
                 highlightedCells={allHighlighted}
                 fitToContainer
@@ -1229,6 +1231,7 @@ export default function AnalisisZonasAuditadas() {
                   diagramOffsetX={panel.diagram_offset_x ?? 0}
                   diagramOffsetY={panel.diagram_offset_y ?? 0}
                   diagramOpacity={panel.diagram_opacity ?? 0.5}
+                  diagramTint={panel.diagram_tint}
                   highlightedCells={highlighted}
                   fitToContainer
                 />
