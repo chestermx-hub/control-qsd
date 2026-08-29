@@ -134,6 +134,11 @@ function positionLabel(position?: "right" | "left" | "center" | null) {
   return "—";
 }
 
+function summarizeAnalystName(name?: string | null) {
+  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
+  return parts.length > 2 ? parts.slice(-2).join(" ") : name?.trim() || "—";
+}
+
 type Panel = {
   id: number;
   name: string;
@@ -864,6 +869,7 @@ export default function AnalisisZonasAuditadas() {
         panelName: panel?.name ?? "—",
         vzName: vz?.name ?? "—",
         cellLabel: `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
+        defectSummary: c.defect_other ? "Otro" : defect?.code ?? "—",
         defectLabel: c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—",
       };
     });
@@ -1052,7 +1058,7 @@ export default function AnalisisZonasAuditadas() {
                             </TableCell>
                             <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
                             <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
-                            <TableCell className="max-w-[200px] truncate">{row.defectLabel}</TableCell>
+                            <TableCell className="max-w-[120px] truncate" title={row.defectLabel}>{row.defectSummary}</TableCell>
                             <TableCell className="text-right">{row.capture.quantity}</TableCell>
                             <TableCell className="text-right font-medium">
                               {isFirst ? detailStats.total : ""}
@@ -1063,7 +1069,12 @@ export default function AnalisisZonasAuditadas() {
                             <TableCell className="text-right">
                               {isFirst ? detailStats.r1000.toFixed(0) : ""}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">{user?.name ?? "—"}</TableCell>
+                            <TableCell
+                              className="max-w-[150px] truncate whitespace-nowrap"
+                              title={user?.name ?? undefined}
+                            >
+                              {summarizeAnalystName(user?.name)}
+                            </TableCell>
                             <TableCell>1ro</TableCell>
                             {canDeleteCaptures && (
                               <TableCell>
