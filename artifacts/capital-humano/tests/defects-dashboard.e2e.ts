@@ -10,9 +10,20 @@ test("carga el dashboard de defectos y sus controles", async ({ page }) => {
   await page.goto("/analisis-defectos/dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard de Defectos" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Actualizar" })).toBeVisible();
+  await expect(page.getByText("Zona auditada", { exact: true })).toBeVisible();
 
   const monthSelector = page.getByRole("combobox").first();
   await expect(monthSelector).toBeVisible();
+
+  for (const label of ["Semana", "Lado", "Día", "Defecto", "Panel"]) {
+    await expect(page.getByRole("button", { name: `Filtrar por ${label}` })).toBeVisible();
+  }
+
+  await page.getByRole("button", { name: "Filtrar por Lado" }).click();
+  await expect(page.getByText("Derecho", { exact: true })).toBeVisible();
+  await expect(page.getByText("Izquierdo", { exact: true })).toBeVisible();
+  await expect(page.getByText("Centro", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
 
   const monthlyKpi = page.getByText("Defectos del mes", { exact: true });
   if (await monthlyKpi.count()) {

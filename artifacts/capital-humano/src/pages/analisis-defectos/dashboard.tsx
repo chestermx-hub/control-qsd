@@ -11,6 +11,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Area,
@@ -24,15 +26,19 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
   BarChart3,
   CalendarDays,
+  Check,
+  ChevronDown,
   Download,
   Filter,
   LayoutGrid,
   Map as MapIcon,
   Moon,
+  PanelTop,
   Printer,
   RefreshCw,
   Sun,
@@ -48,7 +54,6 @@ const CHART_COLORS = {
   red: "#A60808",
   pink: "#ec4899",
   amber: "#d97706",
-  slate: "#64748b",
 };
 
 const CHART_COLOR_LIST = [
@@ -60,15 +65,23 @@ const CHART_COLOR_LIST = [
   CHART_COLORS.amber,
 ];
 
+const SIDE_OPTIONS = [
+  { value: "right", label: "Derecho" },
+  { value: "left", label: "Izquierdo" },
+  { value: "center", label: "Centro" },
+];
+
 type Capture = {
   id: number;
   date: string;
   unit_number: number;
+  week_number: number;
   quantity: number;
   zone_id?: number | null;
   panel_id?: number | null;
   defect_id?: number | null;
   defect_other?: string | null;
+  side_position?: "right" | "left" | "center" | null;
 };
 
 type Aggregate = {
@@ -76,6 +89,12 @@ type Aggregate = {
   name: string;
   value: number;
   captures: number;
+};
+
+type FilterOption = {
+  value: string;
+  label: string;
+  count?: number;
 };
 
 function formatNumber(value: number) {
@@ -101,8 +120,27 @@ function monthLabel(key: string) {
   }).format(new Date(year, month - 1, 15));
 }
 
+function dateLabel(date: string) {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-MX", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
 function uniqueUnits(captures: Capture[]) {
-  return new Set(captures.map((capture) => `${capture.date}|${capture.zone_id ?? "sin-zona"}|${capture.unit_number}`)).size;
+  return new Set(
+    captures.map(
+      (capture) => `${capture.date}|${capture.zone_id ?? "sin-zona"}|${capture.unit_number}`,
+    ),
+  ).size;
+}
+
+function defectKey(capture: Capture) {
+  if (capture.defect_id != null) return `defect:${capture.defect_id}`;
+  if (capture.defect_other) return "other";
+  return "none";
 }
 
 function aggregateBy(
@@ -165,7 +203,9 @@ function ChartTooltip({
             style={{ backgroundColor: entry.color ?? CHART_COLORS.blue }}
           />
           <span className="text-slate-600">{entry.name}</span>
-          <strong className="ml-auto">{typeof entry.value === "number" ? formatNumber(entry.value) : entry.value}</strong>
+          <strong className="ml-auto">
+            {typeof entry.value === "number" ? formatNumber(entry.value) : entry.value}
+          </strong>
         </div>
       ))}
     </div>
@@ -203,11 +243,103 @@ function ChartExportButton({
   );
 }
 
+function MultiFilter({
+  label,
+  icon: Icon,
+  options,
+  selected,
+  onChange,
+  emptyLabel = "Sin opciones disponibles",
+}: {
+  label: string;
+  icon: LucideIcon;
+  options: FilterOption[];
+  selected: string[];
+  onChange: (values: string[]) => void;
+  emptyLabel?: string;
+}) {
+  const selectedSet = new Set(selected);
+  const toggle = (value: string) => {
+    onChange(
+      selectedSet.has(value)
+        ? selected.filter((item) => item !== value)
+        : [...selected, value],
+    );
+  };
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-[64px] min-w-0 justify-between rounded-[6px] border-[#d7d9dc] bg-[#f5f6f7] px-3 text-left hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
+          aria-label={`Filtrar por ${label}`}
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0">
+              <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                {label}
+              </span>
+              <span className="block truncate text-sm font-semibold text-foreground">
+                {selected.length ? `${selected.length} seleccionado${selected.length === 1 ? "" : "s"}` : "Todos"}
+              </span>
+            </span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[250px] p-2">
+        <div className="mb-1 flex items-center justify-between px-1">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </span>
+          {selected.length > 0 && (
+            <button
+              type="button"
+              className="text-xs font-medium text-primary hover:underline"
+              onClick={() => onChange([])}
+            >
+              Limpiar
+            </button>
+          )}
+        </div>
+        <div className="max-h-[230px] overflow-y-auto">
+          {options.length ? (
+            options.map((option) => (
+              <label
+                key={option.value}
+                className="flex cursor-pointer items-center gap-2 rounded-[5px] px-2 py-2 text-sm hover:bg-muted"
+              >
+                <Checkbox
+                  checked={selectedSet.has(option.value)}
+                  onCheckedChange={() => toggle(option.value)}
+                />
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {option.count !== undefined && (
+                  <span className="text-xs text-muted-foreground">{formatNumber(option.count)}</span>
+                )}
+              </label>
+            ))
+          ) : (
+            <p className="px-2 py-3 text-xs text-muted-foreground">{emptyLabel}</p>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export default function AnalisisDashboard() {
   const queryClient = useQueryClient();
   const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedZoneId, setSelectedZoneId] = useState<number | null>(null);
-  const [selectedPanelId, setSelectedPanelId] = useState<number | null>(null);
+  const [activeZoneId, setActiveZoneId] = useState<number | null>(null);
+  const [selectedWeeks, setSelectedWeeks] = useState<string[]>([]);
+  const [selectedSides, setSelectedSides] = useState<string[]>([]);
+  const [selectedDays, setSelectedDays] = useState<string[]>([]);
+  const [selectedDefects, setSelectedDefects] = useState<string[]>([]);
+  const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
 
@@ -217,7 +349,8 @@ export default function AnalisisDashboard() {
   const { data: defects, isLoading: defectsLoading } = useListDefects();
 
   const captures = (capturesQuery.data ?? []) as Capture[];
-  const loading = capturesQuery.isLoading || zonesLoading || panelsLoading || defectsLoading;
+  const loading =
+    capturesQuery.isLoading || zonesLoading || panelsLoading || defectsLoading;
   const refreshing = loading || capturesQuery.isFetching;
 
   useEffect(() => {
@@ -234,76 +367,226 @@ export default function AnalisisDashboard() {
     return () => window.clearTimeout(timeout);
   }, [refreshing]);
 
-  const zoneName = (id: number | null) => zones?.find((zone) => zone.id === id)?.name ?? "Sin zona";
-  const panelName = (id: number | null) => panels?.find((panel) => panel.id === id)?.name ?? "Sin panel";
-  const defectName = (id: number | null) => {
+  const zoneName = (id: number | null) =>
+    zones?.find((zone) => zone.id === id)?.name ?? "Sin zona";
+  const panelName = (id: number | null) =>
+    panels?.find((panel) => panel.id === id)?.name ?? "Sin panel";
+  const defectLabel = (id: number | null) => {
     const defect = defects?.find((item) => item.id === id);
     return defect ? `${defect.code} — ${defect.name}` : "Sin defecto";
   };
-  const defectCode = (id: number | null) => defects?.find((item) => item.id === id)?.code ?? "Otro";
+  const defectCode = (id: number | null) =>
+    defects?.find((item) => item.id === id)?.code ?? "Otro";
 
-  const monthlyData = useMemo(() => {
-    const groups = new Map<string, { key: string; label: string; value: number; units: number }>();
-    for (const capture of captures) {
-      const key = monthKey(capture.date);
-      const previous = groups.get(key);
-      groups.set(key, {
-        key,
-        label: monthLabel(key),
-        value: (previous?.value ?? 0) + (capture.quantity ?? 1),
-        units: previous?.units ?? 0,
-      });
-    }
-    for (const group of groups.values()) {
-      group.units = uniqueUnits(captures.filter((capture) => monthKey(capture.date) === group.key));
-    }
-    return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key));
-  }, [captures]);
+  const monthOptions = useMemo(
+    () =>
+      Array.from(new Set(captures.map((capture) => monthKey(capture.date))))
+        .sort()
+        .map((key) => ({ value: key, label: monthLabel(key) })),
+    [captures],
+  );
 
   useEffect(() => {
-    if (monthlyData.length && !monthlyData.some((month) => month.key === selectedMonth)) {
-      setSelectedMonth(monthlyData[monthlyData.length - 1].key);
+    if (monthOptions.length && !monthOptions.some((month) => month.value === selectedMonth)) {
+      setSelectedMonth(monthOptions.at(-1)?.value ?? "");
     }
-  }, [monthlyData, selectedMonth]);
+  }, [monthOptions, selectedMonth]);
 
-  const effectiveMonth = selectedMonth || monthlyData.at(-1)?.key || "";
-  const monthCaptures = useMemo(
-    () => captures.filter((capture) => monthKey(capture.date) === effectiveMonth),
-    [captures, effectiveMonth],
+  const effectiveMonth = selectedMonth || monthOptions.at(-1)?.value || "";
+
+  const monthZoneCaptures = useMemo(
+    () =>
+      captures.filter(
+        (capture) =>
+          monthKey(capture.date) === effectiveMonth &&
+          (activeZoneId === null || capture.zone_id === activeZoneId),
+      ),
+    [activeZoneId, captures, effectiveMonth],
   );
-  const zoneMonthCaptures = useMemo(
-    () => (selectedZoneId === null
-      ? monthCaptures
-      : monthCaptures.filter((capture) => capture.zone_id === selectedZoneId)),
-    [monthCaptures, selectedZoneId],
+
+  const filterOptions = useMemo(() => {
+    const weeks = Array.from(new Set(monthZoneCaptures.map((capture) => capture.week_number)))
+      .sort((a, b) => b - a)
+      .map((week) => ({
+        value: String(week),
+        label: `Semana ${week}`,
+        count: monthZoneCaptures.filter((capture) => capture.week_number === week).length,
+      }));
+    const days = Array.from(new Set(monthZoneCaptures.map((capture) => capture.date)))
+      .sort((a, b) => b.localeCompare(a))
+      .map((date) => ({
+        value: date,
+        label: dateLabel(date),
+        count: monthZoneCaptures.filter((capture) => capture.date === date).length,
+      }));
+    const sides = SIDE_OPTIONS.map((side) => ({
+      ...side,
+      count: monthZoneCaptures.filter((capture) => (capture.side_position ?? "center") === side.value).length,
+    }));
+    const defectOptions = Array.from(
+      new Set(monthZoneCaptures.map((capture) => defectKey(capture))),
+    ).map((value) => {
+      const capture = monthZoneCaptures.find((item) => defectKey(item) === value);
+      return {
+        value,
+        label:
+          value === "other"
+            ? `Otro${capture?.defect_other ? ` — ${capture.defect_other}` : ""}`
+            : value === "none"
+              ? "Sin defecto"
+              : defectLabel(capture?.defect_id ?? null),
+        count: monthZoneCaptures.filter((item) => defectKey(item) === value).length,
+      };
+    });
+    const panelOptions = Array.from(
+      new Set(monthZoneCaptures.map((capture) => capture.panel_id).filter((id): id is number => id != null)),
+    ).map((id) => ({
+      value: String(id),
+      label: panelName(id),
+      count: monthZoneCaptures.filter((capture) => capture.panel_id === id).length,
+    }));
+
+    return { weeks, days, sides, defectOptions, panelOptions };
+  }, [defectLabel, monthZoneCaptures, panelName]);
+
+  const applyFilters = (
+    rows: Capture[],
+    options: { month?: boolean; zone?: boolean; panel?: boolean; defect?: boolean } = {},
+  ) =>
+    rows.filter((capture) => {
+      if (options.month !== false && monthKey(capture.date) !== effectiveMonth) return false;
+      if (options.zone !== false && activeZoneId !== null && capture.zone_id !== activeZoneId) return false;
+      if (selectedWeeks.length && !selectedWeeks.includes(String(capture.week_number))) return false;
+      if (
+        selectedSides.length &&
+        !selectedSides.includes(capture.side_position ?? "center")
+      ) return false;
+      if (selectedDays.length && !selectedDays.includes(capture.date)) return false;
+      if (options.defect !== false && selectedDefects.length && !selectedDefects.includes(defectKey(capture))) return false;
+      if (options.panel !== false && selectedPanels.length && !selectedPanels.includes(String(capture.panel_id))) return false;
+      return true;
+    });
+
+  const filteredCaptures = useMemo(() => applyFilters(captures), [
+    activeZoneId,
+    captures,
+    effectiveMonth,
+    selectedDays,
+    selectedDefects,
+    selectedPanels,
+    selectedSides,
+    selectedWeeks,
+  ]);
+  const historicalFilteredCaptures = useMemo(
+    () => applyFilters(captures, { month: false }),
+    [
+      activeZoneId,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedDefects,
+      selectedPanels,
+      selectedSides,
+      selectedWeeks,
+    ],
   );
-  const filteredCaptures = useMemo(
-    () => zoneMonthCaptures.filter((capture) => selectedPanelId === null || capture.panel_id === selectedPanelId),
-    [zoneMonthCaptures, selectedPanelId],
+  const zoneBaseCaptures = useMemo(
+    () => applyFilters(captures, { zone: false }),
+    [
+      activeZoneId,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedDefects,
+      selectedPanels,
+      selectedSides,
+      selectedWeeks,
+    ],
   );
-  const trendCaptures = useMemo(
-    () => captures.filter((capture) =>
-      (selectedZoneId === null || capture.zone_id === selectedZoneId)
-      && (selectedPanelId === null || capture.panel_id === selectedPanelId),
-    ),
-    [captures, selectedPanelId, selectedZoneId],
+  const panelChartCaptures = useMemo(
+    () => applyFilters(captures, { panel: false }),
+    [
+      activeZoneId,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedDefects,
+      selectedPanels,
+      selectedSides,
+      selectedWeeks,
+    ],
+  );
+  const defectChartCaptures = useMemo(
+    () => applyFilters(captures, { defect: false }),
+    [
+      activeZoneId,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedDefects,
+      selectedPanels,
+      selectedSides,
+      selectedWeeks,
+    ],
+  );
+
+  const zoneSummary = useMemo(
+    () =>
+      (zones ?? [])
+        .map((zone) => {
+          const rows = zoneBaseCaptures.filter((capture) => capture.zone_id === zone.id);
+          return {
+            id: zone.id,
+            name: zone.name,
+            value: rows.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
+            units: uniqueUnits(rows),
+            captures: rows.length,
+          };
+        })
+        .filter((zone) => zone.captures > 0)
+        .sort((a, b) => b.value - a.value),
+    [zoneBaseCaptures, zones],
   );
 
   const zoneData = useMemo(
-    () => aggregateBy(monthCaptures, (capture) => capture.zone_id, zoneName).slice(0, 8),
-    [monthCaptures, zones],
+    () =>
+      aggregateBy(
+        zoneBaseCaptures,
+        (capture) => capture.zone_id,
+        zoneName,
+      ).slice(0, 8),
+    [zoneBaseCaptures, zones],
   );
   const panelData = useMemo(
-    () => aggregateBy(zoneMonthCaptures, (capture) => capture.panel_id, panelName).slice(0, 8),
-    [zoneMonthCaptures, panels],
+    () =>
+      aggregateBy(
+        panelChartCaptures,
+        (capture) => capture.panel_id,
+        panelName,
+      ).slice(0, 8),
+    [panelChartCaptures, panels],
   );
   const defectData = useMemo(
-    () => aggregateBy(filteredCaptures, (capture) => capture.defect_id, defectCode).slice(0, 8),
-    [filteredCaptures, defects],
+    () =>
+      aggregateBy(
+        defectChartCaptures,
+        (capture) => capture.defect_id,
+        defectCode,
+      ).map((item) => {
+        if (item.id === null) {
+          const other = defectChartCaptures.find((capture) => capture.defect_id == null);
+          return {
+            ...item,
+            name: other?.defect_other ? `Otro — ${other.defect_other}` : item.name,
+          };
+        }
+        return item;
+      }).slice(0, 8),
+    [defectChartCaptures, defects],
   );
   const trendData = useMemo(() => {
     const groups = new Map<string, { key: string; name: string; value: number; units: number }>();
-    for (const capture of trendCaptures) {
+    for (const capture of historicalFilteredCaptures) {
       const key = monthKey(capture.date);
       const previous = groups.get(key);
       groups.set(key, {
@@ -314,47 +597,74 @@ export default function AnalisisDashboard() {
       });
     }
     for (const group of groups.values()) {
-      group.units = uniqueUnits(trendCaptures.filter((capture) => monthKey(capture.date) === group.key));
+      group.units = uniqueUnits(
+        historicalFilteredCaptures.filter((capture) => monthKey(capture.date) === group.key),
+      );
     }
     return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key));
-  }, [trendCaptures]);
+  }, [historicalFilteredCaptures]);
 
   const monthTotal = filteredCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
-  const historicalTotal = trendCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
+  const historicalTotal = historicalFilteredCaptures.reduce(
+    (sum, capture) => sum + (capture.quantity ?? 1),
+    0,
+  );
   const monthUnits = uniqueUnits(filteredCaptures);
   const monthDpu = monthUnits ? monthTotal / monthUnits : 0;
-  const selectedZoneName = selectedZoneId === null ? null : zoneName(selectedZoneId);
-  const selectedPanelName = selectedPanelId === null ? null : panelName(selectedPanelId);
-  const filtersActive = selectedZoneId !== null || selectedPanelId !== null;
+  const activeZoneName = activeZoneId === null ? "Todas las zonas" : zoneName(activeZoneId);
+  const filterCount =
+    selectedWeeks.length +
+    selectedSides.length +
+    selectedDays.length +
+    selectedDefects.length +
+    selectedPanels.length;
+  const gridColor = isDark ? "rgba(255,255,255,0.08)" : "#e5e5e5";
+  const tickColor = isDark ? "#98999C" : "#71717a";
+
+  const resetSecondaryFilters = () => {
+    setSelectedWeeks([]);
+    setSelectedSides([]);
+    setSelectedDays([]);
+    setSelectedDefects([]);
+    setSelectedPanels([]);
+  };
+
+  const handleMonthChange = (value: string) => {
+    setSelectedMonth(value);
+    resetSecondaryFilters();
+  };
+
+  const handleZoneChange = (zoneId: number | null) => {
+    setActiveZoneId(zoneId);
+    resetSecondaryFilters();
+  };
+
+  const clearFilters = () => {
+    setActiveZoneId(null);
+    resetSecondaryFilters();
+  };
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: getListAuditCapturesQueryKey() });
   };
 
-  const clearFilters = () => {
-    setSelectedZoneId(null);
-    setSelectedPanelId(null);
-  };
-
-  const gridColor = isDark ? "rgba(255,255,255,0.08)" : "#e5e5e5";
-  const tickColor = isDark ? "#98999C" : "#71717a";
-
   return (
     <AppLayout>
       <div className="min-h-full bg-background px-5 py-4 pb-8">
-        <div className="mx-auto max-w-[1400px]">
+        <div className="mx-auto max-w-[1440px]">
           <div className="mb-5 flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
             <div className="pt-1">
               <h1 className="text-3xl font-bold tracking-tight">Dashboard de Defectos</h1>
               <p className="mt-1.5 text-sm text-muted-foreground">
-                Tendencias y acumulados de las capturas de auditoría.
+                Información segmentada por zona auditada y controles de auditoría.
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <span className="text-xs text-muted-foreground">Fuente:</span>
                 <Badge variant="secondary">Registros de auditoría</Badge>
                 {capturesQuery.dataUpdatedAt && (
                   <span className="text-xs text-muted-foreground">
-                    Actualizado {new Date(capturesQuery.dataUpdatedAt).toLocaleTimeString("es-MX", {
+                    Actualizado{" "}
+                    {new Date(capturesQuery.dataUpdatedAt).toLocaleTimeString("es-MX", {
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
@@ -363,21 +673,6 @@ export default function AnalisisDashboard() {
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 pt-1 print:hidden">
-              <div className="flex items-center gap-2 rounded-md border bg-card px-2">
-                <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                <Select value={effectiveMonth} onValueChange={setSelectedMonth} disabled={!monthlyData.length}>
-                  <SelectTrigger className="h-9 w-[180px] border-0 px-1 shadow-none focus:ring-0">
-                    <SelectValue placeholder="Selecciona mes" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {[...monthlyData].reverse().map((month) => (
-                      <SelectItem key={month.key} value={month.key}>
-                        <span className="capitalize">{month.label}</span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               <Button variant="outline" size="sm" onClick={handleRefresh} disabled={refreshing}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${isSpinning ? "animate-spin" : ""}`} />
                 Actualizar
@@ -404,18 +699,137 @@ export default function AnalisisDashboard() {
             </div>
           </div>
 
-          {filtersActive && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm">
-              <Filter className="h-4 w-4 text-primary" />
-              <span className="text-muted-foreground">Mostrando:</span>
-              {selectedZoneName && <Badge variant="outline">Zona: {selectedZoneName}</Badge>}
-              {selectedPanelName && <Badge variant="outline">Panel: {selectedPanelName}</Badge>}
-              <Button variant="ghost" size="sm" className="ml-auto h-7 px-2" onClick={clearFilters}>
-                <X className="mr-1 h-3.5 w-3.5" />
-                Limpiar filtros
-              </Button>
-            </div>
-          )}
+          <Card className="mb-4 border-[#d7d9dc] shadow-none">
+            <CardHeader className="border-b px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <MapIcon className="h-4 w-4 text-primary" />
+                    Zona auditada
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    Elige una zona para aplicar los controles sólo sobre sus registros.
+                  </CardDescription>
+                </div>
+                <Badge variant="outline">{activeZoneName}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => handleZoneChange(null)}
+                className={`rounded-[6px] border px-3 py-2 text-left text-sm transition-colors ${
+                  activeZoneId === null
+                    ? "border-primary bg-primary font-semibold text-primary-foreground"
+                    : "border-[#d7d9dc] bg-[#f5f6f7] hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
+                }`}
+              >
+                Todas las zonas
+              </button>
+              {(zones ?? []).map((zone) => {
+                const summary = zoneSummary.find((item) => item.id === zone.id);
+                return (
+                  <button
+                    key={zone.id}
+                    type="button"
+                    onClick={() => handleZoneChange(zone.id)}
+                    className={`min-w-[150px] rounded-[6px] border px-3 py-2 text-left transition-colors ${
+                      activeZoneId === zone.id
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-[#d7d9dc] bg-[#f5f6f7] hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
+                    }`}
+                  >
+                    <span className="block truncate text-sm font-semibold">{zone.name}</span>
+                    <span className={`block text-xs ${activeZoneId === zone.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                      {summary ? `${formatNumber(summary.value)} defectos · ${formatNumber(summary.units)} unidades` : "Sin registros"}
+                    </span>
+                  </button>
+                );
+              })}
+            </CardContent>
+          </Card>
+
+          <Card className="mb-4 border-[#d7d9dc] shadow-none">
+            <CardHeader className="border-b px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Filter className="h-4 w-4 text-primary" />
+                    Controles de análisis
+                  </CardTitle>
+                  <CardDescription className="mt-1">
+                    La selección se aplica a las tarjetas y gráficas de {activeZoneName.toLowerCase()}.
+                  </CardDescription>
+                </div>
+                <div className="flex items-center gap-2">
+                  {filterCount > 0 && <Badge variant="secondary">{filterCount} filtros activos</Badge>}
+                  {filterCount > 0 && (
+                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={clearFilters}>
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      Limpiar
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+              <div className="flex h-[64px] min-w-0 items-center gap-2 rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 dark:border-border dark:bg-muted/30">
+                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    Fecha · Meses
+                  </span>
+                  <Select value={effectiveMonth} onValueChange={handleMonthChange} disabled={!monthOptions.length}>
+                    <SelectTrigger className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
+                      <SelectValue placeholder="Selecciona mes" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[...monthOptions].reverse().map((month) => (
+                        <SelectItem key={month.value} value={month.value}>
+                          <span className="capitalize">{month.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <MultiFilter
+                label="Semana"
+                icon={CalendarDays}
+                options={filterOptions.weeks}
+                selected={selectedWeeks}
+                onChange={setSelectedWeeks}
+              />
+              <MultiFilter
+                label="Lado"
+                icon={Users}
+                options={filterOptions.sides}
+                selected={selectedSides}
+                onChange={setSelectedSides}
+              />
+              <MultiFilter
+                label="Día"
+                icon={CalendarDays}
+                options={filterOptions.days}
+                selected={selectedDays}
+                onChange={setSelectedDays}
+              />
+              <MultiFilter
+                label="Defecto"
+                icon={AlertTriangle}
+                options={filterOptions.defectOptions}
+                selected={selectedDefects}
+                onChange={setSelectedDefects}
+              />
+              <MultiFilter
+                label="Panel"
+                icon={PanelTop}
+                options={filterOptions.panelOptions}
+                selected={selectedPanels}
+                onChange={setSelectedPanels}
+              />
+            </CardContent>
+          </Card>
 
           {loading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -445,19 +859,19 @@ export default function AnalisisDashboard() {
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-[#0079F2]">{formatNumber(monthTotal)}</div>
-                    <p className="mt-1 text-xs capitalize text-muted-foreground">{monthLabel(effectiveMonth)}</p>
+                    <p className="mt-1 text-xs capitalize text-muted-foreground">
+                      {monthLabel(effectiveMonth)} · {activeZoneName}
+                    </p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Acumulado histórico</CardTitle>
+                    <CardTitle className="text-sm font-medium text-muted-foreground">Acumulado</CardTitle>
                     <Target className="h-4 w-4 text-[#795EFF]" />
                   </CardHeader>
                   <CardContent>
                     <div className="text-3xl font-bold text-[#795EFF]">{formatNumber(historicalTotal)}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {filtersActive ? "Con filtros activos" : "Todos los registros"}
-                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">Histórico con la segmentación activa</p>
                   </CardContent>
                 </Card>
                 <Card>
@@ -482,19 +896,77 @@ export default function AnalisisDashboard() {
                 </Card>
               </div>
 
+              <Card className="mb-4">
+                <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
+                  <div>
+                    <CardTitle className="text-base">Resumen por zona auditada</CardTitle>
+                    <CardDescription>
+                      Comparativo de zonas para {monthLabel(effectiveMonth)}. Haz clic en una tarjeta para enfocarla.
+                    </CardDescription>
+                  </div>
+                  <ChartExportButton
+                    ariaLabel="Exportar resumen por zona"
+                    filename="resumen-por-zona.csv"
+                    rows={zoneSummary.map((item) => ({
+                      Zona: item.name,
+                      Defectos: item.value,
+                      Unidades: item.units,
+                      Capturas: item.captures,
+                    }))}
+                  />
+                </CardHeader>
+                <CardContent>
+                  {zoneSummary.length ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      {zoneSummary.map((zone, index) => (
+                        <button
+                          key={zone.id}
+                          type="button"
+                          onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
+                          className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                            activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
+                          }`}
+                        >
+                          <div className="mb-2 flex items-center justify-between gap-2">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                style={{ backgroundColor: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length] }}
+                              />
+                              <span className="truncate text-sm font-semibold">{zone.name}</span>
+                            </span>
+                            {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
+                          </div>
+                          <div className="text-2xl font-bold">{formatNumber(zone.value)}</div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            defectos · {formatNumber(zone.units)} unidades
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <EmptyChart message="No hay registros de zona con los controles seleccionados." />
+                  )}
+                </CardContent>
+              </Card>
+
               <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
                       <CardTitle className="text-base">Tendencia mensual</CardTitle>
                       <CardDescription>
-                        {filtersActive ? "Evolución con los filtros seleccionados" : "Defectos registrados por mes"}
+                        Evolución histórica de {activeZoneName.toLowerCase()}
                       </CardDescription>
                     </div>
                     <ChartExportButton
                       ariaLabel="Exportar tendencia mensual"
                       filename="tendencia-mensual.csv"
-                      rows={trendData.map((item) => ({ Mes: item.name, Defectos: item.value, Unidades: item.units }))}
+                      rows={trendData.map((item) => ({
+                        Mes: item.name,
+                        Defectos: item.value,
+                        Unidades: item.units,
+                      }))}
                     />
                   </CardHeader>
                   <CardContent>
@@ -530,7 +1002,7 @@ export default function AnalisisDashboard() {
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
-                      <EmptyChart message="No hay tendencia disponible para estos filtros." />
+                      <EmptyChart message="No hay tendencia disponible para estos controles." />
                     )}
                   </CardContent>
                 </Card>
@@ -542,12 +1014,16 @@ export default function AnalisisDashboard() {
                         <MapIcon className="h-4 w-4" />
                         Defectos por zona
                       </CardTitle>
-                      <CardDescription>Haz clic en una barra para filtrar el dashboard</CardDescription>
+                      <CardDescription>Comparativo del mes seleccionado</CardDescription>
                     </div>
                     <ChartExportButton
                       ariaLabel="Exportar defectos por zona"
                       filename="defectos-por-zona.csv"
-                      rows={zoneData.map((item) => ({ Zona: item.name, Defectos: item.value, Capturas: item.captures }))}
+                      rows={zoneData.map((item) => ({
+                        Zona: item.name,
+                        Defectos: item.value,
+                        Capturas: item.captures,
+                      }))}
                     />
                   </CardHeader>
                   <CardContent>
@@ -567,14 +1043,13 @@ export default function AnalisisDashboard() {
                             isAnimationActive={false}
                             onClick={(entry) => {
                               const id = Number(entry?.id);
-                              setSelectedZoneId(Number.isNaN(id) ? null : selectedZoneId === id ? null : id);
-                              setSelectedPanelId(null);
+                              if (!Number.isNaN(id)) handleZoneChange(activeZoneId === id ? null : id);
                             }}
                           >
                             {zoneData.map((entry, index) => (
                               <Cell
                                 key={`${entry.id}-${index}`}
-                                fill={entry.id === selectedZoneId ? CHART_COLORS.blue : CHART_COLOR_LIST[index % CHART_COLOR_LIST.length]}
+                                fill={entry.id === activeZoneId ? CHART_COLORS.blue : CHART_COLOR_LIST[index % CHART_COLOR_LIST.length]}
                                 cursor="pointer"
                               />
                             ))}
@@ -582,7 +1057,7 @@ export default function AnalisisDashboard() {
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <EmptyChart message="No hay defectos por zona para este mes." />
+                      <EmptyChart message="No hay defectos por zona para este filtro." />
                     )}
                   </CardContent>
                 </Card>
@@ -593,17 +1068,21 @@ export default function AnalisisDashboard() {
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
-                        <LayoutGrid className="h-4 w-4" />
+                        <PanelTop className="h-4 w-4" />
                         Defectos por panel
                       </CardTitle>
                       <CardDescription>
-                        {selectedZoneName ? `Paneles en ${selectedZoneName}` : "Haz clic para ver un panel"}
+                        {activeZoneId === null ? "Comparativo general" : `Paneles en ${activeZoneName}`}
                       </CardDescription>
                     </div>
                     <ChartExportButton
                       ariaLabel="Exportar defectos por panel"
                       filename="defectos-por-panel.csv"
-                      rows={panelData.map((item) => ({ Panel: item.name, Defectos: item.value, Capturas: item.captures }))}
+                      rows={panelData.map((item) => ({
+                        Panel: item.name,
+                        Defectos: item.value,
+                        Capturas: item.captures,
+                      }))}
                     />
                   </CardHeader>
                   <CardContent>
@@ -632,23 +1111,11 @@ export default function AnalisisDashboard() {
                             fillOpacity={0.8}
                             radius={[0, 4, 4, 0]}
                             isAnimationActive={false}
-                            onClick={(entry) => {
-                              const id = Number(entry?.id);
-                              setSelectedPanelId(Number.isNaN(id) ? null : selectedPanelId === id ? null : id);
-                            }}
-                          >
-                            {panelData.map((entry, index) => (
-                              <Cell
-                                key={`${entry.id}-${index}`}
-                                fill={entry.id === selectedPanelId ? CHART_COLORS.blue : CHART_COLOR_LIST[(index + 2) % CHART_COLOR_LIST.length]}
-                                cursor="pointer"
-                              />
-                            ))}
-                          </Bar>
+                          />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <EmptyChart message="No hay defectos por panel para este filtro." />
+                      <EmptyChart message="No hay defectos por panel para estos controles." />
                     )}
                   </CardContent>
                 </Card>
@@ -660,12 +1127,16 @@ export default function AnalisisDashboard() {
                         <AlertTriangle className="h-4 w-4" />
                         Principales defectos
                       </CardTitle>
-                      <CardDescription>Los defectos con mayor cantidad en el mes</CardDescription>
+                      <CardDescription>Defectos con mayor cantidad en la selección</CardDescription>
                     </div>
                     <ChartExportButton
                       ariaLabel="Exportar principales defectos"
                       filename="principales-defectos.csv"
-                      rows={defectData.map((item) => ({ Defecto: item.name, Cantidad: item.value, Capturas: item.captures }))}
+                      rows={defectData.map((item) => ({
+                        Defecto: item.name,
+                        Cantidad: item.value,
+                        Capturas: item.captures,
+                      }))}
                     />
                   </CardHeader>
                   <CardContent>
@@ -697,7 +1168,7 @@ export default function AnalisisDashboard() {
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <EmptyChart message="No hay defectos para los filtros seleccionados." />
+                      <EmptyChart message="No hay defectos para los controles seleccionados." />
                     )}
                   </CardContent>
                 </Card>
