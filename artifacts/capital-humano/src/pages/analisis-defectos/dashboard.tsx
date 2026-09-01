@@ -15,8 +15,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
-  Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -29,7 +27,6 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
-  BarChart3,
   CalendarDays,
   Check,
   ChevronDown,
@@ -96,6 +93,9 @@ type FilterOption = {
   label: string;
   count?: number;
 };
+
+type HistoryGranularity = "month" | "year";
+type HistoryDimension = "panel" | "defect";
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("es-MX").format(value);
@@ -273,7 +273,7 @@ function MultiFilter({
         <Button
           type="button"
           variant="outline"
-          className="h-[64px] min-w-0 justify-between rounded-[6px] border-[#d7d9dc] bg-[#f5f6f7] px-3 text-left hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
+          className="h-[64px] w-full min-w-0 justify-between rounded-[6px] border-[#d7d9dc] bg-[#f5f6f7] px-3 text-left hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
           aria-label={`Filtrar por ${label}`}
         >
           <span className="flex min-w-0 items-center gap-2">
@@ -558,18 +558,33 @@ export default function AnalisisDashboard() {
             captures: rows.length,
           };
         })
-        .filter((zone) => zone.captures > 0)
         .sort((a, b) => b.value - a.value),
     [zoneBaseCaptures, zones],
   );
+  const allZonesSummary = useMemo(
+    () => ({
+      value: zoneBaseCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
+      units: uniqueUnits(zoneBaseCaptures),
+      captures: zoneBaseCaptures.length,
+    }),
+    [zoneBaseCaptures],
+  );
 
   const zoneData = useMemo(
-    () =>
-      aggregateBy(
-        zoneBaseCaptures,
-        (capture) => capture.zone_id,
-        zoneName,
-      ).slice(0, 8),
+    () => {
+      const aggregates = new Map(
+        aggregateBy(zoneBaseCaptures, (capture) => capture.zone_id, zoneName).map((item) => [
+          item.id,
+          item,
+        ]),
+      );
+      return (zones ?? []).map((zone) => ({
+        id: zone.id,
+        name: zone.name,
+        value: aggregates.get(zone.id)?.value ?? 0,
+        captures: aggregates.get(zone.id)?.captures ?? 0,
+      }));
+    },
     [zoneBaseCaptures, zones],
   );
   const panelData = useMemo(
@@ -599,25 +614,97 @@ export default function AnalisisDashboard() {
       }).slice(0, 8),
     [defectChartCaptures, defects],
   );
-  const trendData = useMemo(() => {
-    const groups = new Map<string, { key: string; name: string; value: number; units: number }>();
-    for (const capture of historicalFilteredCaptures) {
-      const key = monthKey(capture.date);
-      const previous = groups.get(key);
-      groups.set(key, {
-        key,
-        name: monthLabel(key),
-        value: (previous?.value ?? 0) + (capture.quantity ?? 1),
-        units: previous?.units ?? 0,
-      });
+  const [historyZoneId, setHistoryZoneId] = useState<number | null>(null);
+  const [historyGranularity, setHistoryGranularity] = useState<HistoryGranularity>("month");
+  const [historyPeriod, setHistoryPeriod] = useState("all");
+  const [historyDimension, setHistoryDimension] = useState<HistoryDimension>("panel");
+
+  const historyPeriodOptions = useMemo(() => {
+    const keys = new Set(
+      auditedCaptures
+        .filter((capture) => historyZoneId === null || capture.zone_id === historyZoneId)
+        .map((capture) =>
+          historyGranularity === "month" ? monthKey(capture.date) : capture.date.slice(0, 4),
+        ),
+    );
+    return Array.from(keys)
+      .sort((a, b) => b.localeCompare(a))
+      .map((key) => ({
+        value: key,
+        label: historyGranularity === "month" ? monthLabel(key) : key,
+      }));
+  }, [auditedCaptures, historyGranularity, historyZoneId]);
+
+  useEffect(() => {
+    if (historyPeriod !== "all" && !historyPeriodOptions.some((option) => option.value === historyPeriod)) {
+      setHistoryPeriod("all");
     }
-    for (const group of groups.values()) {
-      group.units = uniqueUnits(
-        historicalFilteredCaptures.filter((capture) => monthKey(capture.date) === group.key),
+  }, [historyPeriod, historyPeriodOptions]);
+
+  const historyChart = useMemo(() => {
+    const rows = auditedCaptures.filter((capture) => {
+      if (historyZoneId !== null && capture.zone_id !== historyZoneId) return false;
+      const periodKey =
+        historyGranularity === "month" ? monthKey(capture.date) : capture.date.slice(0, 4);
+      return historyPeriod === "all" || periodKey === historyPeriod;
+    });
+    const periodKey = (capture: Capture) =>
+      historyGranularity === "month" ? monthKey(capture.date) : capture.date.slice(0, 4);
+    const dimensionKey = (capture: Capture) =>
+      historyDimension === "panel"
+        ? `panel:${capture.panel_id ?? "none"}`
+        : defectKey(capture);
+    const dimensionLabel = (capture: Capture) => {
+      if (historyDimension === "panel") {
+        return capture.panel_id == null ? "Sin panel" : panelName(capture.panel_id);
+      }
+      if (capture.defect_id != null) return defectCode(capture.defect_id);
+      return capture.defect_other ? `Otro — ${capture.defect_other}` : "Sin defecto";
+    };
+    const seriesMap = new Map<string, { key: string; label: string }>();
+    const values = new Map<string, Map<string, number>>();
+
+    for (const capture of rows) {
+      const currentPeriod = periodKey(capture);
+      const currentDimension = dimensionKey(capture);
+      if (!seriesMap.has(currentDimension)) {
+        seriesMap.set(currentDimension, {
+          key: currentDimension,
+          label: dimensionLabel(capture),
+        });
+      }
+      const periodValues = values.get(currentPeriod) ?? new Map<string, number>();
+      periodValues.set(
+        currentDimension,
+        (periodValues.get(currentDimension) ?? 0) + (capture.quantity ?? 1),
       );
+      values.set(currentPeriod, periodValues);
     }
-    return Array.from(groups.values()).sort((a, b) => a.key.localeCompare(b.key));
-  }, [historicalFilteredCaptures]);
+
+    const series = Array.from(seriesMap.values()).map((item, index) => ({
+      ...item,
+      color: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length],
+    }));
+    const data = Array.from(values.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, periodValues]) => {
+        const row: Record<string, string | number> = {
+          key,
+          name: historyGranularity === "month" ? monthLabel(key) : key,
+        };
+        for (const item of series) row[item.key] = periodValues.get(item.key) ?? 0;
+        return row;
+      });
+    return { data, series };
+  }, [
+    auditedCaptures,
+    defectCode,
+    historyDimension,
+    historyGranularity,
+    historyPeriod,
+    historyZoneId,
+    panelName,
+  ]);
 
   const monthTotal = filteredCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
   const historicalTotal = historicalFilteredCaptures.reduce(
@@ -714,137 +801,89 @@ export default function AnalisisDashboard() {
             </div>
           </div>
 
-          <Card className="mb-4 border-[#d7d9dc] shadow-none">
-            <CardHeader className="border-b px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <MapIcon className="h-4 w-4 text-primary" />
-                    Zona auditada
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    Elige una zona para aplicar los controles sólo sobre sus registros.
-                  </CardDescription>
-                </div>
-                <Badge variant="outline">{activeZoneName}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-2 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => handleZoneChange(null)}
-                className={`rounded-[6px] border px-3 py-2 text-left text-sm transition-colors ${
-                  activeZoneId === null
-                    ? "border-primary bg-primary font-semibold text-primary-foreground"
-                    : "border-[#d7d9dc] bg-[#f5f6f7] hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
-                }`}
-              >
-                Todas las zonas
-              </button>
-              {(zones ?? []).map((zone) => {
-                const summary = zoneSummary.find((item) => item.id === zone.id);
-                return (
-                  <button
-                    key={zone.id}
-                    type="button"
-                    onClick={() => handleZoneChange(zone.id)}
-                    className={`min-w-[150px] rounded-[6px] border px-3 py-2 text-left transition-colors ${
-                      activeZoneId === zone.id
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-[#d7d9dc] bg-[#f5f6f7] hover:bg-[#eceef0] dark:border-border dark:bg-muted/30 dark:hover:bg-muted/50"
-                    }`}
-                  >
-                    <span className="block truncate text-sm font-semibold">{zone.name}</span>
-                    <span className={`block text-xs ${activeZoneId === zone.id ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                      {summary ? `${formatNumber(summary.value)} defectos · ${formatNumber(summary.units)} unidades` : "Sin registros"}
-                    </span>
-                  </button>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          <Card className="mb-4 border-[#d7d9dc] shadow-none">
-            <CardHeader className="border-b px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Filter className="h-4 w-4 text-primary" />
-                    Controles de análisis
-                  </CardTitle>
-                  <CardDescription className="mt-1">
-                    La selección se aplica a las tarjetas y gráficas de {activeZoneName.toLowerCase()}.
-                  </CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  {filterCount > 0 && <Badge variant="secondary">{filterCount} filtros activos</Badge>}
-                  {filterCount > 0 && (
-                    <Button variant="ghost" size="sm" className="h-7 px-2" onClick={clearFilters}>
-                      <X className="mr-1 h-3.5 w-3.5" />
-                      Limpiar
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-2 px-4 py-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-              <div className="flex h-[64px] min-w-0 items-center gap-2 rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 dark:border-border dark:bg-muted/30">
-                <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="min-w-0 flex-1">
-                  <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                    Fecha · Meses
-                  </span>
-                  <Select value={effectiveMonth} onValueChange={handleMonthChange} disabled={!monthOptions.length}>
-                    <SelectTrigger className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
-                      <SelectValue placeholder="Selecciona mes" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {[...monthOptions].reverse().map((month) => (
-                        <SelectItem key={month.value} value={month.value}>
-                          <span className="capitalize">{month.label}</span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <MultiFilter
-                label="Semana"
-                icon={CalendarDays}
-                options={filterOptions.weeks}
-                selected={selectedWeeks}
-                onChange={setSelectedWeeks}
-              />
-              <MultiFilter
-                label="Lado"
-                icon={Users}
-                options={filterOptions.sides}
-                selected={selectedSides}
-                onChange={setSelectedSides}
-              />
-              <MultiFilter
-                label="Día"
-                icon={CalendarDays}
-                options={filterOptions.days}
-                selected={selectedDays}
-                onChange={setSelectedDays}
-              />
-              <MultiFilter
-                label="Defecto"
-                icon={AlertTriangle}
-                options={filterOptions.defectOptions}
-                selected={selectedDefects}
-                onChange={setSelectedDefects}
-              />
-              <MultiFilter
-                label="Panel"
-                icon={PanelTop}
-                options={filterOptions.panelOptions}
-                selected={selectedPanels}
-                onChange={setSelectedPanels}
-              />
-            </CardContent>
-          </Card>
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+            <main className="min-w-0">
+              <Card className="mb-4">
+                <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <MapIcon className="h-4 w-4 text-primary" />
+                      Resumen por zona auditada
+                    </CardTitle>
+                    <CardDescription>
+                      Selecciona una zona para enfocar el análisis. Se muestran todas las zonas del catálogo.
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">{activeZoneName}</Badge>
+                    <ChartExportButton
+                      ariaLabel="Exportar resumen por zona"
+                      filename="resumen-por-zona.csv"
+                      rows={zoneSummary.map((item) => ({
+                        Zona: item.name,
+                        Defectos: item.value,
+                        Unidades: item.units,
+                        Capturas: item.captures,
+                      }))}
+                    />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <button
+                      type="button"
+                      data-testid="button-zone-all"
+                      aria-pressed={activeZoneId === null}
+                      onClick={() => handleZoneChange(null)}
+                      className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                        activeZoneId === null ? "border-primary bg-primary/5" : "bg-card"
+                      }`}
+                    >
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                          <span className="truncate text-sm font-semibold">Todas las zonas</span>
+                        </span>
+                        {activeZoneId === null && <Check className="h-4 w-4 text-primary" />}
+                      </div>
+                      <div className="text-2xl font-bold">{formatNumber(allZonesSummary.value)}</div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        defectos · {formatNumber(allZonesSummary.units)} unidades
+                      </p>
+                    </button>
+                    {zoneSummary.map((zone, index) => (
+                      <button
+                        key={zone.id}
+                        type="button"
+                        data-testid={`button-zone-${zone.id}`}
+                        aria-pressed={activeZoneId === zone.id}
+                        onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
+                        className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                          activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
+                        }`}
+                      >
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ backgroundColor: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length] }}
+                            />
+                            <span className="truncate text-sm font-semibold">{zone.name}</span>
+                          </span>
+                          {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
+                        </div>
+                        <div className="text-2xl font-bold">{formatNumber(zone.value)}</div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          defectos · {formatNumber(zone.units)} unidades
+                        </p>
+                        {!zone.captures && (
+                          <p className="mt-1 text-[11px] text-muted-foreground">Sin registros en el periodo</p>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
 
           {loading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -854,16 +893,6 @@ export default function AnalisisDashboard() {
                 </Card>
               ))}
             </div>
-          ) : !captures.length ? (
-            <Card>
-              <CardContent className="flex min-h-64 flex-col items-center justify-center gap-2 text-center">
-                <BarChart3 className="h-10 w-10 text-muted-foreground/50" />
-                <h2 className="font-semibold">Aún no hay registros capturados</h2>
-                <p className="text-sm text-muted-foreground">
-                  Cuando se registren defectos, aparecerán aquí sus tendencias y acumulados.
-                </p>
-              </CardContent>
-            </Card>
           ) : (
             <>
               <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -911,90 +940,36 @@ export default function AnalisisDashboard() {
                 </Card>
               </div>
 
-              <Card className="mb-4">
-                <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
-                  <div>
-                    <CardTitle className="text-base">Resumen por zona auditada</CardTitle>
-                    <CardDescription>
-                      Comparativo de zonas para {monthLabel(effectiveMonth)}. Haz clic en una tarjeta para enfocarla.
-                    </CardDescription>
-                  </div>
-                  <ChartExportButton
-                    ariaLabel="Exportar resumen por zona"
-                    filename="resumen-por-zona.csv"
-                    rows={zoneSummary.map((item) => ({
-                      Zona: item.name,
-                      Defectos: item.value,
-                      Unidades: item.units,
-                      Capturas: item.captures,
-                    }))}
-                  />
-                </CardHeader>
-                <CardContent>
-                  {zoneSummary.length ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                      {zoneSummary.map((zone, index) => (
-                        <button
-                          key={zone.id}
-                          type="button"
-                          onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
-                          className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
-                            activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
-                          }`}
-                        >
-                          <div className="mb-2 flex items-center justify-between gap-2">
-                            <span className="flex min-w-0 items-center gap-2">
-                              <span
-                                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                style={{ backgroundColor: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length] }}
-                              />
-                              <span className="truncate text-sm font-semibold">{zone.name}</span>
-                            </span>
-                            {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
-                          </div>
-                          <div className="text-2xl font-bold">{formatNumber(zone.value)}</div>
-                          <p className="mt-1 text-xs text-muted-foreground">
-                            defectos · {formatNumber(zone.units)} unidades
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <EmptyChart message="No hay registros de zona con los controles seleccionados." />
-                  )}
-                </CardContent>
-              </Card>
-
               <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card>
+                <Card className={activeZoneId === null ? "order-2" : "order-1"}>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
-                      <CardTitle className="text-base">Tendencia mensual</CardTitle>
+                      <CardTitle className="text-base">Histórico por zona</CardTitle>
                       <CardDescription>
-                        Evolución histórica de {activeZoneName.toLowerCase()}
+                        {historyZoneId === null ? "Todas las zonas" : zoneName(historyZoneId)} ·{" "}
+                        {historyGranularity === "month" ? "por mes" : "por año"} ·{" "}
+                        {historyDimension === "panel" ? "desglosado por panel" : "desglosado por defecto"}
                       </CardDescription>
                     </div>
                     <ChartExportButton
-                      ariaLabel="Exportar tendencia mensual"
-                      filename="tendencia-mensual.csv"
-                      rows={trendData.map((item) => ({
-                        Mes: item.name,
-                        Defectos: item.value,
-                        Unidades: item.units,
+                      ariaLabel="Exportar histórico por zona"
+                      filename="historico-por-zona.csv"
+                      rows={historyChart.data.map((item) => ({
+                        Periodo: String(item.name),
+                        ...Object.fromEntries(
+                          historyChart.series.map((series) => [
+                            series.label,
+                            Number(item[series.key] ?? 0),
+                          ]),
+                        ),
                       }))}
                     />
                   </CardHeader>
                   <CardContent>
-                    {trendData.length ? (
+                    {historyChart.data.length ? (
                       <ResponsiveContainer width="100%" height={280} debounce={0}>
-                        <AreaChart data={trendData} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="dashboardTrend" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor={CHART_COLORS.blue} stopOpacity={0.45} />
-                              <stop offset="100%" stopColor={CHART_COLORS.blue} stopOpacity={0.05} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                        <BarChart data={historyChart.data} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                           <XAxis
                             dataKey="name"
                             tick={{ fontSize: 11, fill: tickColor }}
@@ -1002,27 +977,28 @@ export default function AnalisisDashboard() {
                             tickFormatter={(value: string) => value.split(" ")[0].slice(0, 3)}
                           />
                           <YAxis tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
-                          <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(0,0,0,0.05)", stroke: "none" }} />
-                          <Area
-                            type="monotone"
-                            dataKey="value"
-                            name="Defectos"
-                            fill="url(#dashboardTrend)"
-                            stroke={CHART_COLORS.blue}
-                            strokeWidth={2}
-                            fillOpacity={1}
-                            isAnimationActive={false}
-                            activeDot={{ r: 5, fill: CHART_COLORS.blue, stroke: "#fff", strokeWidth: 2 }}
-                          />
-                        </AreaChart>
+                          <Tooltip content={<ChartTooltip />} cursor={false} />
+                          {historyChart.series.map((series) => (
+                            <Bar
+                              key={series.key}
+                              dataKey={series.key}
+                              name={series.label}
+                              stackId="history"
+                              fill={series.color}
+                              fillOpacity={0.85}
+                              radius={[3, 3, 0, 0]}
+                              isAnimationActive={false}
+                            />
+                          ))}
+                        </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <EmptyChart message="No hay tendencia disponible para estos controles." />
+                      <EmptyChart message="No hay histórico para la zona y los controles seleccionados." />
                     )}
                   </CardContent>
                 </Card>
 
-                <Card>
+                <Card className={activeZoneId === null ? "order-1" : "order-2"}>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -1190,6 +1166,175 @@ export default function AnalisisDashboard() {
               </div>
             </>
           )}
+            </main>
+            <aside className="order-first min-w-0 lg:order-last lg:sticky lg:top-4">
+              <Card className="border-[#d7d9dc] shadow-none">
+                <CardHeader className="border-b px-4 py-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Filter className="h-4 w-4 text-primary" />
+                        Controles de análisis
+                      </CardTitle>
+                      <CardDescription className="mt-1">
+                        Ajusta el corte actual y el histórico sin perder el resumen de zonas.
+                      </CardDescription>
+                    </div>
+                    {filterCount > 0 && <Badge variant="secondary">{filterCount}</Badge>}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-2 px-3 py-3">
+                  <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Corte actual · {activeZoneName}
+                  </p>
+                  <div className="flex h-[64px] min-w-0 items-center gap-2 rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 dark:border-border dark:bg-muted/30">
+                    <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Fecha · Meses
+                      </span>
+                      <Select value={effectiveMonth} onValueChange={handleMonthChange} disabled={!monthOptions.length}>
+                        <SelectTrigger data-testid="select-dashboard-month" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
+                          <SelectValue placeholder="Selecciona mes" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[...monthOptions].reverse().map((month) => (
+                            <SelectItem key={month.value} value={month.value}>
+                              <span className="capitalize">{month.label}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <MultiFilter
+                    label="Semana"
+                    icon={CalendarDays}
+                    options={filterOptions.weeks}
+                    selected={selectedWeeks}
+                    onChange={setSelectedWeeks}
+                  />
+                  <MultiFilter
+                    label="Lado"
+                    icon={Users}
+                    options={filterOptions.sides}
+                    selected={selectedSides}
+                    onChange={setSelectedSides}
+                  />
+                  <MultiFilter
+                    label="Día"
+                    icon={CalendarDays}
+                    options={filterOptions.days}
+                    selected={selectedDays}
+                    onChange={setSelectedDays}
+                  />
+                  <MultiFilter
+                    label="Defecto"
+                    icon={AlertTriangle}
+                    options={filterOptions.defectOptions}
+                    selected={selectedDefects}
+                    onChange={setSelectedDefects}
+                  />
+                  <MultiFilter
+                    label="Panel"
+                    icon={PanelTop}
+                    options={filterOptions.panelOptions}
+                    selected={selectedPanels}
+                    onChange={setSelectedPanels}
+                  />
+
+                  <div className="my-3 border-t" />
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Histórico por zona
+                    </p>
+                    <Badge variant="outline">Independiente</Badge>
+                  </div>
+                  <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
+                    <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Zona
+                    </span>
+                    <Select
+                      value={historyZoneId === null ? "all" : String(historyZoneId)}
+                      onValueChange={(value) => setHistoryZoneId(value === "all" ? null : Number(value))}
+                    >
+                      <SelectTrigger data-testid="select-history-zone" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
+                        <SelectValue placeholder="Todas las zonas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas las zonas</SelectItem>
+                        {(zones ?? []).map((zone) => (
+                          <SelectItem key={zone.id} value={String(zone.id)}>
+                            {zone.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
+                      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Agrupar por
+                      </span>
+                      <Select
+                        value={historyGranularity}
+                        onValueChange={(value) => {
+                          setHistoryGranularity(value as HistoryGranularity);
+                          setHistoryPeriod("all");
+                        }}
+                      >
+                        <SelectTrigger data-testid="select-history-granularity" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="month">Meses</SelectItem>
+                          <SelectItem value="year">Años</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
+                      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Periodo
+                      </span>
+                      <Select value={historyPeriod} onValueChange={setHistoryPeriod}>
+                        <SelectTrigger data-testid="select-history-period" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">Todos</SelectItem>
+                          {historyPeriodOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              <span className="capitalize">{option.label}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
+                    <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Mostrar histórico
+                    </span>
+                    <Select value={historyDimension} onValueChange={(value) => setHistoryDimension(value as HistoryDimension)}>
+                      <SelectTrigger data-testid="select-history-dimension" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="panel">Por panel</SelectItem>
+                        <SelectItem value="defect">Por defecto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {filterCount > 0 && (
+                    <Button variant="ghost" size="sm" className="mt-1 h-8 w-full" onClick={clearFilters}>
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      Limpiar filtros del corte
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            </aside>
+          </div>
         </div>
       </div>
     </AppLayout>
