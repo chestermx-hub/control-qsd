@@ -378,12 +378,21 @@ export default function AnalisisDashboard() {
   const defectCode = (id: number | null) =>
     defects?.find((item) => item.id === id)?.code ?? "Otro";
 
+  const auditedZoneIds = useMemo(
+    () => new Set((zones ?? []).map((zone) => zone.id)),
+    [zones],
+  );
+  const auditedCaptures = useMemo(
+    () => captures.filter((capture) => auditedZoneIds.has(capture.zone_id ?? -1)),
+    [auditedZoneIds, captures],
+  );
+
   const monthOptions = useMemo(
     () =>
-      Array.from(new Set(captures.map((capture) => monthKey(capture.date))))
+      Array.from(new Set(auditedCaptures.map((capture) => monthKey(capture.date))))
         .sort()
         .map((key) => ({ value: key, label: monthLabel(key) })),
-    [captures],
+    [auditedCaptures],
   );
 
   useEffect(() => {
@@ -396,12 +405,12 @@ export default function AnalisisDashboard() {
 
   const monthZoneCaptures = useMemo(
     () =>
-      captures.filter(
+      auditedCaptures.filter(
         (capture) =>
           monthKey(capture.date) === effectiveMonth &&
           (activeZoneId === null || capture.zone_id === activeZoneId),
       ),
-    [activeZoneId, captures, effectiveMonth],
+    [activeZoneId, auditedCaptures, effectiveMonth],
   );
 
   const filterOptions = useMemo(() => {
@@ -454,6 +463,7 @@ export default function AnalisisDashboard() {
     options: { month?: boolean; zone?: boolean; panel?: boolean; defect?: boolean } = {},
   ) =>
     rows.filter((capture) => {
+      if (!auditedZoneIds.has(capture.zone_id ?? -1)) return false;
       if (options.month !== false && monthKey(capture.date) !== effectiveMonth) return false;
       if (options.zone !== false && activeZoneId !== null && capture.zone_id !== activeZoneId) return false;
       if (selectedWeeks.length && !selectedWeeks.includes(String(capture.week_number))) return false;
@@ -469,6 +479,7 @@ export default function AnalisisDashboard() {
 
   const filteredCaptures = useMemo(() => applyFilters(captures), [
     activeZoneId,
+    auditedZoneIds,
     captures,
     effectiveMonth,
     selectedDays,
@@ -481,6 +492,7 @@ export default function AnalisisDashboard() {
     () => applyFilters(captures, { month: false }),
     [
       activeZoneId,
+      auditedZoneIds,
       captures,
       effectiveMonth,
       selectedDays,
@@ -494,6 +506,7 @@ export default function AnalisisDashboard() {
     () => applyFilters(captures, { zone: false }),
     [
       activeZoneId,
+      auditedZoneIds,
       captures,
       effectiveMonth,
       selectedDays,
@@ -507,6 +520,7 @@ export default function AnalisisDashboard() {
     () => applyFilters(captures, { panel: false }),
     [
       activeZoneId,
+      auditedZoneIds,
       captures,
       effectiveMonth,
       selectedDays,
@@ -520,6 +534,7 @@ export default function AnalisisDashboard() {
     () => applyFilters(captures, { defect: false }),
     [
       activeZoneId,
+      auditedZoneIds,
       captures,
       effectiveMonth,
       selectedDays,
