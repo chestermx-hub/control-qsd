@@ -220,6 +220,50 @@ function EmptyChart({ message }: { message: string }) {
   );
 }
 
+function wrapAxisLabel(label: string, maxLineLength = 14) {
+  const words = label.trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [""];
+
+  const lines: string[] = [];
+  let currentLine = "";
+  for (const word of words) {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    if (currentLine && nextLine.length > maxLineLength) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = nextLine;
+    }
+  }
+  if (currentLine) lines.push(currentLine);
+  return lines;
+}
+
+function ZoneAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  fill,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+  fill: string;
+}) {
+  const lines = wrapAxisLabel(String(payload?.value ?? ""));
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text textAnchor="middle" fill={fill} fontSize={10}>
+        {lines.map((line, index) => (
+          <tspan key={`${line}-${index}`} x="0" dy={index === 0 ? "0" : "1.15em"}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+}
+
 function ChartExportButton({
   ariaLabel,
   filename,
@@ -801,9 +845,9 @@ export default function AnalisisDashboard() {
             </div>
           </div>
 
-          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-            <main className="min-w-0">
-              <Card className="mb-4">
+          <div className="flex flex-col gap-4">
+            <main className="contents">
+              <Card className="order-1 mb-0">
                 <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                   <div>
                     <CardTitle className="flex items-center gap-2 text-base">
@@ -829,13 +873,13 @@ export default function AnalisisDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="flex min-w-0 gap-3 overflow-x-auto pb-1">
                     <button
                       type="button"
                       data-testid="button-zone-all"
                       aria-pressed={activeZoneId === null}
                       onClick={() => handleZoneChange(null)}
-                      className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                      className={`min-w-[160px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
                         activeZoneId === null ? "border-primary bg-primary/5" : "bg-card"
                       }`}
                     >
@@ -858,7 +902,7 @@ export default function AnalisisDashboard() {
                         data-testid={`button-zone-${zone.id}`}
                         aria-pressed={activeZoneId === zone.id}
                         onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
-                        className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                        className={`min-w-[160px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
                           activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
                         }`}
                       >
@@ -886,7 +930,7 @@ export default function AnalisisDashboard() {
               </Card>
 
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="order-3 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {[1, 2, 3, 4].map((item) => (
                 <Card key={item}>
                   <CardContent className="h-28 animate-pulse bg-muted/30" />
@@ -895,7 +939,7 @@ export default function AnalisisDashboard() {
             </div>
           ) : (
             <>
-              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <div className="order-3 mb-0 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">Defectos del mes</CardTitle>
@@ -940,7 +984,7 @@ export default function AnalisisDashboard() {
                 </Card>
               </div>
 
-              <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="order-4 mb-0 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card className={activeZoneId === null ? "order-2" : "order-1"}>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
@@ -1020,9 +1064,16 @@ export default function AnalisisDashboard() {
                   <CardContent>
                     {zoneData.length ? (
                       <ResponsiveContainer width="100%" height={280} debounce={0}>
-                        <BarChart data={zoneData} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
+                        <BarChart data={zoneData} margin={{ top: 8, right: 12, left: -16, bottom: 12 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} />
+                          <XAxis
+                            dataKey="name"
+                            height={42}
+                            interval={0}
+                            tickMargin={7}
+                            tick={<ZoneAxisTick fill={tickColor} />}
+                            stroke={tickColor}
+                          />
                           <YAxis tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
                           <Tooltip content={<ChartTooltip />} cursor={false} />
                           <Bar
@@ -1054,7 +1105,7 @@ export default function AnalisisDashboard() {
                 </Card>
               </div>
 
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="order-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
@@ -1167,7 +1218,7 @@ export default function AnalisisDashboard() {
             </>
           )}
             </main>
-            <aside className="order-first min-w-0 lg:order-last lg:sticky lg:top-4">
+            <aside className="order-2 w-full self-end min-w-0 lg:w-[320px]">
               <Card className="border-[#d7d9dc] shadow-none">
                 <CardHeader className="border-b px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
