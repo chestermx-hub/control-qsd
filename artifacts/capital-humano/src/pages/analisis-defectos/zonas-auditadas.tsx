@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Loader2, Plus, Trash2, Calendar, Grid3X3, Pencil, ChevronDown, ChevronRight,
-  FileText, CheckCircle2, Download, MapPin, Lock, ArrowDown, ArrowUp, ArrowUpDown, Filter, X,
+  FileText, CheckCircle2, Download, MapPin, Lock, ArrowDown, ArrowUp, ArrowUpDown, Filter,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -136,9 +136,14 @@ function positionLabel(position?: "right" | "left" | "center" | null) {
   return "—";
 }
 
-function summarizeAnalystName(name?: string | null) {
-  const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
-  return parts.length > 2 ? parts.slice(-2).join(" ") : name?.trim() || "—";
+function analystInitials(name?: string | null) {
+  const initials = name?.trim().split(/\s+/).filter(Boolean).map((part) => part[0]).join("").toUpperCase();
+  return initials || "—";
+}
+
+function zoneAbbreviation(name?: string | null) {
+  const abbreviation = name?.trim().split(/\s+/).filter(Boolean).map((part) => part[0]).join("").toUpperCase();
+  return abbreviation || "—";
 }
 
 const DEFAULT_ANALYST_NAME = "Brenda Itzel Hernandez Romero";
@@ -147,6 +152,7 @@ type DetailFilterKey =
   | "unit_number"
   | "week_number"
   | "date"
+  | "zone"
   | "skill_number"
   | "panel"
   | "position"
@@ -164,6 +170,7 @@ type DetailRow = {
   idx: number;
   capture: AuditCapture;
   panelName: string;
+  zoneAbbreviation: string;
   vzName: string;
   cellLabel: string;
   defectSummary: string;
@@ -175,6 +182,7 @@ const DETAIL_FILTER_COLUMNS: Array<{ key: DetailFilterKey; label: string }> = [
   { key: "unit_number", label: "Unidad" },
   { key: "week_number", label: "Semana" },
   { key: "date", label: "Fecha" },
+  { key: "zone", label: "Zona" },
   { key: "skill_number", label: "SK" },
   { key: "panel", label: "Panel" },
   { key: "position", label: "Posición" },
@@ -194,6 +202,8 @@ function detailFilterValue(row: DetailRow, key: DetailFilterKey) {
       return String(row.capture.week_number);
     case "date":
       return row.capture.date;
+    case "zone":
+      return row.zoneAbbreviation;
     case "skill_number":
       return row.capture.skill_number ?? "—";
     case "panel":
@@ -241,7 +251,7 @@ function DetailColumnTools({
   );
 
   return (
-    <div className="mt-1 flex items-center justify-center gap-0.5">
+    <div className="flex items-center justify-center gap-0.5">
       <button
         type="button"
         onClick={onSort}
@@ -787,12 +797,10 @@ export default function AnalisisZonasAuditadas() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { user } = useAuth();
-  const canDeleteCaptures =
-    user?.role === "admin" ||
-    user?.role === "superadmin" ||
-    user?.email?.toLowerCase() === "sistemas@qis-servicio.com";
+  const canDeleteCaptures = Boolean(user);
   const canDeleteHistoricalCaptures =
     user?.email?.toLowerCase() === "sistemas@qis-servicio.com";
+  const showZoneColumn = filterZoneId === "all";
 
   const params = {
     ...(filterDate ? { date: filterDate } : {}),
@@ -880,7 +888,7 @@ export default function AnalisisZonasAuditadas() {
         toast({ title: "Registro eliminado" });
       },
       onError: (error) => {
-        toast({ title: error.message || "Sólo un administrador puede eliminar registros", variant: "destructive" });
+        toast({ title: error.message || "Sólo puedes eliminar registros del día en curso", variant: "destructive" });
       },
     },
   });
@@ -1048,6 +1056,7 @@ export default function AnalisisZonasAuditadas() {
         idx,
         capture: c,
         panelName: panel?.name ?? "—",
+        zoneAbbreviation: zoneAbbreviation(zones?.find((zone) => zone.id === c.zone_id)?.name),
         vzName: vz?.name ?? "—",
         cellLabel: `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
         defectSummary: c.defect_other ? "Otro" : defect?.code ?? "—",
@@ -1055,7 +1064,7 @@ export default function AnalisisZonasAuditadas() {
         analystName: DEFAULT_ANALYST_NAME,
       };
     });
-  }, [captures, panels, visualZones, defects]);
+  }, [captures, panels, visualZones, defects, zones]);
 
   const detailFilterOptions = useMemo(() => {
     const options = {} as Record<DetailFilterKey, string[]>;
@@ -1262,65 +1271,76 @@ export default function AnalisisZonasAuditadas() {
                       <col style={{ width: "5%" }} />
                       <col style={{ width: "5%" }} />
                       <col style={{ width: "7%" }} />
+                      {showZoneColumn && <col style={{ width: "5%" }} />}
                       <col style={{ width: "5%" }} />
-                      <col style={{ width: "11%" }} />
+                      <col style={{ width: showZoneColumn ? "9%" : "11%" }} />
                       <col style={{ width: "7%" }} />
                       <col style={{ width: "8%" }} />
-                      <col style={{ width: "7%" }} />
-                      <col style={{ width: "6%" }} />
+                      <col style={{ width: showZoneColumn ? "6%" : "7%" }} />
+                      <col style={{ width: showZoneColumn ? "5%" : "6%" }} />
                       <col style={{ width: "5%" }} />
                       <col style={{ width: "5%" }} />
                       <col style={{ width: "6%" }} />
                       <col style={{ width: "6%" }} />
-                      <col style={{ width: "9%" }} />
+                      <col style={{ width: showZoneColumn ? "7%" : "9%" }} />
                       <col style={{ width: "5%" }} />
                       {canDeleteCaptures && <col style={{ width: "3%" }} />}
                     </colgroup>
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
-                        {DETAIL_FILTER_COLUMNS.filter((column) => column.key !== "analyst" && column.key !== "shift").map((column) => (
+                        {DETAIL_FILTER_COLUMNS.filter((column) =>
+                          column.key !== "analyst" &&
+                          column.key !== "shift" &&
+                          (column.key !== "zone" || showZoneColumn),
+                        ).map((column) => (
                           <TableHead key={column.key} className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
-                            <span className="block break-words">{column.label}</span>
-                            <DetailColumnTools
-                              columnKey={column.key}
-                              label={column.label}
-                              options={detailFilterOptions[column.key] ?? []}
-                              selectedFilters={detailFilters[column.key] ?? []}
-                              sortKey={detailSortKey}
-                              sortDirection={detailSortDirection}
-                              onFilterChange={(values) => handleDetailFilterChange(column.key, values)}
-                              onSort={() => handleDetailSort(column.key)}
-                            />
+                            <div className="flex items-center justify-center gap-0.5">
+                              <span className="whitespace-nowrap">{column.label}</span>
+                              <DetailColumnTools
+                                columnKey={column.key}
+                                label={column.label}
+                                options={detailFilterOptions[column.key] ?? []}
+                                selectedFilters={detailFilters[column.key] ?? []}
+                                sortKey={detailSortKey}
+                                sortDirection={detailSortDirection}
+                                onFilterChange={(values) => handleDetailFilterChange(column.key, values)}
+                                onSort={() => handleDetailSort(column.key)}
+                              />
+                            </div>
                           </TableHead>
                         ))}
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">Total</TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">DPU Día</TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">R1000</TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
-                          <span className="block break-words">Analista</span>
-                          <DetailColumnTools
-                            columnKey="analyst"
-                            label="Analista"
-                            options={detailFilterOptions.analyst ?? []}
-                            selectedFilters={detailFilters.analyst ?? []}
-                            sortKey={detailSortKey}
-                            sortDirection={detailSortDirection}
-                            onFilterChange={(values) => handleDetailFilterChange("analyst", values)}
-                            onSort={() => handleDetailSort("analyst")}
-                          />
+                          <div className="flex items-center justify-center gap-0.5">
+                            <span className="whitespace-nowrap">Analista</span>
+                            <DetailColumnTools
+                              columnKey="analyst"
+                              label="Analista"
+                              options={detailFilterOptions.analyst ?? []}
+                              selectedFilters={detailFilters.analyst ?? []}
+                              sortKey={detailSortKey}
+                              sortDirection={detailSortDirection}
+                              onFilterChange={(values) => handleDetailFilterChange("analyst", values)}
+                              onSort={() => handleDetailSort("analyst")}
+                            />
+                          </div>
                         </TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
-                          <span className="block break-words">Turno</span>
-                          <DetailColumnTools
-                            columnKey="shift"
-                            label="Turno"
-                            options={detailFilterOptions.shift ?? []}
-                            selectedFilters={detailFilters.shift ?? []}
-                            sortKey={detailSortKey}
-                            sortDirection={detailSortDirection}
-                            onFilterChange={(values) => handleDetailFilterChange("shift", values)}
-                            onSort={() => handleDetailSort("shift")}
-                          />
+                          <div className="flex items-center justify-center gap-0.5">
+                            <span className="whitespace-nowrap">Turno</span>
+                            <DetailColumnTools
+                              columnKey="shift"
+                              label="Turno"
+                              options={detailFilterOptions.shift ?? []}
+                              selectedFilters={detailFilters.shift ?? []}
+                              sortKey={detailSortKey}
+                              sortDirection={detailSortDirection}
+                              onFilterChange={(values) => handleDetailFilterChange("shift", values)}
+                              onSort={() => handleDetailSort("shift")}
+                            />
+                          </div>
                         </TableHead>
                         {canDeleteCaptures && <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">Acciones</TableHead>}
                       </TableRow>
@@ -1333,6 +1353,14 @@ export default function AnalisisZonasAuditadas() {
                             <TableCell className="break-words px-1 py-2 text-center font-medium">{row.capture.unit_number}</TableCell>
                             <TableCell className="break-words px-1 py-2 text-center">{row.capture.week_number}</TableCell>
                             <TableCell className="break-words px-1 py-2 text-center">{row.capture.date}</TableCell>
+                            {showZoneColumn && (
+                              <TableCell
+                                className="break-words px-1 py-2 text-center font-semibold"
+                                title={row.zoneAbbreviation}
+                              >
+                                {row.zoneAbbreviation}
+                              </TableCell>
+                            )}
                             <TableCell className="break-words px-1 py-2 text-center font-mono">{row.capture.skill_number ?? "—"}</TableCell>
                             <TableCell className="break-words px-1 py-2">{row.panelName}</TableCell>
                             <TableCell className="break-words px-1 py-2 text-center">
@@ -1353,10 +1381,11 @@ export default function AnalisisZonasAuditadas() {
                               {isFirst ? visibleDetailStats.r1000.toFixed(0) : ""}
                             </TableCell>
                             <TableCell
-                              className="break-words px-1 py-2"
+                              className="px-1 py-2 text-center"
                               title={DEFAULT_ANALYST_NAME}
+                              aria-label={`Analista: ${row.analystName}`}
                             >
-                              {row.analystName}
+                              {analystInitials(row.analystName)}
                             </TableCell>
                             <TableCell className="break-words px-1 py-2 text-center">1ro</TableCell>
                             {canDeleteCaptures && (

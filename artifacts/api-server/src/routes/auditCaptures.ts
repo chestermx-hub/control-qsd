@@ -236,12 +236,11 @@ router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
   const user = await getCurrentUser(req);
   const isSpecialDeleteUser = user?.email.toLowerCase() === CAPTURE_DELETE_EMAIL;
+  const isAuthenticatedUser = Boolean(user);
   if (
-    user?.role !== "admin" &&
-    user?.role !== "superadmin" &&
-    !isSpecialDeleteUser
+    !isAuthenticatedUser
   ) {
-    res.status(403).json({ error: "Sólo un administrador puede eliminar registros" });
+    res.status(403).json({ error: "Debes iniciar sesión para eliminar registros" });
     return;
   }
   if (existing.date !== currentMexicoDate() && !isSpecialDeleteUser) {
