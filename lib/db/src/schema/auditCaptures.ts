@@ -6,6 +6,7 @@ import { sidesTable } from "./sides";
 import { visualZonesTable } from "./visualZones";
 import { defectsTable } from "./defects";
 import { zonesTable } from "./zones";
+import { usersTable } from "./users";
 
 export const auditCapturesTable = pgTable("audit_captures", {
   id: serial("id").primaryKey(),
@@ -25,10 +26,11 @@ export const auditCapturesTable = pgTable("audit_captures", {
   defectId: integer("defect_id").references(() => defectsTable.id, { onDelete: "set null" }),
   defectOther: text("defect_other"),
   quantity: integer("quantity").notNull().default(1),
+  createdBy: integer("created_by").references(() => usersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export const insertAuditCaptureSchema = createInsertSchema(auditCapturesTable).omit({ id: true, createdAt: true });
+export const insertAuditCaptureSchema = createInsertSchema(auditCapturesTable).omit({ id: true, createdAt: true, createdBy: true });
 export const updateAuditCaptureSchema = insertAuditCaptureSchema.partial();
 export type InsertAuditCapture = z.infer<typeof insertAuditCaptureSchema>;
 export type AuditCapture = typeof auditCapturesTable.$inferSelect;

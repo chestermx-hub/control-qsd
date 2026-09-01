@@ -14,9 +14,11 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Loader2, Plus, Trash2, Calendar, Grid3X3, Pencil, ChevronDown, ChevronRight,
-  FileText, CheckCircle2, Download, MapPin, Lock,
+  FileText, CheckCircle2, Download, MapPin, Lock, ArrowDown, ArrowUp, ArrowUpDown, Filter, X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -137,6 +139,182 @@ function positionLabel(position?: "right" | "left" | "center" | null) {
 function summarizeAnalystName(name?: string | null) {
   const parts = name?.trim().split(/\s+/).filter(Boolean) ?? [];
   return parts.length > 2 ? parts.slice(-2).join(" ") : name?.trim() || "—";
+}
+
+const DEFAULT_ANALYST_NAME = "Brenda Itzel Hernandez Romero";
+
+type DetailFilterKey =
+  | "unit_number"
+  | "week_number"
+  | "date"
+  | "skill_number"
+  | "panel"
+  | "position"
+  | "visual_zone"
+  | "cell"
+  | "defect"
+  | "quantity"
+  | "analyst"
+  | "shift";
+
+type DetailSortKey = DetailFilterKey;
+type SortDirection = "asc" | "desc";
+
+type DetailRow = {
+  idx: number;
+  capture: AuditCapture;
+  panelName: string;
+  vzName: string;
+  cellLabel: string;
+  defectSummary: string;
+  defectLabel: string;
+  analystName: string;
+};
+
+const DETAIL_FILTER_COLUMNS: Array<{ key: DetailFilterKey; label: string }> = [
+  { key: "unit_number", label: "Unidad" },
+  { key: "week_number", label: "Semana" },
+  { key: "date", label: "Fecha" },
+  { key: "skill_number", label: "SK" },
+  { key: "panel", label: "Panel" },
+  { key: "position", label: "Posición" },
+  { key: "visual_zone", label: "Zona Vista" },
+  { key: "cell", label: "Clave" },
+  { key: "defect", label: "Defecto" },
+  { key: "quantity", label: "Cantidad" },
+  { key: "analyst", label: "Analista" },
+  { key: "shift", label: "Turno" },
+];
+
+function detailFilterValue(row: DetailRow, key: DetailFilterKey) {
+  switch (key) {
+    case "unit_number":
+      return String(row.capture.unit_number);
+    case "week_number":
+      return String(row.capture.week_number);
+    case "date":
+      return row.capture.date;
+    case "skill_number":
+      return row.capture.skill_number ?? "—";
+    case "panel":
+      return row.panelName;
+    case "position":
+      return positionLabel(row.capture.side_position);
+    case "visual_zone":
+      return row.vzName;
+    case "cell":
+      return row.cellLabel;
+    case "defect":
+      return row.defectSummary;
+    case "quantity":
+      return String(row.capture.quantity);
+    case "analyst":
+      return row.analystName;
+    case "shift":
+      return "1ro";
+  }
+}
+
+function DetailColumnTools({
+  columnKey,
+  label,
+  options,
+  selectedFilters,
+  sortKey,
+  sortDirection,
+  onFilterChange,
+  onSort,
+}: {
+  columnKey: DetailSortKey;
+  label: string;
+  options: string[];
+  selectedFilters: string[];
+  sortKey: DetailSortKey;
+  sortDirection: SortDirection;
+  onFilterChange: (values: string[]) => void;
+  onSort: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const selected = new Set(selectedFilters);
+  const visibleOptions = options.filter((option) =>
+    option.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
+  );
+
+  return (
+    <div className="mt-1 flex items-center justify-center gap-0.5">
+      <button
+        type="button"
+        onClick={onSort}
+        aria-label={`Ordenar columna ${label}`}
+        title={sortKey === columnKey ? "Cambiar orden" : `Ordenar por ${label}`}
+        className="inline-flex h-5 min-w-0 items-center justify-center rounded px-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+      >
+        {sortKey === columnKey ? (
+          sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3" />
+        )}
+      </button>
+      <Popover onOpenChange={(open) => { if (!open) setSearch(""); }}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Filtrar columna ${label}`}
+            title={`Filtrar ${label}`}
+            className={`inline-flex h-5 w-5 items-center justify-center rounded hover:bg-muted ${
+              selectedFilters.length ? "text-primary" : "text-muted-foreground"
+            }`}
+          >
+            <Filter className="h-3 w-3" />
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="start" className="w-[230px] p-2">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold">Filtrar {label}</span>
+            {selectedFilters.length > 0 && (
+              <button
+                type="button"
+                className="text-xs font-medium text-primary hover:underline"
+                onClick={() => onFilterChange([])}
+              >
+                Limpiar
+              </button>
+            )}
+          </div>
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder={`Buscar ${label.toLowerCase()}...`}
+            className="mb-2 h-8 text-xs"
+          />
+          <div className="max-h-[220px] overflow-y-auto">
+            {visibleOptions.length ? (
+              visibleOptions.map((option) => (
+                <label
+                  key={option}
+                  className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-muted"
+                >
+                  <Checkbox
+                    checked={selected.has(option)}
+                    onCheckedChange={() =>
+                      onFilterChange(
+                        selected.has(option)
+                          ? selectedFilters.filter((item) => item !== option)
+                          : [...selectedFilters, option],
+                      )
+                    }
+                  />
+                  <span className="min-w-0 flex-1 break-words">{option}</span>
+                </label>
+              ))
+            ) : (
+              <p className="px-2 py-3 text-xs text-muted-foreground">Sin valores disponibles</p>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+    </div>
+  );
 }
 
 type Panel = {
@@ -602,6 +780,9 @@ export default function AnalisisZonasAuditadas() {
   const [addDialog, setAddDialog] = useState<UnitGroup | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [newCaptureStart, setNewCaptureStart] = useState<NewCaptureStart | null>(null);
+  const [detailSortKey, setDetailSortKey] = useState<DetailSortKey>("date");
+  const [detailSortDirection, setDetailSortDirection] = useState<SortDirection>("desc");
+  const [detailFilters, setDetailFilters] = useState<Partial<Record<DetailFilterKey, string[]>>>({});
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -829,7 +1010,7 @@ export default function AnalisisZonasAuditadas() {
         Total: isFirstOfDay && stats ? stats.total : "",
         "DPU Día": isFirstOfDay && stats ? Number(stats.dpuDia.toFixed(1)) : "",
         R1000: isFirstOfDay && stats ? Number(stats.r1000.toFixed(0)) : "",
-        Analista: user?.name ?? "",
+         Analista: DEFAULT_ANALYST_NAME,
         Turno: "1ro",
       };
     });
@@ -871,9 +1052,61 @@ export default function AnalisisZonasAuditadas() {
         cellLabel: `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
         defectSummary: c.defect_other ? "Otro" : defect?.code ?? "—",
         defectLabel: c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—",
+        analystName: DEFAULT_ANALYST_NAME,
       };
     });
   }, [captures, panels, visualZones, defects]);
+
+  const detailFilterOptions = useMemo(() => {
+    const options = {} as Record<DetailFilterKey, string[]>;
+    for (const column of DETAIL_FILTER_COLUMNS) {
+      options[column.key] = Array.from(new Set(detailRows.map((row) => detailFilterValue(row, column.key))))
+        .sort((a, b) => a.localeCompare(b, "es", { numeric: true }));
+    }
+    return options;
+  }, [detailRows]);
+
+  const filteredDetailRows = useMemo(() => {
+    const filtered = detailRows.filter((row) =>
+      DETAIL_FILTER_COLUMNS.every(({ key }) => {
+        const values = detailFilters[key];
+        return !values?.length || values.includes(detailFilterValue(row, key));
+      }),
+    );
+    return filtered.sort((a, b) => {
+      const aValue = detailFilterValue(a, detailSortKey);
+      const bValue = detailFilterValue(b, detailSortKey);
+      const numericKeys: DetailFilterKey[] = ["unit_number", "week_number", "quantity"];
+      const numericCompare = numericKeys.includes(detailSortKey)
+        ? Number(aValue) - Number(bValue)
+        : aValue.localeCompare(bValue, "es", { numeric: true, sensitivity: "base" });
+      if (numericCompare !== 0) return detailSortDirection === "asc" ? numericCompare : -numericCompare;
+      return a.capture.id - b.capture.id;
+    });
+  }, [detailFilters, detailRows, detailSortDirection, detailSortKey]);
+
+  const visibleDetailStats = useMemo(() => {
+    const visibleCaptures = filteredDetailRows.map((row) => row.capture);
+    const total = visibleCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
+    const uniqueUnits = new Set(
+      visibleCaptures.map((capture) => `${capture.zone_id ?? "none"}__${capture.unit_number}`),
+    ).size;
+    const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
+    return { total, uniqueUnits, dpuDia, r1000: dpuDia * 1000 };
+  }, [filteredDetailRows]);
+
+  const handleDetailSort = (key: DetailSortKey) => {
+    if (detailSortKey === key) {
+      setDetailSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+    } else {
+      setDetailSortKey(key);
+      setDetailSortDirection("asc");
+    }
+  };
+
+  const handleDetailFilterChange = (key: DetailFilterKey, values: string[]) => {
+    setDetailFilters((previous) => ({ ...previous, [key]: values }));
+  };
 
   return (
     <AppLayout>
@@ -1014,70 +1247,120 @@ export default function AnalisisZonasAuditadas() {
             ) : showDetail ? (
               /* ── VISTA DETALLE (inline) ── */
               <div className="border rounded-lg bg-card overflow-hidden flex flex-col">
-                <div className="flex items-center gap-6 px-4 py-3 bg-muted/40 border-b text-sm text-muted-foreground">
-                  <span>Total defectos: <strong className="text-foreground">{detailStats.total}</strong></span>
-                  <span>Unidades: <strong className="text-foreground">{detailStats.uniqueUnits}</strong></span>
-                  <span>DPU Día: <strong className="text-foreground">{detailStats.dpuDia.toFixed(1)}</strong></span>
-                  <span>R1000: <strong className="text-foreground">{detailStats.r1000.toFixed(0)}</strong></span>
+                <div className="flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-3 bg-muted/40 border-b text-sm text-muted-foreground">
+                  <span>Total defectos: <strong className="text-foreground">{visibleDetailStats.total}</strong></span>
+                  <span>Unidades: <strong className="text-foreground">{visibleDetailStats.uniqueUnits}</strong></span>
+                  <span>DPU Día: <strong className="text-foreground">{visibleDetailStats.dpuDia.toFixed(1)}</strong></span>
+                  <span>R1000: <strong className="text-foreground">{visibleDetailStats.r1000.toFixed(0)}</strong></span>
+                  <span className="ml-auto text-xs">
+                    Mostrando <strong className="text-foreground">{filteredDetailRows.length}</strong> de {detailRows.length}
+                  </span>
                 </div>
-                <div className="overflow-auto">
-                  <Table>
+                <div className="w-full overflow-hidden">
+                  <Table className="w-full table-fixed text-[11px]">
+                    <colgroup>
+                      <col style={{ width: "5%" }} />
+                      <col style={{ width: "5%" }} />
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "5%" }} />
+                      <col style={{ width: "11%" }} />
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "8%" }} />
+                      <col style={{ width: "7%" }} />
+                      <col style={{ width: "6%" }} />
+                      <col style={{ width: "5%" }} />
+                      <col style={{ width: "5%" }} />
+                      <col style={{ width: "6%" }} />
+                      <col style={{ width: "6%" }} />
+                      <col style={{ width: "9%" }} />
+                      <col style={{ width: "5%" }} />
+                      {canDeleteCaptures && <col style={{ width: "3%" }} />}
+                    </colgroup>
                     <TableHeader>
-                      <TableRow>
-                        <TableHead className="whitespace-nowrap">Unidad</TableHead>
-                        <TableHead className="whitespace-nowrap">Semana</TableHead>
-                        <TableHead className="whitespace-nowrap">Fecha</TableHead>
-                        <TableHead className="whitespace-nowrap">SK</TableHead>
-                        <TableHead className="whitespace-nowrap">Panel</TableHead>
-                        <TableHead className="whitespace-nowrap">Posición</TableHead>
-                        <TableHead className="whitespace-nowrap">Zona Vista</TableHead>
-                        <TableHead className="whitespace-nowrap">Clave Alfa Numérica</TableHead>
-                        <TableHead className="whitespace-nowrap">Defecto</TableHead>
-                        <TableHead className="whitespace-nowrap text-right">Cantidad</TableHead>
-                        <TableHead className="whitespace-nowrap text-right">Total</TableHead>
-                        <TableHead className="whitespace-nowrap text-right">DPU Día</TableHead>
-                        <TableHead className="whitespace-nowrap text-right">R1000</TableHead>
-                        <TableHead className="whitespace-nowrap">Analista</TableHead>
-                        <TableHead className="whitespace-nowrap">Turno</TableHead>
-                        {canDeleteCaptures && <TableHead className="whitespace-nowrap">Acciones</TableHead>}
+                      <TableRow className="hover:bg-transparent">
+                        {DETAIL_FILTER_COLUMNS.filter((column) => column.key !== "analyst" && column.key !== "shift").map((column) => (
+                          <TableHead key={column.key} className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
+                            <span className="block break-words">{column.label}</span>
+                            <DetailColumnTools
+                              columnKey={column.key}
+                              label={column.label}
+                              options={detailFilterOptions[column.key] ?? []}
+                              selectedFilters={detailFilters[column.key] ?? []}
+                              sortKey={detailSortKey}
+                              sortDirection={detailSortDirection}
+                              onFilterChange={(values) => handleDetailFilterChange(column.key, values)}
+                              onSort={() => handleDetailSort(column.key)}
+                            />
+                          </TableHead>
+                        ))}
+                        <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">Total</TableHead>
+                        <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">DPU Día</TableHead>
+                        <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">R1000</TableHead>
+                        <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
+                          <span className="block break-words">Analista</span>
+                          <DetailColumnTools
+                            columnKey="analyst"
+                            label="Analista"
+                            options={detailFilterOptions.analyst ?? []}
+                            selectedFilters={detailFilters.analyst ?? []}
+                            sortKey={detailSortKey}
+                            sortDirection={detailSortDirection}
+                            onFilterChange={(values) => handleDetailFilterChange("analyst", values)}
+                            onSort={() => handleDetailSort("analyst")}
+                          />
+                        </TableHead>
+                        <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
+                          <span className="block break-words">Turno</span>
+                          <DetailColumnTools
+                            columnKey="shift"
+                            label="Turno"
+                            options={detailFilterOptions.shift ?? []}
+                            selectedFilters={detailFilters.shift ?? []}
+                            sortKey={detailSortKey}
+                            sortDirection={detailSortDirection}
+                            onFilterChange={(values) => handleDetailFilterChange("shift", values)}
+                            onSort={() => handleDetailSort("shift")}
+                          />
+                        </TableHead>
+                        {canDeleteCaptures && <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">Acciones</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {detailRows.map((row, i) => {
+                      {filteredDetailRows.map((row, i) => {
                         const isFirst = i === 0;
                         return (
                           <TableRow key={row.capture.id}>
-                            <TableCell className="font-medium">{row.capture.unit_number}</TableCell>
-                            <TableCell>{row.capture.week_number}</TableCell>
-                            <TableCell className="whitespace-nowrap">{row.capture.date}</TableCell>
-                            <TableCell className="font-mono">{row.capture.skill_number ?? "—"}</TableCell>
-                            <TableCell className="whitespace-nowrap">{row.panelName}</TableCell>
-                            <TableCell className="whitespace-nowrap">
+                            <TableCell className="break-words px-1 py-2 text-center font-medium">{row.capture.unit_number}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center">{row.capture.week_number}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center">{row.capture.date}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center font-mono">{row.capture.skill_number ?? "—"}</TableCell>
+                            <TableCell className="break-words px-1 py-2">{row.panelName}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center">
                               <PositionBadge position={row.capture.side_position} />
                               {!row.capture.side_position && <span className="text-muted-foreground">—</span>}
                             </TableCell>
-                            <TableCell className="whitespace-nowrap">{row.vzName}</TableCell>
-                            <TableCell className="font-mono font-medium">{row.cellLabel}</TableCell>
-                            <TableCell className="max-w-[120px] truncate" title={row.defectLabel}>{row.defectSummary}</TableCell>
-                            <TableCell className="text-right">{row.capture.quantity}</TableCell>
-                            <TableCell className="text-right font-medium">
-                              {isFirst ? detailStats.total : ""}
+                            <TableCell className="break-words px-1 py-2">{row.vzName}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center font-mono font-medium">{row.cellLabel}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center" title={row.defectLabel}>{row.defectSummary}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center">{row.capture.quantity}</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center font-medium">
+                              {isFirst ? visibleDetailStats.total : ""}
                             </TableCell>
-                            <TableCell className="text-right">
-                              {isFirst ? detailStats.dpuDia.toFixed(1) : ""}
+                            <TableCell className="break-words px-1 py-2 text-center">
+                              {isFirst ? visibleDetailStats.dpuDia.toFixed(1) : ""}
                             </TableCell>
-                            <TableCell className="text-right">
-                              {isFirst ? detailStats.r1000.toFixed(0) : ""}
+                            <TableCell className="break-words px-1 py-2 text-center">
+                              {isFirst ? visibleDetailStats.r1000.toFixed(0) : ""}
                             </TableCell>
                             <TableCell
-                              className="max-w-[150px] truncate whitespace-nowrap"
-                              title={user?.name ?? undefined}
+                              className="break-words px-1 py-2"
+                              title={DEFAULT_ANALYST_NAME}
                             >
-                              {summarizeAnalystName(user?.name)}
+                              {row.analystName}
                             </TableCell>
-                            <TableCell>1ro</TableCell>
+                            <TableCell className="break-words px-1 py-2 text-center">1ro</TableCell>
                             {canDeleteCaptures && (
-                              <TableCell>
+                              <TableCell className="px-1 py-2 text-center">
                                 {(isCurrentDay(row.capture.date) || canDeleteHistoricalCaptures) && (
                                   <Button
                                     type="button"
