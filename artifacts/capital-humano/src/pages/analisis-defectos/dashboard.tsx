@@ -801,90 +801,90 @@ export default function AnalisisDashboard() {
             </div>
           </div>
 
+          <Card className="mb-5">
+            <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MapIcon className="h-4 w-4 text-primary" />
+                  Resumen por zona auditada
+                </CardTitle>
+                <CardDescription>
+                  Selecciona una zona para enfocar el análisis. Se muestran todas las zonas del catálogo.
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{activeZoneName}</Badge>
+                <ChartExportButton
+                  ariaLabel="Exportar resumen por zona"
+                  filename="resumen-por-zona.csv"
+                  rows={zoneSummary.map((item) => ({
+                    Zona: item.name,
+                    Defectos: item.value,
+                    Unidades: item.units,
+                    Capturas: item.captures,
+                  }))}
+                />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                <button
+                  type="button"
+                  data-testid="button-zone-all"
+                  aria-pressed={activeZoneId === null}
+                  onClick={() => handleZoneChange(null)}
+                  className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                    activeZoneId === null ? "border-primary bg-primary/5" : "bg-card"
+                  }`}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
+                      <span className="truncate text-sm font-semibold">Todas las zonas</span>
+                    </span>
+                    {activeZoneId === null && <Check className="h-4 w-4 text-primary" />}
+                  </div>
+                  <div className="text-2xl font-bold">{formatNumber(allZonesSummary.value)}</div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    defectos · {formatNumber(allZonesSummary.units)} unidades
+                  </p>
+                </button>
+                {zoneSummary.map((zone, index) => (
+                  <button
+                    key={zone.id}
+                    type="button"
+                    data-testid={`button-zone-${zone.id}`}
+                    aria-pressed={activeZoneId === zone.id}
+                    onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
+                    className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                      activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
+                    }`}
+                  >
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 shrink-0 rounded-full"
+                          style={{ backgroundColor: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length] }}
+                        />
+                        <span className="truncate text-sm font-semibold">{zone.name}</span>
+                      </span>
+                      {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
+                    </div>
+                    <div className="text-2xl font-bold">{formatNumber(zone.value)}</div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      defectos · {formatNumber(zone.units)} unidades
+                    </p>
+                    {!zone.captures && (
+                      <p className="mt-1 text-[11px] text-muted-foreground">Sin registros en el periodo</p>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
             <main className="min-w-0">
-              <Card className="mb-4">
-                <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <MapIcon className="h-4 w-4 text-primary" />
-                      Resumen por zona auditada
-                    </CardTitle>
-                    <CardDescription>
-                      Selecciona una zona para enfocar el análisis. Se muestran todas las zonas del catálogo.
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="outline">{activeZoneName}</Badge>
-                    <ChartExportButton
-                      ariaLabel="Exportar resumen por zona"
-                      filename="resumen-por-zona.csv"
-                      rows={zoneSummary.map((item) => ({
-                        Zona: item.name,
-                        Defectos: item.value,
-                        Unidades: item.units,
-                        Capturas: item.captures,
-                      }))}
-                    />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                    <button
-                      type="button"
-                      data-testid="button-zone-all"
-                      aria-pressed={activeZoneId === null}
-                      onClick={() => handleZoneChange(null)}
-                      className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
-                        activeZoneId === null ? "border-primary bg-primary/5" : "bg-card"
-                      }`}
-                    >
-                      <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
-                          <span className="truncate text-sm font-semibold">Todas las zonas</span>
-                        </span>
-                        {activeZoneId === null && <Check className="h-4 w-4 text-primary" />}
-                      </div>
-                      <div className="text-2xl font-bold">{formatNumber(allZonesSummary.value)}</div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        defectos · {formatNumber(allZonesSummary.units)} unidades
-                      </p>
-                    </button>
-                    {zoneSummary.map((zone, index) => (
-                      <button
-                        key={zone.id}
-                        type="button"
-                        data-testid={`button-zone-${zone.id}`}
-                        aria-pressed={activeZoneId === zone.id}
-                        onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
-                        className={`rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
-                          activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
-                        }`}
-                      >
-                        <div className="mb-2 flex items-center justify-between gap-2">
-                          <span className="flex min-w-0 items-center gap-2">
-                            <span
-                              className="h-2.5 w-2.5 shrink-0 rounded-full"
-                              style={{ backgroundColor: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length] }}
-                            />
-                            <span className="truncate text-sm font-semibold">{zone.name}</span>
-                          </span>
-                          {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
-                        </div>
-                        <div className="text-2xl font-bold">{formatNumber(zone.value)}</div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          defectos · {formatNumber(zone.units)} unidades
-                        </p>
-                        {!zone.captures && (
-                          <p className="mt-1 text-[11px] text-muted-foreground">Sin registros en el periodo</p>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
           {loading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {[1, 2, 3, 4].map((item) => (
@@ -1022,7 +1022,19 @@ export default function AnalisisDashboard() {
                       <ResponsiveContainer width="100%" height={280} debounce={0}>
                         <BarChart data={zoneData} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} />
+                            <XAxis
+                              dataKey="name"
+                              interval={0}
+                              height={58}
+                              angle={-24}
+                              textAnchor="end"
+                              tickMargin={8}
+                              tick={{ fontSize: 10, fill: tickColor }}
+                              stroke={tickColor}
+                              tickFormatter={(value: string) =>
+                                value.length > 20 ? `${value.slice(0, 20)}…` : value
+                              }
+                            />
                           <YAxis tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
                           <Tooltip content={<ChartTooltip />} cursor={false} />
                           <Bar
@@ -1167,7 +1179,7 @@ export default function AnalisisDashboard() {
             </>
           )}
             </main>
-            <aside className="order-first min-w-0 lg:order-last lg:sticky lg:top-4">
+            <aside className="order-first min-w-0 lg:order-last lg:sticky lg:top-4 lg:mt-8">
               <Card className="border-[#d7d9dc] shadow-none">
                 <CardHeader className="border-b px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
