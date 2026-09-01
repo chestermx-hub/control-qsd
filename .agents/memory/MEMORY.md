@@ -9,3 +9,4 @@
 - [Playwright in Nix](playwright-nix.md) — use the system Chromium executable for browser tests when the bundled browser lacks Nix runtime libraries.
 - [Panel appearance preferences](panel-appearance-preferences.md) — panel image tint is user-scoped; explicit null means “Original” and overrides legacy shared defaults.
 - [Overlay account actions](overlay-account-actions.md) — browser tests must open the navigation overlay before asserting logout or other account controls.
+- [Replit DATABASE_URL warning](replit-database-url-warning.md) — compare managed PG* values before treating the publishing warning as a data migration.
