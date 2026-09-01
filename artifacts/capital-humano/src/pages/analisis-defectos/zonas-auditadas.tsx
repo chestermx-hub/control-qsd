@@ -178,20 +178,25 @@ type DetailRow = {
   analystName: string;
 };
 
-const DETAIL_FILTER_COLUMNS: Array<{ key: DetailFilterKey; label: string }> = [
-  { key: "unit_number", label: "Unidad" },
-  { key: "week_number", label: "Semana" },
-  { key: "date", label: "Fecha" },
-  { key: "zone", label: "Zona" },
-  { key: "skill_number", label: "SK" },
-  { key: "panel", label: "Panel" },
-  { key: "position", label: "Posición" },
-  { key: "visual_zone", label: "Zona Vista" },
-  { key: "cell", label: "Clave" },
-  { key: "defect", label: "Defecto" },
-  { key: "quantity", label: "Cantidad" },
-  { key: "analyst", label: "Analista" },
-  { key: "shift", label: "Turno" },
+const DETAIL_FILTER_COLUMNS: Array<{
+  key: DetailFilterKey;
+  label: string;
+  sortable: boolean;
+  filterable: boolean;
+}> = [
+  { key: "unit_number", label: "Unidad", sortable: false, filterable: false },
+  { key: "week_number", label: "Semana", sortable: false, filterable: false },
+  { key: "date", label: "Fecha", sortable: true, filterable: false },
+  { key: "zone", label: "Zona", sortable: true, filterable: true },
+  { key: "skill_number", label: "SK", sortable: true, filterable: true },
+  { key: "panel", label: "Panel", sortable: true, filterable: true },
+  { key: "position", label: "Posición", sortable: true, filterable: true },
+  { key: "visual_zone", label: "Zona Vista", sortable: false, filterable: false },
+  { key: "cell", label: "Clave", sortable: false, filterable: false },
+  { key: "defect", label: "Defecto", sortable: true, filterable: true },
+  { key: "quantity", label: "Cantidad", sortable: false, filterable: false },
+  { key: "analyst", label: "Analista", sortable: false, filterable: false },
+  { key: "shift", label: "Turno", sortable: false, filterable: false },
 ];
 
 function detailFilterValue(row: DetailRow, key: DetailFilterKey) {
@@ -232,6 +237,8 @@ function DetailColumnTools({
   selectedFilters,
   sortKey,
   sortDirection,
+  showSort,
+  showFilter,
   onFilterChange,
   onSort,
 }: {
@@ -241,6 +248,8 @@ function DetailColumnTools({
   selectedFilters: string[];
   sortKey: DetailSortKey;
   sortDirection: SortDirection;
+  showSort: boolean;
+  showFilter: boolean;
   onFilterChange: (values: string[]) => void;
   onSort: () => void;
 }) {
@@ -250,23 +259,28 @@ function DetailColumnTools({
     option.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
   );
 
+  if (!showSort && !showFilter) return null;
+
   return (
     <div className="flex items-center justify-center gap-0.5">
-      <button
-        type="button"
-        onClick={onSort}
-        aria-label={`Ordenar columna ${label}`}
-        title={sortKey === columnKey ? "Cambiar orden" : `Ordenar por ${label}`}
-        className="inline-flex h-5 min-w-0 items-center justify-center rounded px-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        {sortKey === columnKey ? (
-          sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
-        ) : (
-          <ArrowUpDown className="h-3 w-3" />
-        )}
-      </button>
-      <Popover onOpenChange={(open) => { if (!open) setSearch(""); }}>
-        <PopoverTrigger asChild>
+      {showSort && (
+        <button
+          type="button"
+          onClick={onSort}
+          aria-label={`Ordenar columna ${label}`}
+          title={sortKey === columnKey ? "Cambiar orden" : `Ordenar por ${label}`}
+          className="inline-flex h-5 min-w-0 items-center justify-center rounded px-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          {sortKey === columnKey ? (
+            sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+          ) : (
+            <ArrowUpDown className="h-3 w-3" />
+          )}
+        </button>
+      )}
+      {showFilter && (
+        <Popover onOpenChange={(open) => { if (!open) setSearch(""); }}>
+          <PopoverTrigger asChild>
           <button
             type="button"
             aria-label={`Filtrar columna ${label}`}
@@ -277,8 +291,8 @@ function DetailColumnTools({
           >
             <Filter className="h-3 w-3" />
           </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-[230px] p-2">
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-[230px] p-2">
           <div className="mb-2 flex items-center justify-between gap-2">
             <span className="text-xs font-semibold">Filtrar {label}</span>
             {selectedFilters.length > 0 && (
@@ -321,8 +335,9 @@ function DetailColumnTools({
               <p className="px-2 py-3 text-xs text-muted-foreground">Sin valores disponibles</p>
             )}
           </div>
-        </PopoverContent>
-      </Popover>
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   );
 }
@@ -1303,6 +1318,8 @@ export default function AnalisisZonasAuditadas() {
                                 selectedFilters={detailFilters[column.key] ?? []}
                                 sortKey={detailSortKey}
                                 sortDirection={detailSortDirection}
+                                showSort={column.sortable}
+                                showFilter={column.filterable}
                                 onFilterChange={(values) => handleDetailFilterChange(column.key, values)}
                                 onSort={() => handleDetailSort(column.key)}
                               />
@@ -1313,34 +1330,10 @@ export default function AnalisisZonasAuditadas() {
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">DPU Día</TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">R1000</TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
-                          <div className="flex items-center justify-center gap-0.5">
-                            <span className="whitespace-nowrap">Analista</span>
-                            <DetailColumnTools
-                              columnKey="analyst"
-                              label="Analista"
-                              options={detailFilterOptions.analyst ?? []}
-                              selectedFilters={detailFilters.analyst ?? []}
-                              sortKey={detailSortKey}
-                              sortDirection={detailSortDirection}
-                              onFilterChange={(values) => handleDetailFilterChange("analyst", values)}
-                              onSort={() => handleDetailSort("analyst")}
-                            />
-                          </div>
+                          <span className="whitespace-nowrap">Analista</span>
                         </TableHead>
                         <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">
-                          <div className="flex items-center justify-center gap-0.5">
-                            <span className="whitespace-nowrap">Turno</span>
-                            <DetailColumnTools
-                              columnKey="shift"
-                              label="Turno"
-                              options={detailFilterOptions.shift ?? []}
-                              selectedFilters={detailFilters.shift ?? []}
-                              sortKey={detailSortKey}
-                              sortDirection={detailSortDirection}
-                              onFilterChange={(values) => handleDetailFilterChange("shift", values)}
-                              onSort={() => handleDetailSort("shift")}
-                            />
-                          </div>
+                          <span className="whitespace-nowrap">Turno</span>
                         </TableHead>
                         {canDeleteCaptures && <TableHead className="h-auto px-1 py-2 text-center align-top text-[10px] leading-tight">Acciones</TableHead>}
                       </TableRow>
