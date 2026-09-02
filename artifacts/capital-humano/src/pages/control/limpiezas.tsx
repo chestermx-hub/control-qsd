@@ -49,6 +49,21 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
+  const flowActivitiesFor = (areaIds: number[]) => areaIds.flatMap((areaId) => {
+    const area = catalogs.areas.find((candidate) => candidate.id === areaId);
+    if (!area) return [];
+    return area.activities.map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
+  });
+  const updateFlowAreas = (areaIds: number[]) => {
+    setSelectedAreaIds(areaIds);
+    update("activities", flowActivitiesFor(areaIds));
+  };
+  const removeFlowArea = (areaId: number) => {
+    const area = catalogs.areas.find((candidate) => candidate.id === areaId);
+    if (!area) return;
+    if (!window.confirm(`¿Quitar "${area.name}" de este flujo? Las demás áreas se conservarán.`)) return;
+    updateFlowAreas(selectedAreaIds.filter((id) => id !== areaId));
+  };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
@@ -79,13 +94,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
         <Select value="" onValueChange={(value) => {
           const id = Number(value);
           if (!selectedAreaIds.includes(id)) {
-            const nextIds = [...selectedAreaIds, id];
-            setSelectedAreaIds(nextIds);
-            update("activities", nextIds.flatMap((areaId) => {
-              const area = catalogs.areas.find((candidate) => candidate.id === areaId);
-              if (!area) return [];
-               return area.activities.map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
-            }));
+             updateFlowAreas([...selectedAreaIds, id]);
           }
         }}>
            <SelectTrigger className="w-full sm:w-auto sm:min-w-[150px]"><Plus className="mr-1 h-4 w-4" /><SelectValue placeholder="Agregar área" /></SelectTrigger>
@@ -97,15 +106,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
         const area = catalogs.areas.find((candidate) => candidate.id === areaId);
         if (!area) return null;
         return <div key={area.id} className="rounded-lg border bg-muted/20 overflow-hidden">
-           <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2"><div className="min-w-0 flex-1"><p className="font-medium break-words">{area.name}</p><p className="text-xs text-muted-foreground">{area.code} · {area.activities.length} actividades</p></div><Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => {
-            const nextIds = selectedAreaIds.filter((id) => id !== area.id);
-            setSelectedAreaIds(nextIds);
-            update("activities", nextIds.flatMap((id) => {
-              const nextArea = catalogs.areas.find((candidate) => candidate.id === id);
-              if (!nextArea) return [];
-               return nextArea.activities.map((item) => ({ description: item.description, area_name: nextArea.name, requires_photo: Boolean(item.requires_photo) }));
-            }));
-          }}><Trash2 className="mr-1 h-4 w-4 text-destructive" />Quitar</Button></div>
+            <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2"><div className="min-w-0 flex-1"><p className="font-medium break-words">{area.name}</p><p className="text-xs text-muted-foreground">{area.code} · {area.activities.length} actividades</p></div><Button type="button" variant="ghost" size="sm" className="shrink-0 text-destructive hover:text-destructive" aria-label={`Quitar ${area.name} del flujo`} onClick={() => removeFlowArea(area.id)}><Trash2 className="mr-1 h-4 w-4" />Quitar</Button></div>
            <div className="divide-y">{area.activities.map((item, index) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm"><span className="w-5 text-muted-foreground">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span>{item.requires_photo && <Badge variant="secondary" className="shrink-0">Foto requerida</Badge>}</div>)}{!area.activities.length && <p className="p-3 text-sm text-muted-foreground">Esta área no tiene actividades preestablecidas.</p>}</div>
         </div>;
       })}
