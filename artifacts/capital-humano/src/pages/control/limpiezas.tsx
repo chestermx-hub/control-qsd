@@ -141,8 +141,7 @@ function PhotoButton({ label, value, onUploaded, disabled = false }: { label: st
 }
 
 function ActivityPhoto({ activity, onUploaded }: { activity: FlowActivity & { completed?: boolean }; onUploaded: (path: string) => void }) {
-  if (!activity.requires_photo) return null;
-  return <div className="col-span-2 grid gap-2 pl-8 md:order-3 md:flex-1 md:pl-0 sm:grid-cols-2"><div><p className="mb-1 text-xs text-muted-foreground">Foto inicial</p><PhotoButton label="Tomar foto inicial" value={activity.initial_photo} onUploaded={onUploaded} /></div><div><p className="mb-1 text-xs text-muted-foreground">Foto final</p><PhotoButton label="Tomar foto final" value={activity.final_photo} disabled={!activity.completed} onUploaded={(path) => onUploaded(`__FINAL__${path}`)} /></div></div>;
+  return <div className={`col-span-2 grid gap-2 pl-8 md:order-3 md:flex-1 md:pl-0 ${activity.requires_photo ? "sm:grid-cols-2" : ""}`}><div><p className="mb-1 text-xs text-muted-foreground">Foto inicial obligatoria</p><PhotoButton label="Tomar foto inicial" value={activity.initial_photo} onUploaded={onUploaded} /></div>{activity.requires_photo && <div><p className="mb-1 text-xs text-muted-foreground">Foto final</p><PhotoButton label="Tomar foto final" value={activity.final_photo} disabled={!activity.completed || !activity.initial_photo} onUploaded={(path) => onUploaded(`__FINAL__${path}`)} /></div>}</div>;
 }
 
 function AreaFinalPhoto({ area, activities, onUploaded }: { area: ExecutionArea; activities: Execution["activities"]; onUploaded: (path: string) => void }) {
@@ -549,11 +548,11 @@ function ExecutionPageModern({
                     <p className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}>{activity.description}</p>
                     <ActivityPhoto activity={activity} onUploaded={(path) => updateActivity(activity, { initial_photo: path })} />
                     <div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents">
-                      <label className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
-                        <input className="h-5 w-5 accent-primary" type="checkbox" checked={activity.not_applicable} disabled={activity.completed} onChange={(event) => updateActivity(activity, { not_applicable: event.target.checked, completed: false })} />
+                      <label className={`flex min-h-11 items-center gap-2 text-xs ${activity.initial_photo ? "text-muted-foreground" : "cursor-not-allowed text-amber-700"}`} title={!activity.initial_photo ? "Toma primero la foto inicial" : undefined}>
+                        <input className="h-5 w-5 accent-primary" type="checkbox" checked={activity.not_applicable} disabled={activity.completed || !activity.initial_photo} onChange={(event) => updateActivity(activity, { not_applicable: event.target.checked, completed: false })} />
                         No aplica
                       </label>
-                      {activity.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !activity.not_applicable && <Button size="sm" className="min-h-10" onClick={() => updateActivity(activity, { completed: true })}>Completar</Button>}
+                      {activity.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !activity.not_applicable && <Button size="sm" className="min-h-10" disabled={!activity.initial_photo} title={!activity.initial_photo ? "Toma primero la foto inicial" : undefined} onClick={() => updateActivity(activity, { completed: true })}>Completar</Button>}
                     </div>
                   </div>
                 ))}
