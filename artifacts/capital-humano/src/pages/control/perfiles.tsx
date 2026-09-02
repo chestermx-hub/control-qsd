@@ -17,8 +17,33 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 
 const PERMISSION_OPTIONS = [
-  "usuarios", "udns", "perfiles", "zonas_auditadas", "paneles", "defectos", "lados", "zona_visual", "analisis_defectos", "checklist_operacion", "limpiezas_icmx"
+  { value: "reporte_limpieza", label: "Reporte de limpieza" },
+  { value: "analisis_dashboard", label: "Dashboard de defectos" },
+  { value: "capturas_auditoria", label: "Capturas de auditoría" },
+  { value: "checklist_operacion", label: "Checklist de operación" },
+  { value: "zonas_auditadas", label: "Zonas auditadas" },
+  { value: "zona_visual", label: "Zona visual" },
+  { value: "paneles", label: "Paneles" },
+  { value: "defectos", label: "Defectos" },
+  { value: "lados", label: "Lados" },
+  { value: "apariencia", label: "Apariencia" },
+  { value: "limpiezas_clientes", label: "Clientes de limpieza" },
+  { value: "limpiezas_areas", label: "Áreas de limpieza" },
+  { value: "limpiezas_tipos", label: "Tipos de limpieza" },
+  { value: "perfiles", label: "Perfiles" },
+  { value: "usuarios", label: "Usuarios" },
+  { value: "udns", label: "UDN" },
 ];
+
+const LEGACY_PERMISSION_EXPANSIONS: Record<string, string[]> = {
+  analisis_defectos: ["analisis_dashboard", "capturas_auditoria"],
+  limpiezas_icmx: ["reporte_limpieza", "limpiezas_clientes", "limpiezas_areas", "limpiezas_tipos"],
+  paneles: ["paneles", "apariencia"],
+};
+
+function normalizePermissions(permissions: string[] = []) {
+  return Array.from(new Set(permissions.flatMap((permission) => LEGACY_PERMISSION_EXPANSIONS[permission] || [permission])));
+}
 
 const profileSchema = z.object({
   name: z.string().min(1, "Requerido"),
@@ -72,7 +97,7 @@ export default function Profiles() {
 
   const handleEdit = (profile: any) => {
     setEditingId(profile.id);
-    form.reset({ name: profile.name, description: profile.description || "", permissions: profile.permissions || [] });
+    form.reset({ name: profile.name, description: profile.description || "", permissions: normalizePermissions(profile.permissions || []) });
     setIsOpen(true);
   };
 
@@ -175,23 +200,23 @@ export default function Profiles() {
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 border rounded-md p-4 bg-muted/20 max-h-[300px] overflow-y-auto">
                     {PERMISSION_OPTIONS.map((permission) => (
                       <FormField
-                        key={permission}
+                        key={permission.value}
                         control={form.control}
                         name="permissions"
                         render={({ field }) => {
                           return (
-                            <FormItem key={permission} className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormItem key={permission.value} className="flex flex-row items-start space-x-3 space-y-0">
                               <FormControl>
                                 <Checkbox
-                                  checked={field.value?.includes(permission)}
+                                  checked={field.value?.includes(permission.value)}
                                   onCheckedChange={(checked) => {
                                     return checked
-                                      ? field.onChange([...field.value, permission])
-                                      : field.onChange(field.value?.filter((value) => value !== permission))
+                                      ? field.onChange([...field.value, permission.value])
+                                      : field.onChange(field.value?.filter((value) => value !== permission.value))
                                   }}
                                 />
                               </FormControl>
-                              <FormLabel className="font-normal text-xs uppercase tracking-wider mt-0.5">{permission.replace("_", " ")}</FormLabel>
+                              <FormLabel className="font-normal text-xs uppercase tracking-wider mt-0.5">{permission.label}</FormLabel>
                             </FormItem>
                           )
                         }}
