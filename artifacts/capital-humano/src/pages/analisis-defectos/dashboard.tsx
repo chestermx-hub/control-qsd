@@ -65,6 +65,19 @@ const CHART_COLOR_LIST = [
   CHART_COLORS.amber,
 ];
 
+const ZONE_CHART_COLORS = [
+  "#2563eb",
+  "#f97316",
+  "#16a34a",
+  "#dc2626",
+  "#7c3aed",
+  "#0891b2",
+  "#ca8a04",
+  "#db2777",
+  "#475569",
+  "#65a30d",
+];
+
 const SIDE_OPTIONS = [
   { value: "right", label: "Derecho" },
   { value: "left", label: "Izquierdo" },
@@ -227,6 +240,30 @@ function ChartTooltip({
           </strong>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ZonePieTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ name?: string; value?: number; color?: string }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const total = payload.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
+  const item = payload[0];
+  const percentage = total > 0 ? ((item?.value ?? 0) / total) * 100 : 0;
+  return (
+    <div className="rounded-md border bg-white px-3 py-2 text-xs text-slate-900 shadow-sm">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: item?.color ?? CHART_COLORS.blue }} />
+        <span className="text-slate-600">{item?.name}</span>
+      </div>
+      <p className="mt-1 font-semibold">
+        {formatNumber(item?.value ?? 0)} · {formatDecimal(percentage)}%
+      </p>
     </div>
   );
 }
@@ -440,6 +477,8 @@ export default function AnalisisDashboard() {
   };
   const defectCode = (id: number | null) =>
     defects?.find((item) => item.id === id)?.code ?? "Otro";
+  const defectName = (id: number | null) =>
+    defects?.find((item) => item.id === id)?.name ?? "Otro";
 
   const auditedZoneIds = useMemo(
     () => new Set((zones ?? []).map((zone) => zone.id)),
@@ -697,6 +736,59 @@ export default function AnalisisDashboard() {
       }).slice(0, 8),
     [defectChartCaptures, defects],
   );
+  const zoneDefectCharts = useMemo<ZoneDefectChart[]>(
+    () =>
+      (zones ?? []).map((zone) => {
+        const zoneCaptures = zoneBaseCaptures.filter((capture) => capture.zone_id === zone.id);
+        const defectTotals = new Map<string, number>();
+        for (const capture of zoneCaptures) {
+          const key = capture.defect_id != null
+            ? defectName(capture.defect_id)
+            : capture.defect_other
+              ? `Otro — ${capture.defect_other}`
+              : "Sin defecto";
+          defectTotals.set(key, (defectTotals.get(key) ?? 0) + (capture.quantity ?? 1));
+        }
+
+        const sortedDefects = Array.from(defectTotals.entries())
+          .map(([name, value]) => ({ name, value }))
+          .sort((a, b) => b.value - a.value);
+        const topDefects = sortedDefects.slice(0, 10);
+        const topForPie = sortedDefects.slice(0, 8);
+        const otherValue = sortedDefects.slice(8).reduce((sum, item) => sum + item.value, 0);
+        if (otherValue > 0) topForPie.push({ name: "Otros", value: otherValue });
+
+        const daily = new Map<string, { total: number; units: Set<string> }>();
+        for (const capture of zoneCaptures) {
+          const day = daily.get(capture.date) ?? { total: 0, units: new Set<string>() };
+          day.total += capture.quantity ?? 1;
+          day.units.add(`${capture.date}|${capture.unit_number}`);
+          daily.set(capture.date, day);
+        }
+        const dailyDpus = Array.from(daily.values())
+          .filter((day) => day.units.size > 0)
+          .map((day) => day.total / day.units.size);
+
+        return {
+          id: zone.id,
+          name: zone.name,
+          total: zoneCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
+          units: uniqueUnits(zoneCaptures),
+          averageDpu: dailyDpus.length
+            ? dailyDpus.reduce((sum, dpu) => sum + dpu, 0) / dailyDpus.length
+            : 0,
+          pieData: topForPie,
+          barData: topDefects,
+        };
+      }),
+    [defectName, zoneBaseCaptures, zones],
+  );
+  const overallAverageDpu = useMemo(() => {
+    const populated = zoneDefectCharts.filter((zone) => zone.units > 0);
+    return populated.length
+      ? populated.reduce((sum, zone) => sum + zone.averageDpu, 0) / populated.length
+      : 0;
+  }, [zoneDefectCharts]);
   const [historyZoneId, setHistoryZoneId] = useState<number | null>(null);
   const [historyGranularity, setHistoryGranularity] = useState<HistoryGranularity>("month");
   const [historyPeriod, setHistoryPeriod] = useState("all");
@@ -1144,7 +1236,138 @@ export default function AnalisisDashboard() {
                 </Card>
               </div>
 
-              <div className="order-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <section className="order-5 space-y-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Análisis por zona</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Distribución de defectos y DPU promedio por día en el periodo seleccionado.
+                    </p>
+                  </div>
+                  <Badge variant="secondary" className="text-sm">
+                    DPU promedio general: {formatDecimal(overallAverageDpu)}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                  {zoneDefectCharts.map((zone) => (
+                    <Card key={zone.id} className="overflow-hidden">
+                      <CardHeader className="border-b px-4 pb-3 pt-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <CardTitle className="text-base">{zone.name}</CardTitle>
+                            <CardDescription>
+                              {zone.total
+                                ? `${formatNumber(zone.total)} defectos · ${formatNumber(zone.units)} unidades`
+                                : "Sin registros en el periodo seleccionado"}
+                            </CardDescription>
+                          </div>
+                          <div className="rounded-lg border bg-muted/30 px-3 py-2 text-right">
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              DPU promedio
+                            </span>
+                            <span className="text-xl font-bold text-[#d97706]">
+                              {formatDecimal(zone.averageDpu)}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground">por día</span>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
+                        <div className="min-w-0">
+                          <h3 className="mb-1 text-center text-sm font-semibold">Distribución de defectos</h3>
+                          {zone.pieData.length ? (
+                            <ResponsiveContainer width="100%" height={250}>
+                              <PieChart>
+                                <Pie
+                                  data={zone.pieData}
+                                  dataKey="value"
+                                  nameKey="name"
+                                  cx="50%"
+                                  cy="45%"
+                                  innerRadius={52}
+                                  outerRadius={86}
+                                  paddingAngle={2}
+                                  stroke={isDark ? "#1f2937" : "#ffffff"}
+                                  strokeWidth={2}
+                                  isAnimationActive={false}
+                                >
+                                  {zone.pieData.map((entry, index) => (
+                                    <Cell
+                                      key={`${entry.name}-${index}`}
+                                      fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
+                                    />
+                                  ))}
+                                </Pie>
+                                <Tooltip content={<ZonePieTooltip />} />
+                                <Legend
+                                  verticalAlign="bottom"
+                                  height={54}
+                                  wrapperStyle={{ fontSize: 10 }}
+                                  formatter={(value) =>
+                                    value.length > 18 ? `${value.slice(0, 18)}…` : value
+                                  }
+                                />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <EmptyChart message="Sin defectos para mostrar." />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <h3 className="mb-1 text-center text-sm font-semibold">Defectos principales</h3>
+                          {zone.barData.length ? (
+                            <ResponsiveContainer width="100%" height={250}>
+                              <BarChart
+                                data={zone.barData}
+                                margin={{ top: 8, right: 8, left: -16, bottom: 54 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                                <XAxis
+                                  dataKey="name"
+                                  interval={0}
+                                  angle={-38}
+                                  textAnchor="end"
+                                  height={70}
+                                  tick={{ fontSize: 9, fill: tickColor }}
+                                  stroke={tickColor}
+                                  tickFormatter={(value: string) =>
+                                    value.length > 14 ? `${value.slice(0, 14)}…` : value
+                                  }
+                                />
+                                <YAxis
+                                  tick={{ fontSize: 10, fill: tickColor }}
+                                  stroke={tickColor}
+                                  allowDecimals={false}
+                                />
+                                <Tooltip content={<ChartTooltip />} cursor={false} />
+                                <Bar
+                                  dataKey="value"
+                                  name="Defectos"
+                                  fill={CHART_COLORS.blue}
+                                  fillOpacity={0.85}
+                                  radius={[4, 4, 0, 0]}
+                                  isAnimationActive={false}
+                                >
+                                  {zone.barData.map((entry, index) => (
+                                    <Cell
+                                      key={`${entry.name}-${index}`}
+                                      fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
+                                    />
+                                  ))}
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <EmptyChart message="Sin defectos para mostrar." />
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </section>
+
+              <div className="order-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
