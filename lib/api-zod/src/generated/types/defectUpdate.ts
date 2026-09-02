@@ -10,4 +10,5 @@ export interface DefectUpdate {
   name?: string;
   code?: string;
   description?: string;
+  zone_ids?: number[];
 }

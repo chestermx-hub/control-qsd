@@ -81,6 +81,12 @@ export default function NuevoRegistro() {
   const requiresSideSelection = selectedPanel?.side_mode === "bilateral";
   const canSelectGrid = !requiresSideSelection || sidePosition !== null;
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
+  const applicableDefects = useMemo(
+    () => zoneId
+      ? defects?.filter((defect) => defect.applicable_zones?.some((zone) => zone.id === zoneId)) ?? []
+      : [],
+    [defects, zoneId],
+  );
   const isZonaU = useMemo(
     () => zones?.find((zone) => zone.id === zoneId)?.name.trim().toLocaleUpperCase() === "ZONA U",
     [zones, zoneId],
@@ -508,10 +514,11 @@ export default function NuevoRegistro() {
                 ) : (
                   <>
                     <option value="">Selecciona un defecto</option>
-                    {defects?.map((d) => (
+                    {applicableDefects.map((d) => (
                       <option key={d.id} value={d.id.toString()}>{d.code} — {d.name}</option>
                     ))}
-                    <option value="otro">Otro (especificar)</option>
+                    {!zoneId && <option value="" disabled>Selecciona primero una zona auditada</option>}
+                    {zoneId && !applicableDefects.length && <option value="" disabled>No hay defectos asignados a esta zona</option>}
                   </>
                 )}
               </select>
@@ -521,17 +528,6 @@ export default function NuevoRegistro() {
                 </p>
               )}
             </div>
-
-            {dialogDefectId === "otro" && (
-              <div className="space-y-1">
-                <Label>Descripción del defecto</Label>
-                <Input
-                  value={dialogDefectOther}
-                  onChange={(e) => setDialogDefectOther(e.target.value)}
-                  placeholder="Describe el defecto..."
-                />
-              </div>
-            )}
 
             <div className="space-y-1">
               <Label>Cantidad</Label>

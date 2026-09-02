@@ -8,6 +8,7 @@ export const zonesTable = pgTable("zones", {
   name: text("name").notNull(),
   description: text("description"),
   udnId: integer("udn_id").references(() => udnsTable.id, { onDelete: "set null" }),
+  sortOrder: integer("sort_order").default(999).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

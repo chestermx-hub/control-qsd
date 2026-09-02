@@ -5,6 +5,7 @@
  * Control de Capital Humano API
  * OpenAPI spec version: 0.1.0
  */
+import type { ZoneReference } from './zoneReference';
 
 export interface Defect {
   id: number;
@@ -13,4 +14,5 @@ export interface Defect {
   /** @nullable */
   description?: string | null;
   created_at: Date;
+  applicable_zones: ZoneReference[];
 }

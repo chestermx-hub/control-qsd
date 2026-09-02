@@ -10,4 +10,5 @@ export interface ZoneUpdate {
   name?: string;
   description?: string;
   udn_id?: number;
+  sort_order?: number;
 }

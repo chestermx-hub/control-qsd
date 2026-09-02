@@ -19,6 +19,7 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -86,6 +87,12 @@ type Aggregate = {
   name: string;
   value: number;
   captures: number;
+};
+
+type PanelSideAggregate = Aggregate & {
+  left: number;
+  right: number;
+  center: number;
 };
 
 type FilterOption = {
@@ -632,13 +639,33 @@ export default function AnalisisDashboard() {
     [zoneBaseCaptures, zones],
   );
   const panelData = useMemo(
-    () =>
-      aggregateBy(
-        panelChartCaptures,
-        (capture) => capture.panel_id,
-        panelName,
-      ).slice(0, 8),
-    [panelChartCaptures, panels],
+    () => {
+      const groups = new Map<string, PanelSideAggregate>();
+      for (const capture of panelChartCaptures) {
+        const id = capture.panel_id ?? null;
+        const key = id === null ? "none" : String(id);
+        const quantity = capture.quantity ?? 1;
+        const current = groups.get(key) ?? {
+          id,
+          name: panelName(id),
+          value: 0,
+          captures: 0,
+          left: 0,
+          right: 0,
+          center: 0,
+        };
+        current.value += quantity;
+        current.captures += 1;
+        if (capture.side_position === "left") current.left += quantity;
+        else if (capture.side_position === "right") current.right += quantity;
+        else current.center += quantity;
+        groups.set(key, current);
+      }
+      return Array.from(groups.values())
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 8);
+    },
+    [panelChartCaptures, panelName],
   );
   const defectData = useMemo(
     () =>
@@ -1123,6 +1150,9 @@ export default function AnalisisDashboard() {
                       rows={panelData.map((item) => ({
                         Panel: item.name,
                         Defectos: item.value,
+                        LH: item.left,
+                        RH: item.right,
+                        Centro: item.center,
                         Capturas: item.captures,
                       }))}
                     />
@@ -1146,11 +1176,32 @@ export default function AnalisisDashboard() {
                             tickFormatter={(value: string) => value.length > 17 ? `${value.slice(0, 17)}…` : value}
                           />
                           <Tooltip content={<ChartTooltip />} cursor={false} />
+                          <Legend
+                            verticalAlign="top"
+                            height={28}
+                            wrapperStyle={{ fontSize: 11 }}
+                          />
                           <Bar
-                            dataKey="value"
-                            name="Defectos"
+                            dataKey="left"
+                            name="LH · Izquierdo"
                             fill={CHART_COLORS.green}
                             fillOpacity={0.8}
+                            radius={[0, 4, 4, 0]}
+                            isAnimationActive={false}
+                          />
+                          <Bar
+                            dataKey="right"
+                            name="RH · Derecho"
+                            fill={CHART_COLORS.red}
+                            fillOpacity={0.8}
+                            radius={[0, 4, 4, 0]}
+                            isAnimationActive={false}
+                          />
+                          <Bar
+                            dataKey="center"
+                            name="Centro"
+                            fill={CHART_COLORS.blue}
+                            fillOpacity={0.75}
                             radius={[0, 4, 4, 0]}
                             isAnimationActive={false}
                           />

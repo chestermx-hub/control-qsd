@@ -386,7 +386,7 @@ function AgregarDefectosDialog({
 }: {
   group: UnitGroup;
   panel: Panel;
-  defects: { id: number; code: string; name: string }[] | undefined;
+    defects: { id: number; code: string; name: string; applicable_zones?: { id: number; name: string }[] }[] | undefined;
   visualZones: { id: number; name: string }[] | undefined;
   zones: { id: number; name: string }[] | undefined;
   onClose: () => void;
@@ -416,6 +416,13 @@ function AgregarDefectosDialog({
 
   const [newCaptures, setNewCaptures] = useState<{ cellLabel: string; defectLabel: string; quantity: number }[]>([]);
   const [newCells, setNewCells] = useState<{ col: number; row: number; count: number }[]>([]);
+
+  const applicableDefects = useMemo(
+    () => selectedZoneId
+      ? defects?.filter((defect) => defect.applicable_zones?.some((zone) => zone.id === selectedZoneId)) ?? []
+      : [],
+    [defects, selectedZoneId],
+  );
 
   const existingHighlighted = useMemo(() => buildHighlighted(group.captures, panel), [group.captures, panel]);
 
@@ -760,19 +767,18 @@ function AgregarDefectosDialog({
               <Select onValueChange={setDialogDefectId} value={dialogDefectId}>
                 <SelectTrigger><SelectValue placeholder="Selecciona un defecto" /></SelectTrigger>
                 <SelectContent>
-                  {defects?.map((d) => (
+                  {applicableDefects.map((d) => (
                     <SelectItem key={d.id} value={d.id.toString()}>{d.code} — {d.name}</SelectItem>
                   ))}
-                  <SelectItem value="otro">Otro (especificar)</SelectItem>
+                  {!selectedZoneId && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Selecciona primero una zona auditada.</div>
+                  )}
+                  {selectedZoneId && !applicableDefects.length && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No hay defectos asignados a esta zona.</div>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            {dialogDefectId === "otro" && (
-              <div className="space-y-1">
-                <Label>Descripción del defecto</Label>
-                <Input value={dialogDefectOther} onChange={(e) => setDialogDefectOther(e.target.value)} placeholder="Describe el defecto..." />
-              </div>
-            )}
             <div className="space-y-1">
               <Label>Cantidad</Label>
               <Input type="number" min={1} value={dialogQuantity} onChange={(e) => setDialogQuantity(e.target.value)} />
@@ -1602,7 +1608,7 @@ export default function AnalisisZonasAuditadas() {
           <AgregarDefectosDialog
             group={addDialog}
             panel={panel}
-            defects={defects as { id: number; code: string; name: string }[] | undefined}
+            defects={defects as { id: number; code: string; name: string; applicable_zones?: { id: number; name: string }[] }[] | undefined}
             visualZones={visualZones as { id: number; name: string }[] | undefined}
             zones={zones as { id: number; name: string }[] | undefined}
             onClose={() => setAddDialog(null)}

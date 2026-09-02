@@ -6,13 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface Zone {
+export interface ZoneReference {
   id: number;
   name: string;
-  /** @nullable */
-  description?: string | null;
-  /** @nullable */
-  udn_id?: number | null;
-  sort_order: number;
-  created_at: Date;
 }

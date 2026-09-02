@@ -338,6 +338,7 @@ export const ListZonesResponseItem = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "udn_id": zod.number().nullish(),
+  "sort_order": zod.number(),
   "created_at": zod.coerce.date()
 })
 export const ListZonesResponse = zod.array(ListZonesResponseItem)
@@ -349,7 +350,8 @@ export const ListZonesResponse = zod.array(ListZonesResponseItem)
 export const CreateZoneBody = zod.object({
   "name": zod.string(),
   "description": zod.string().optional(),
-  "udn_id": zod.number().optional()
+  "udn_id": zod.number().optional(),
+  "sort_order": zod.number().optional()
 })
 
 export const CreateZoneResponse = zod.object({
@@ -357,6 +359,7 @@ export const CreateZoneResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "udn_id": zod.number().nullish(),
+  "sort_order": zod.number(),
   "created_at": zod.coerce.date()
 })
 
@@ -373,6 +376,7 @@ export const GetZoneResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "udn_id": zod.number().nullish(),
+  "sort_order": zod.number(),
   "created_at": zod.coerce.date()
 })
 
@@ -387,7 +391,8 @@ export const UpdateZoneParams = zod.object({
 export const UpdateZoneBody = zod.object({
   "name": zod.string().optional(),
   "description": zod.string().optional(),
-  "udn_id": zod.number().optional()
+  "udn_id": zod.number().optional(),
+  "sort_order": zod.number().optional()
 })
 
 export const UpdateZoneResponse = zod.object({
@@ -395,6 +400,7 @@ export const UpdateZoneResponse = zod.object({
   "name": zod.string(),
   "description": zod.string().nullish(),
   "udn_id": zod.number().nullish(),
+  "sort_order": zod.number(),
   "created_at": zod.coerce.date()
 })
 
@@ -739,7 +745,11 @@ export const ListDefectsResponseItem = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
-  "created_at": zod.coerce.date()
+  "created_at": zod.coerce.date(),
+  "applicable_zones": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}))
 })
 export const ListDefectsResponse = zod.array(ListDefectsResponseItem)
 
@@ -750,7 +760,8 @@ export const ListDefectsResponse = zod.array(ListDefectsResponseItem)
 export const CreateDefectBody = zod.object({
   "name": zod.string(),
   "code": zod.string(),
-  "description": zod.string().optional()
+  "description": zod.string().optional(),
+  "zone_ids": zod.array(zod.number()).optional()
 })
 
 export const CreateDefectResponse = zod.object({
@@ -758,7 +769,11 @@ export const CreateDefectResponse = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
-  "created_at": zod.coerce.date()
+  "created_at": zod.coerce.date(),
+  "applicable_zones": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}))
 })
 
 
@@ -774,7 +789,11 @@ export const GetDefectResponse = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
-  "created_at": zod.coerce.date()
+  "created_at": zod.coerce.date(),
+  "applicable_zones": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}))
 })
 
 
@@ -788,7 +807,8 @@ export const UpdateDefectParams = zod.object({
 export const UpdateDefectBody = zod.object({
   "name": zod.string().optional(),
   "code": zod.string().optional(),
-  "description": zod.string().optional()
+  "description": zod.string().optional(),
+  "zone_ids": zod.array(zod.number()).optional()
 })
 
 export const UpdateDefectResponse = zod.object({
@@ -796,7 +816,11 @@ export const UpdateDefectResponse = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
-  "created_at": zod.coerce.date()
+  "created_at": zod.coerce.date(),
+  "applicable_zones": zod.array(zod.object({
+  "id": zod.number(),
+  "name": zod.string()
+}))
 })
 
 

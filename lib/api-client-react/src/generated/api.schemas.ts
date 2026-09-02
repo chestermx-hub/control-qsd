@@ -135,6 +135,7 @@ export interface Zone {
   description?: string | null;
   /** @nullable */
   udn_id?: number | null;
+  sort_order: number;
   created_at: string;
 }
 
@@ -142,12 +143,14 @@ export interface ZoneInput {
   name: string;
   description?: string;
   udn_id?: number;
+  sort_order?: number;
 }
 
 export interface ZoneUpdate {
   name?: string;
   description?: string;
   udn_id?: number;
+  sort_order?: number;
 }
 
 /**
@@ -408,6 +411,11 @@ export interface AuditDailyCounter {
   week_number: number;
 }
 
+export interface ZoneReference {
+  id: number;
+  name: string;
+}
+
 export interface Defect {
   id: number;
   name: string;
@@ -415,18 +423,21 @@ export interface Defect {
   /** @nullable */
   description?: string | null;
   created_at: string;
+  applicable_zones: ZoneReference[];
 }
 
 export interface DefectInput {
   name: string;
   code: string;
   description?: string;
+  zone_ids?: number[];
 }
 
 export interface DefectUpdate {
   name?: string;
   code?: string;
   description?: string;
+  zone_ids?: number[];
 }
 
 export interface Side {

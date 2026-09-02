@@ -1261,7 +1261,7 @@ components:
     # ZONE
     Zone:
       type: object
-      required: [id, name, created_at]
+      required: [id, name, sort_order, created_at]
       properties:
         id:
           type: integer
@@ -1271,6 +1271,8 @@ components:
           type: ["string", "null"]
         udn_id:
           type: ["integer", "null"]
+        sort_order:
+          type: integer
         created_at:
           type: string
           format: date-time
@@ -1285,6 +1287,8 @@ components:
           type: string
         udn_id:
           type: integer
+        sort_order:
+          type: integer
 
     ZoneUpdate:
       type: object
@@ -1294,6 +1298,8 @@ components:
         description:
           type: string
         udn_id:
+          type: integer
+        sort_order:
           type: integer
 
     # PANEL
@@ -1705,7 +1711,7 @@ components:
     # DEFECT
     Defect:
       type: object
-      required: [id, name, code, created_at]
+      required: [id, name, code, created_at, applicable_zones]
       properties:
         id:
           type: integer
@@ -1718,6 +1724,10 @@ components:
         created_at:
           type: string
           format: date-time
+        applicable_zones:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneReference"
 
     DefectInput:
       type: object
@@ -1729,6 +1739,10 @@ components:
           type: string
         description:
           type: string
+        zone_ids:
+          type: array
+          items:
+            type: integer
 
     DefectUpdate:
       type: object
@@ -1738,6 +1752,19 @@ components:
         code:
           type: string
         description:
+          type: string
+        zone_ids:
+          type: array
+          items:
+            type: integer
+
+    ZoneReference:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
           type: string
 
     # SIDE

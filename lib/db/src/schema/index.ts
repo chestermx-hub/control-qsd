@@ -5,6 +5,7 @@ export * from "./zones";
 export * from "./panels";
 export * from "./panelAppearancePreferences";
 export * from "./defects";
+export * from "./defectZones";
 export * from "./sides";
 export * from "./visualZones";
 export * from "./alphanumeric";

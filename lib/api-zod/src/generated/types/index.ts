@@ -53,4 +53,5 @@ export * from './visualZoneInput';
 export * from './visualZoneUpdate';
 export * from './zone';
 export * from './zoneInput';
+export * from './zoneReference';
 export * from './zoneUpdate';

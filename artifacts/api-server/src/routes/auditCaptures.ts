@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, auditCapturesTable, panelsTable, usersTable } from "@workspace/db";
+import { db, auditCapturesTable, defectZonesTable, panelsTable, usersTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
@@ -54,6 +54,15 @@ async function panelRequiresSide(panelId?: number) {
 async function panelIsActive(panelId?: number) {
   const panel = await getPanelContext(panelId);
   return panel?.isActive !== false;
+}
+
+async function defectAppliesToZone(defectId?: number, zoneId?: number) {
+  if (defectId === undefined || zoneId === undefined) return true;
+  const [assignment] = await db
+    .select({ defectId: defectZonesTable.defectId })
+    .from(defectZonesTable)
+    .where(and(eq(defectZonesTable.defectId, defectId), eq(defectZonesTable.zoneId, zoneId)));
+  return Boolean(assignment);
 }
 
 function toJson(row: typeof auditCapturesTable.$inferSelect) {
@@ -157,6 +166,10 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     res.status(400).json({ error: "La etiqueta de columna no es válida" });
     return;
   }
+  if (!(await defectAppliesToZone(defect_id, zone_id))) {
+    res.status(422).json({ error: "El defecto seleccionado no está habilitado para la zona auditada" });
+    return;
+  }
   const [row] = await db.insert(auditCapturesTable).values({
     unitNumber: unit_number,
     weekNumber: week_number,
@@ -211,6 +224,12 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   }
   if (grid_col_label !== undefined && !/^[\p{L}\p{N}][\p{L}\p{N} _-]{0,31}$/u.test(grid_col_label.trim())) {
     res.status(400).json({ error: "La etiqueta de columna no es válida" }); return;
+  }
+  const nextZoneId = zone_id !== undefined ? zone_id : existing.zoneId ?? undefined;
+  const nextDefectId = defect_id !== undefined ? defect_id : existing.defectId ?? undefined;
+  if (!(await defectAppliesToZone(nextDefectId, nextZoneId))) {
+    res.status(422).json({ error: "El defecto seleccionado no está habilitado para la zona auditada" });
+    return;
   }
   const updates: Partial<typeof auditCapturesTable.$inferInsert> = {};
   if (skill_number !== undefined) updates.skillNumber = skill_number;

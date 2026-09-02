@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useListDefects, useCreateDefect, useUpdateDefect, useDeleteDefect, getListDefectsQueryKey } from "@workspace/api-client-react";
+import { useListDefects, useCreateDefect, useUpdateDefect, useDeleteDefect, getListDefectsQueryKey, useListZones } from "@workspace/api-client-react";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, MapPin } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -18,6 +20,7 @@ const defectSchema = z.object({
   name: z.string().min(1, "Requerido"),
   code: z.string().min(1, "Requerido"),
   description: z.string().optional(),
+  zone_ids: z.array(z.number()),
 });
 
 type DefectFormValues = z.infer<typeof defectSchema>;
@@ -32,6 +35,7 @@ function generateCode(name: string): string {
 
 export default function Defectos() {
   const { data: defects, isLoading } = useListDefects();
+  const { data: zones } = useListZones();
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const autoCodeRef = useRef(true);
@@ -79,7 +83,7 @@ export default function Defectos() {
 
   const form = useForm<DefectFormValues>({
     resolver: zodResolver(defectSchema),
-    defaultValues: { name: "", code: "", description: "" }
+    defaultValues: { name: "", code: "", description: "", zone_ids: [] }
   });
 
   const watchedName = form.watch("name");
@@ -90,11 +94,16 @@ export default function Defectos() {
     }
   }, [watchedName]);
 
-  const handleEdit = (defect: { id: number; name: string; code: string; description?: string | null }) => {
+  const handleEdit = (defect: { id: number; name: string; code: string; description?: string | null; applicable_zones?: { id: number }[] }) => {
     autoCodeRef.current = false;
     setAutoCode(false);
     setEditingId(defect.id);
-    form.reset({ name: defect.name, code: defect.code, description: defect.description || "" });
+    form.reset({
+      name: defect.name,
+      code: defect.code,
+      description: defect.description || "",
+      zone_ids: defect.applicable_zones?.map((zone) => zone.id) || [],
+    });
     setIsOpen(true);
   };
 
@@ -102,7 +111,7 @@ export default function Defectos() {
     autoCodeRef.current = true;
     setAutoCode(true);
     setEditingId(null);
-    form.reset({ name: "", code: "", description: "" });
+    form.reset({ name: "", code: "", description: "", zone_ids: [] });
     setIsOpen(true);
   };
 
@@ -135,17 +144,32 @@ export default function Defectos() {
                 <TableHead>Nombre</TableHead>
                 <TableHead>Código</TableHead>
                 <TableHead>Descripción</TableHead>
+                <TableHead>Zonas aplicables</TableHead>
                 <TableHead className="w-[100px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={4} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center py-8"><Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" /></TableCell></TableRow>
               ) : defects?.map((defect) => (
                 <TableRow key={defect.id}>
                   <TableCell className="font-medium">{defect.name}</TableCell>
                   <TableCell><span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{defect.code}</span></TableCell>
                   <TableCell className="text-muted-foreground">{defect.description}</TableCell>
+                  <TableCell>
+                    {defect.applicable_zones?.length ? (
+                      <div className="flex flex-wrap gap-1">
+                        {defect.applicable_zones.map((zone) => (
+                          <Badge key={zone.id} variant="secondary" className="gap-1 font-normal">
+                            <MapPin className="h-3 w-3" />
+                            {zone.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Sin asignar</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(defect)}>
@@ -163,7 +187,7 @@ export default function Defectos() {
         </div>
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>{editingId ? "Editar Defecto" : "Nuevo Defecto"}</DialogTitle>
             </DialogHeader>
@@ -197,6 +221,44 @@ export default function Defectos() {
                 <FormField control={form.control} name="description" render={({ field }) => (
                   <FormItem><FormLabel>Descripción</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>
                 )} />
+                <FormField
+                  control={form.control}
+                  name="zone_ids"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Zonas aplicables</FormLabel>
+                      <p className="text-xs text-muted-foreground">
+                        Sólo aparecerá en el registro de auditoría cuando la zona esté activada.
+                      </p>
+                      <div className="grid max-h-56 grid-cols-1 gap-2 overflow-y-auto rounded-md border p-3 sm:grid-cols-2">
+                        {zones?.map((zone) => {
+                          const checked = field.value.includes(zone.id);
+                          return (
+                            <label
+                              key={zone.id}
+                              className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => {
+                                  const next = value
+                                    ? [...field.value, zone.id]
+                                    : field.value.filter((id) => id !== zone.id);
+                                  field.onChange(Array.from(new Set(next)));
+                                }}
+                              />
+                              <span>{zone.name}</span>
+                            </label>
+                          );
+                        })}
+                        {!zones?.length && (
+                          <p className="col-span-full text-sm text-muted-foreground">No hay zonas disponibles.</p>
+                        )}
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <DialogFooter>
                   <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
                   <Button type="submit" disabled={createDefect.isPending || updateDefect.isPending}>
