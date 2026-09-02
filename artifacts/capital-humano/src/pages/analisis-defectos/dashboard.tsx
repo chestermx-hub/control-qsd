@@ -20,6 +20,8 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -93,6 +95,16 @@ type PanelSideAggregate = Aggregate & {
   left: number;
   right: number;
   center: number;
+};
+
+type ZoneDefectChart = {
+  id: number;
+  name: string;
+  total: number;
+  units: number;
+  averageDpu: number;
+  pieData: Array<{ name: string; value: number }>;
+  barData: Array<{ name: string; value: number }>;
 };
 
 type FilterOption = {
