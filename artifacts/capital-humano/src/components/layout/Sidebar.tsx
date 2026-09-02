@@ -23,6 +23,7 @@ import {
   Palette,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 type NavItem = {
   href: string;
@@ -51,7 +52,7 @@ const controlModuloZA: { key: string; title: string; items: NavItem[] } = {
     { href: "/control/paneles", label: "Paneles", icon: LayoutGrid, permission: "paneles" },
     { href: "/control/defectos", label: "Defectos", icon: AlertTriangle, permission: "defectos" },
     { href: "/control/lados", label: "Lados", icon: BoxSelect, permission: "lados" },
-    { href: "/control/apariencia", label: "Apariencia", icon: Palette, permission: "paneles" },
+    { href: "/control/apariencia", label: "Apariencia", icon: Palette, permission: "apariencia" },
   ],
 };
 
@@ -60,15 +61,15 @@ const navigation: NavSection[] = [
     key: "limpiezas",
     title: "Limpiezas ICMX",
     items: [
-      { href: "/limpiezas-icmx", label: "Reporte de limpieza", icon: Sparkles, permission: "limpiezas_icmx" },
+      { href: "/limpiezas-icmx", label: "Reporte de limpieza", icon: Sparkles, permission: "reporte_limpieza" },
     ],
   },
   {
     key: "analisis",
     title: "Análisis de Defectos",
     items: [
-      { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3, permission: "analisis_defectos" },
-      { href: "/analisis-defectos/zonas-auditadas", label: "Capturas de Auditoría", icon: Map, permission: "analisis_defectos" },
+      { href: "/analisis-defectos/dashboard", label: "Dashboard", icon: BarChart3, permission: "analisis_dashboard" },
+      { href: "/analisis-defectos/zonas-auditadas", label: "Capturas de Auditoría", icon: Map, permission: "capturas_auditoria" },
     ],
     subSection: controlModuloZA,
   },
@@ -83,9 +84,9 @@ const navigation: NavSection[] = [
     key: "panel-control",
     title: "Panel de Control",
     items: [
-      { href: "/control/limpiezas-clientes", label: "Clientes", icon: Users, permission: "limpiezas_icmx" },
-      { href: "/control/limpiezas-areas", label: "Áreas", icon: Building2, permission: "limpiezas_icmx" },
-      { href: "/control/limpiezas-tipos", label: "Tipos de limpieza", icon: ClipboardCheck, permission: "limpiezas_icmx" },
+      { href: "/control/limpiezas-clientes", label: "Clientes", icon: Users, permission: "limpiezas_clientes" },
+      { href: "/control/limpiezas-areas", label: "Áreas", icon: Building2, permission: "limpiezas_areas" },
+      { href: "/control/limpiezas-tipos", label: "Tipos de limpieza", icon: ClipboardCheck, permission: "limpiezas_tipos" },
       { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck, permission: "perfiles" },
       { href: "/control/usuarios", label: "Usuarios", icon: Users, permission: "usuarios" },
       { href: "/control/udns", label: "UDN", icon: Building2, permission: "udns" },
@@ -127,9 +128,9 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       {/* Header */}
       <div className="p-4 border-b border-sidebar-border flex items-start justify-between">
         <div>
-          <h2 className="text-base font-bold tracking-tight text-sidebar-primary leading-tight">
-            Querétaro Servicio Decapado
-          </h2>
+          <div className="rounded-md bg-white/95 p-1">
+            <img src={qsdLogo} alt="QSD Clean Technology" className="h-10 w-32 object-contain" />
+          </div>
           <p className="text-xs text-sidebar-foreground/60 mt-0.5">Control Interno de Operacion</p>
         </div>
         {onClose && (

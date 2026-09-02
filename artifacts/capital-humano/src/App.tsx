@@ -66,19 +66,19 @@ function AppRouter() {
       <Route path="/control/lados" component={() => <ProtectedRoute component={Lados} permission="lados" />} />
       <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
       <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
-      <Route path="/control/apariencia" component={() => <ProtectedRoute component={Apariencia} permission="paneles" />} />
+      <Route path="/control/apariencia" component={() => <ProtectedRoute component={Apariencia} permission="apariencia" />} />
 
       {/* Analisis Defectos Module */}
-      <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} permission="analisis_defectos" />} />
-      <Route path="/analisis-defectos/zonas-auditadas" component={() => <ProtectedRoute component={AnalisisZonasAuditadas} permission="analisis_defectos" />} />
-      <Route path="/analisis-defectos/nuevo-registro" component={() => <ProtectedRoute component={NuevoRegistro} permission="analisis_defectos" />} />
+      <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} permission="analisis_dashboard" />} />
+      <Route path="/analisis-defectos/zonas-auditadas" component={() => <ProtectedRoute component={AnalisisZonasAuditadas} permission="capturas_auditoria" />} />
+      <Route path="/analisis-defectos/nuevo-registro" component={() => <ProtectedRoute component={NuevoRegistro} permission="capturas_auditoria" />} />
 
       {/* Operacion */}
       <Route path="/checklist-operacion" component={() => <ProtectedRoute component={ChecklistOperacion} permission="checklist_operacion" />} />
-      <Route path="/limpiezas-icmx" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" />} />
-      <Route path="/control/limpiezas-clientes" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" mode="config" />} />
-      <Route path="/control/limpiezas-areas" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" mode="config" />} />
-      <Route path="/control/limpiezas-tipos" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_icmx" mode="config" />} />
+      <Route path="/limpiezas-icmx" component={() => <ProtectedRoute component={Limpiezas} permission="reporte_limpieza" />} />
+      <Route path="/control/limpiezas-clientes" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_clientes" mode="config" />} />
+      <Route path="/control/limpiezas-areas" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_areas" mode="config" />} />
+      <Route path="/control/limpiezas-tipos" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_tipos" mode="config" />} />
 
       {/* Fallback */}
       <Route component={NotFound} />

@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { SidebarOverlay } from "./Sidebar";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -24,13 +25,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="truncate font-semibold text-sm">Queretaro Servicio Decapado</span>
+          <img src={qsdLogo} alt="QSD Clean Technology" className="h-8 w-auto max-w-[9rem] object-contain" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
           <div className="mx-auto max-w-6xl">
             {children}
           </div>
+          <footer className="mx-auto mt-8 max-w-6xl border-t pt-4 text-center text-xs text-muted-foreground">
+            Querétaro Servicio Decapado 2026
+          </footer>
         </div>
       </main>
     </div>

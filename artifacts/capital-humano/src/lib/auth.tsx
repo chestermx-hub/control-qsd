@@ -27,7 +27,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const can = useCallback((permission: string): boolean => {
     if (!user) return false;
     if (user.role === "superadmin") return true;
-    return user.permissions?.includes(permission) ?? false;
+    const legacyPermissions: Record<string, string[]> = {
+      analisis_dashboard: ["analisis_defectos"],
+      capturas_auditoria: ["analisis_defectos"],
+      apariencia: ["paneles"],
+      reporte_limpieza: ["limpiezas_icmx"],
+      limpiezas_clientes: ["limpiezas_icmx"],
+      limpiezas_areas: ["limpiezas_icmx"],
+      limpiezas_tipos: ["limpiezas_icmx"],
+    };
+    const permissions = user.permissions ?? [];
+    return permissions.includes(permission) || (legacyPermissions[permission] || []).some((legacy) => permissions.includes(legacy));
   }, [user]);
 
   const loginMutation = useLogin({
@@ -45,9 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Regular users go to their first accessible module
         const moduleRoutes: { permission: string; route: string }[] = [
-          { permission: "analisis_defectos", route: "/analisis-defectos/dashboard" },
+          { permission: "analisis_dashboard", route: "/analisis-defectos/dashboard" },
+          { permission: "capturas_auditoria", route: "/analisis-defectos/zonas-auditadas" },
           { permission: "checklist_operacion", route: "/checklist-operacion" },
-          { permission: "limpiezas_icmx", route: "/limpiezas-icmx" },
+          { permission: "reporte_limpieza", route: "/limpiezas-icmx" },
+          { permission: "limpiezas_clientes", route: "/control/limpiezas-clientes" },
+          { permission: "limpiezas_areas", route: "/control/limpiezas-areas" },
+          { permission: "limpiezas_tipos", route: "/control/limpiezas-tipos" },
           { permission: "perfiles", route: "/control/perfiles" },
           { permission: "usuarios", route: "/control/usuarios" },
           { permission: "udns", route: "/control/udns" },
@@ -56,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           { permission: "paneles", route: "/control/paneles" },
           { permission: "defectos", route: "/control/defectos" },
           { permission: "lados", route: "/control/lados" },
+          { permission: "apariencia", route: "/control/apariencia" },
         ];
 
         const firstAccessible = moduleRoutes.find((m) =>

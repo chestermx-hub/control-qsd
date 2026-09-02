@@ -14,6 +14,8 @@ import {
   LayoutGrid,
   AlertTriangle,
   BoxSelect,
+  Sparkles,
+  Palette,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,11 +29,18 @@ type ModuleCard = {
 
 const modules: ModuleCard[] = [
   {
-    title: "Análisis de Defectos",
-    description: "Dashboard, capturas y reportes de auditoría",
+    title: "Dashboard de Defectos",
+    description: "Indicadores y análisis de defectos",
     icon: BarChart3,
     href: "/analisis-defectos/dashboard",
-    permission: "analisis_defectos",
+    permission: "analisis_dashboard",
+  },
+  {
+    title: "Capturas de Auditoría",
+    description: "Registro de capturas y auditorías",
+    icon: Map,
+    href: "/analisis-defectos/zonas-auditadas",
+    permission: "capturas_auditoria",
   },
   {
     title: "Checklist de Operación",
@@ -39,6 +48,34 @@ const modules: ModuleCard[] = [
     icon: ClipboardCheck,
     href: "/checklist-operacion",
     permission: "checklist_operacion",
+  },
+  {
+    title: "Reporte de limpieza",
+    description: "Captura y seguimiento de limpiezas ICMX",
+    icon: Sparkles,
+    href: "/limpiezas-icmx",
+    permission: "reporte_limpieza",
+  },
+  {
+    title: "Clientes de limpieza",
+    description: "Catálogo de clientes de Limpiezas ICMX",
+    icon: Users,
+    href: "/control/limpiezas-clientes",
+    permission: "limpiezas_clientes",
+  },
+  {
+    title: "Áreas de limpieza",
+    description: "Catálogo de áreas de Limpiezas ICMX",
+    icon: Building2,
+    href: "/control/limpiezas-areas",
+    permission: "limpiezas_areas",
+  },
+  {
+    title: "Tipos de limpieza",
+    description: "Configuración de flujos de limpieza",
+    icon: ClipboardCheck,
+    href: "/control/limpiezas-tipos",
+    permission: "limpiezas_tipos",
   },
   {
     title: "Perfiles",
@@ -88,6 +125,13 @@ const modules: ModuleCard[] = [
     icon: AlertTriangle,
     href: "/control/defectos",
     permission: "defectos",
+  },
+  {
+    title: "Apariencia",
+    description: "Personalización visual de la aplicación",
+    icon: Palette,
+    href: "/control/apariencia",
+    permission: "apariencia",
   },
   {
     title: "Lados",
