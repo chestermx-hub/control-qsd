@@ -8,10 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { Check, ClipboardCheck, Download, History, ImagePlus, Loader2, Pencil, Plus, Sparkles, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, ClipboardCheck, Download, FileText, History, ImagePlus, Loader2, Pencil, Plus, Sparkles, Trash2, Upload } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
+import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 type Client = { id: number; name: string; plant_number: string; periodicity: string; udn_id?: number };
 type AreaActivity = { id: number; description: string; requires_photo?: boolean };
@@ -20,7 +22,7 @@ type FlowActivity = { id?: number; description: string; area_name?: string; requ
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
 type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
 type ExecutionArea = { id: number; area_name: string; initial_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
-type Execution = { id: number; execution_date: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[] };
+type Execution = { id: number; execution_date: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string };
 
 const api = async (path: string, options?: RequestInit) => {
   const response = await fetch(`/api${path}`, { credentials: "include", headers: { "Content-Type": "application/json", ...(options?.headers || {}) }, ...options });
@@ -239,7 +241,374 @@ function ExecutionPage({ catalogs, reload }: { catalogs: Catalogs; reload: () =>
    return <div className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><h2 className="text-xl font-semibold break-words">{execution.cleaning_type.name}</h2><p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p></div><div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button className="w-full sm:w-auto" variant="outline" onClick={report}><Download className="mr-2 h-4 w-4" />Reporte PDF</Button><Button className="w-full sm:w-auto" variant="outline" onClick={() => setExecution(null)}>Volver a Limpiezas ICMX</Button></div></div><div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${(done / execution.activities.length) * 100}%` }} /></div>{execution.areas.map((area) => { const areaActivities = execution.activities.filter(a => (a.area_name || "Área general") === area.area_name); return <Card key={area.id} className={area.ready ? "border-emerald-500/60" : ""}><CardContent className="space-y-4 p-4 sm:p-5"><div className="flex items-start gap-3"><div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${area.ready ? "bg-emerald-500 text-white" : "bg-muted"}`}>{area.ready ? <Check className="h-4 w-4" /> : <span className="text-sm font-semibold">{areaActivities[0] ? execution.activities.indexOf(areaActivities[0]) + 1 : "·"}</span>}</div><div className="min-w-0 flex-1"><p className="font-semibold break-words">{area.area_name}</p><p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p></div><button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={!area.initial_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}><span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} /></button></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} onUploaded={path => updateArea(area, { initial_photo: path })} /></div><div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={path => updateArea(area, { final_photo: path })} /></div></div><div className="divide-y rounded-md border">{areaActivities.map((a, index) => <div key={a.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${a.not_applicable ? "bg-muted/50" : ""}`}><span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span><p className={`min-w-0 text-sm break-words md:flex-1 ${a.not_applicable ? "line-through text-muted-foreground" : ""}`}>{a.description}</p><ActivityPhoto activity={a} onUploaded={path => updateActivity(a, { initial_photo: path })} /><div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents"><label className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={a.not_applicable} disabled={a.completed} onChange={e => updateActivity(a, { not_applicable: e.target.checked, completed: false })} />No aplica</label>{a.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !a.not_applicable && <Button size="sm" className="min-h-10" onClick={() => updateActivity(a, { completed: true })}>Completar</Button>}</div></div>)}</div></CardContent></Card>; })}</div>;
 }
 
+function evidenceReadyForSignature(execution: Execution) {
+  const activeAreaNames = new Set(execution.areas.filter((area) => !area.excluded).map((area) => area.area_name));
+  const relevantActivities = execution.activities.filter((activity) => !activity.area_name || activeAreaNames.has(activity.area_name));
+  const activitiesReady = relevantActivities.every((activity) =>
+    (activity.completed || activity.not_applicable) &&
+    (!activity.requires_photo || Boolean(activity.initial_photo && activity.final_photo)),
+  );
+  const areasReady = execution.areas.filter((area) => !area.excluded).every((area) => area.initial_photo && area.final_photo);
+  return Boolean(relevantActivities.length && areasReady && activitiesReady);
+}
+
+async function uploadSignatureImage(dataUrl: string) {
+  const blob = await (await fetch(dataUrl)).blob();
+  const upload = await api("/storage/uploads/request-url", {
+    method: "POST",
+    body: JSON.stringify({
+      name: `firma-limpieza-${Date.now()}.png`,
+      size: blob.size,
+      contentType: "image/png",
+    }),
+  });
+  const response = await fetch(upload.uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": "image/png" },
+    body: blob,
+  });
+  if (!response.ok) throw new Error("No se pudo guardar la firma");
+  return `/api/storage${upload.objectPath}`;
+}
+
+function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Catalogs; onStarted: (execution: Execution) => void; onHistory?: () => void }) {
+  const [clientId, setClientId] = useState("");
+  const [flowId, setFlowId] = useState("");
+  const [customOpen, setCustomOpen] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const start = async () => {
+    setLoading(true);
+    try {
+      onStarted(await api("/limpiezas/ejecuciones", {
+        method: "POST",
+        body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: new Date().toISOString().slice(0, 10) }),
+      }));
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <section className="relative overflow-hidden rounded-xl bg-slate-950 px-5 py-8 text-white shadow-lg sm:px-8 sm:py-10">
+        <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full border-[24px] border-teal-400/20" aria-hidden="true" />
+        <div className="relative max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-teal-300">Operación · ICMX</p>
+          <h2 className="mt-3 max-w-xl text-3xl font-semibold tracking-tight sm:text-4xl">Documenta cada servicio con evidencia lista para auditar.</h2>
+          <p className="mt-3 max-w-lg text-sm leading-6 text-slate-300">Selecciona un cliente y un flujo. El sistema organizará las áreas, actividades, fotografías y firma de cierre en un solo reporte.</p>
+        </div>
+        <div className="relative mt-8 flex flex-wrap items-center gap-3">
+          <Button type="button" variant="secondary" onClick={onHistory}>
+            <History className="mr-2 h-4 w-4" />
+            Abrir histórico
+          </Button>
+          <Button type="button" variant="ghost" className="text-slate-200 hover:bg-white/10 hover:text-white" onClick={() => setCustomOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Crear flujo personalizado
+          </Button>
+        </div>
+      </section>
+
+      <section className="rounded-xl border bg-card p-5 shadow-sm sm:p-7">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Nueva captura</p>
+            <h3 className="mt-1 text-xl font-semibold tracking-tight">Configura el servicio</h3>
+          </div>
+          <p className="text-sm text-muted-foreground">Paso 01 · Selección de alcance</p>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+          <label className="space-y-2 text-sm font-medium">
+            <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">1</span>Cliente</span>
+            <Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); }}>
+              <SelectTrigger className="h-12"><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger>
+              <SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </label>
+          <label className="space-y-2 text-sm font-medium">
+            <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">2</span>Flujo de limpieza</span>
+            <Select value={flowId} onValueChange={setFlowId}>
+              <SelectTrigger className="h-12"><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger>
+              <SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </label>
+          <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || loading} onClick={start}>
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}
+            Iniciar reporte
+          </Button>
+        </div>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[
+          ["01", "Evidencia por módulo", "Fotos iniciales y finales organizadas por área."],
+          ["02", "Seguimiento en vivo", "Actividades completadas y pendientes en un vistazo."],
+          ["03", "Cierre verificable", "Firma del usuario y documento listo para PDF."],
+        ].map(([number, title, description]) => (
+          <div key={number} className="rounded-xl border bg-card p-4">
+            <p className="text-xs font-semibold tracking-[0.16em] text-primary">{number}</p>
+            <p className="mt-3 font-semibold">{title}</p>
+            <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
+          </div>
+        ))}
+      </div>
+      <CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); }} />
+    </div>
+  );
+}
+
+function ExecutionPageModern({
+  catalogs,
+  reload,
+  initialExecution,
+  onBack,
+  onHistory,
+}: {
+  catalogs: Catalogs;
+  reload: () => void;
+  initialExecution?: Execution | null;
+  onBack?: () => void;
+  onHistory?: () => void;
+}) {
+  const [clientId, setClientId] = useState("");
+  const [flowId, setFlowId] = useState("");
+  const [execution, setExecution] = useState<Execution | null>(initialExecution || null);
+  const [signatureOpen, setSignatureOpen] = useState(false);
+  const [savingSignature, setSavingSignature] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  const start = async () => {
+    try {
+      setExecution(await api("/limpiezas/ejecuciones", {
+        method: "POST",
+        body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: new Date().toISOString().slice(0, 10) }),
+      }));
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" });
+    }
+  };
+
+  const refreshAfterEvidence = async (path: string, options: RequestInit) => {
+    await api(path, options);
+    const refreshed = await api(`/limpiezas/ejecuciones/${execution!.id}`);
+    setExecution(refreshed);
+    if (!refreshed.signature && evidenceReadyForSignature(refreshed)) setSignatureOpen(true);
+  };
+
+  const updateActivity = async (activity: Execution["activities"][number], patch: Record<string, unknown>) => {
+    const activityPatch = typeof patch.initial_photo === "string" && patch.initial_photo.startsWith("__FINAL__")
+      ? { ...patch, final_photo: patch.initial_photo.slice("__FINAL__".length), initial_photo: undefined }
+      : patch;
+    try {
+      await refreshAfterEvidence(`/limpiezas/ejecuciones/${execution!.id}/actividades/${activity.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(activityPatch),
+      });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo actualizar", variant: "destructive" });
+    }
+  };
+
+  const updateArea = async (area: ExecutionArea, patch: Record<string, unknown>) => {
+    try {
+      await refreshAfterEvidence(`/limpiezas/ejecuciones/${execution!.id}/areas/${area.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo actualizar el área", variant: "destructive" });
+    }
+  };
+
+  const saveSignature = async (signatureDataUrl: string, signerName: string) => {
+    if (!execution) return;
+    setSavingSignature(true);
+    try {
+      const signaturePath = await uploadSignatureImage(signatureDataUrl);
+      const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ signature: signaturePath, signature_user_name: signerName }),
+      });
+      setExecution(updated);
+      setSignatureOpen(false);
+      toast({ title: "Reporte firmado y cerrado", description: "La firma quedó guardada junto con las evidencias." });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo guardar la firma", variant: "destructive" });
+    } finally {
+      setSavingSignature(false);
+    }
+  };
+
+  if (!execution) {
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" onClick={onHistory}>
+            <History className="mr-2 h-4 w-4" />
+            Ver histórico
+          </Button>
+        </div>
+        <StartExecutionModern catalogs={catalogs} onStarted={setExecution} onHistory={onHistory} />
+      </div>
+    );
+  }
+
+  const done = execution.activities.filter((activity) => activity.completed || activity.not_applicable).length;
+  const signature: CleaningReportSignature | undefined = execution.signature
+    ? { dataUrl: execution.signature, signerName: execution.signature_user_name || "Usuario responsable", signedAt: execution.signed_at }
+    : undefined;
+
+  if (showReport) {
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Button type="button" variant="outline" onClick={() => setShowReport(false)}>
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Volver a la captura
+          </Button>
+          <p className="text-sm text-muted-foreground">Documento listo para imprimir o guardar como PDF.</p>
+        </div>
+        <CleaningReport
+          execution={execution}
+          signature={signature}
+          logoSrc={qsdLogo}
+          onRequestSignature={() => setSignatureOpen(true)}
+        />
+        <SignatureDialog
+          open={signatureOpen}
+          onOpenChange={setSignatureOpen}
+          onSave={saveSignature}
+          initialSignature={signature?.dataUrl}
+          initialSignerName={signature?.signerName || user?.name || ""}
+          saving={savingSignature}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 shrink-0 text-primary" />
+            <h2 className="text-xl font-semibold break-words">{execution.cleaning_type.name}</h2>
+          </div>
+          <p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowReport(true)}>
+            <FileText className="mr-2 h-4 w-4" />
+            Reporte ejecutivo
+          </Button>
+          <Button className="w-full sm:w-auto" variant="outline" onClick={() => onBack ? onBack() : setExecution(null)}>
+            Volver
+          </Button>
+        </div>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div className="h-full bg-primary transition-all" style={{ width: `${execution.activities.length ? (done / execution.activities.length) * 100 : 0}%` }} />
+      </div>
+      {execution.signature && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+          <span className="font-medium">Reporte firmado por {execution.signature_user_name || "usuario responsable"}.</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => setShowReport(true)}>Ver documento</Button>
+        </div>
+      )}
+      {execution.areas.map((area) => {
+        const areaActivities = execution.activities.filter((activity) => (activity.area_name || "Área general") === area.area_name);
+        return (
+          <Card key={area.id} className={area.ready ? "border-emerald-500/60" : ""}>
+            <CardContent className="space-y-4 p-4 sm:p-5">
+              <div className="flex items-start gap-3">
+                <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${area.ready ? "bg-emerald-500 text-white" : "bg-muted"}`}>
+                  {area.ready ? <Check className="h-4 w-4" /> : <span className="text-sm font-semibold">{areaActivities[0] ? execution.activities.indexOf(areaActivities[0]) + 1 : "·"}</span>}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold break-words">{area.area_name}</p>
+                  <p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p>
+                </div>
+                <button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={!area.initial_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}>
+                  <span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} onUploaded={(path) => updateArea(area, { initial_photo: path })} /></div>
+                <div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={(path) => updateArea(area, { final_photo: path })} /></div>
+              </div>
+              <div className="divide-y rounded-md border">
+                {areaActivities.map((activity, index) => (
+                  <div key={activity.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${activity.not_applicable ? "bg-muted/50" : ""}`}>
+                    <span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span>
+                    <p className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}>{activity.description}</p>
+                    <ActivityPhoto activity={activity} onUploaded={(path) => updateActivity(activity, { initial_photo: path })} />
+                    <div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents">
+                      <label className="flex min-h-11 items-center gap-2 text-xs text-muted-foreground">
+                        <input className="h-5 w-5 accent-primary" type="checkbox" checked={activity.not_applicable} disabled={activity.completed} onChange={(event) => updateActivity(activity, { not_applicable: event.target.checked, completed: false })} />
+                        No aplica
+                      </label>
+                      {activity.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !activity.not_applicable && <Button size="sm" className="min-h-10" onClick={() => updateActivity(activity, { completed: true })}>Completar</Button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
+      {evidenceReadyForSignature(execution) && !execution.signature && (
+        <Card className="border-emerald-200 bg-emerald-50/70">
+          <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold text-emerald-950">Evidencias finales completas</p>
+              <p className="text-sm text-emerald-800">Revisa el reporte y firma para cerrar el servicio.</p>
+            </div>
+            <Button type="button" onClick={() => setSignatureOpen(true)}>Solicitar firma</Button>
+          </CardContent>
+        </Card>
+      )}
+      <SignatureDialog
+        open={signatureOpen}
+        onOpenChange={setSignatureOpen}
+        onSave={saveSignature}
+        initialSignature={signature?.dataUrl}
+        initialSignerName={signature?.signerName || user?.name || ""}
+        saving={savingSignature}
+      />
+    </div>
+  );
+}
+
+function HistoryPage({ catalogs, reload }: { catalogs: Catalogs; reload: () => void }) {
+  const [selected, setSelected] = useState<Execution | null>(null);
+  const [, setLocation] = useLocation();
+  return selected ? (
+    <ExecutionPageModern catalogs={catalogs} reload={reload} initialExecution={selected} onBack={() => setSelected(null)} />
+  ) : (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Archivo operativo</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">Histórico de reportes</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Consulta evidencias, actividades, firmas y documentos cerrados.</p>
+        </div>
+        <Button type="button" variant="outline" onClick={() => setLocation("/limpiezas-icmx")}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Nueva limpieza
+        </Button>
+      </div>
+      <ReportHistory onOpen={setSelected} />
+    </div>
+  );
+}
+
 export default function Limpiezas({ mode = "execution" }: { mode?: string }) {
-  const { data, loading, reload } = useCatalogs(); const [location] = useLocation(); const initialTab = location.includes("areas") ? "areas" : location.includes("tipos") ? "flujos" : "clientes";
-  return <AppLayout><div className="space-y-5 sm:space-y-6"><div><div className="flex items-start gap-2"><Sparkles className="mt-1 h-5 w-5 shrink-0 text-primary sm:h-6 sm:w-6" /><h1 className="text-2xl font-bold tracking-tight break-words">Limpiezas ICMX</h1></div><p className="text-sm text-muted-foreground sm:text-base">Configuración y seguimiento de servicios de limpieza.</p></div>{loading ? <div className="flex justify-center p-12"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div> : mode === "config" ? <Configuration catalogs={data} reload={reload} initialTab={initialTab} /> : <ExecutionPage catalogs={data} reload={reload} />}</div></AppLayout>;
+  const { data, loading, reload } = useCatalogs(); const [location, setLocation] = useLocation(); const initialTab = location.includes("areas") ? "areas" : location.includes("tipos") ? "flujos" : "clientes";
+  return <AppLayout><div className="space-y-5 sm:space-y-6"><div><div className="flex items-start gap-2"><Sparkles className="mt-1 h-5 w-5 shrink-0 text-primary sm:h-6 sm:w-6" /><h1 className="text-2xl font-bold tracking-tight break-words">Limpiezas ICMX</h1></div><p className="text-sm text-muted-foreground sm:text-base">Configuración y seguimiento de servicios de limpieza.</p></div>{loading ? <div className="flex justify-center p-12"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div> : mode === "config" ? <Configuration catalogs={data} reload={reload} initialTab={initialTab} /> : mode === "history" ? <HistoryPage catalogs={data} reload={reload} /> : <ExecutionPageModern catalogs={data} reload={reload} onHistory={() => setLocation("/limpiezas-icmx/historico")} />}</div></AppLayout>;
 }

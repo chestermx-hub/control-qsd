@@ -75,6 +75,7 @@ function AppRouter() {
 
       {/* Operacion */}
       <Route path="/checklist-operacion" component={() => <ProtectedRoute component={ChecklistOperacion} permission="checklist_operacion" />} />
+      <Route path="/limpiezas-icmx/historico" component={() => <ProtectedRoute component={Limpiezas} permission="reporte_limpieza" mode="history" />} />
       <Route path="/limpiezas-icmx" component={() => <ProtectedRoute component={Limpiezas} permission="reporte_limpieza" />} />
       <Route path="/control/limpiezas-clientes" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_clientes" mode="config" />} />
       <Route path="/control/limpiezas-areas" component={() => <ProtectedRoute component={Limpiezas} permission="limpiezas_areas" mode="config" />} />

@@ -133,6 +133,42 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   res.status(201).json(await executionJson(execution.id));
 });
 router.get("/limpiezas/ejecuciones/:id", async (req, res) => { const data = await executionJson(Number(req.params.id)); if (!data) { res.status(404).json({ error: "Ejecución no encontrada" }); return; } res.json(data); });
+router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
+  const executionId = Number(req.params.id);
+  const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
+  if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  const signature = typeof req.body.signature === "string" ? req.body.signature.trim() : "";
+  if (!signature) { res.status(400).json({ error: "La firma es obligatoria para cerrar el reporte" }); return; }
+
+  const [activities, areas] = await Promise.all([
+    db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId)),
+    db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId)),
+  ]);
+  const activeAreaNames = new Set(areas.filter((area) => !area.excluded).map((area) => area.areaName));
+  const relevantActivities = activities.filter((activity) => !activity.areaName || activeAreaNames.has(activity.areaName));
+  const activitiesComplete = relevantActivities.every((activity) =>
+    (activity.completed || activity.notApplicable) &&
+    (!activity.requiresPhoto || (activity.initialPhoto && activity.finalPhoto)),
+  );
+  const evidenceComplete = areas.filter((area) => !area.excluded).every((area) => area.initialPhoto && area.finalPhoto);
+  if (!activitiesComplete || !evidenceComplete) {
+    res.status(400).json({ error: "Completa todas las actividades y evidencias finales antes de firmar el reporte" });
+    return;
+  }
+
+  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
+  const [user] = userId ? await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId)) : [];
+  const signerName = String(user?.name || req.body.signature_user_name || "").trim();
+  if (!signerName) { res.status(401).json({ error: "No se pudo identificar al usuario que firma" }); return; }
+  await db.update(cleaningExecutionsTable).set({
+    signature,
+    signatureUserName: signerName,
+    signedAt: new Date(),
+    status: "completed",
+    completedAt: new Date(),
+  }).where(eq(cleaningExecutionsTable.id, executionId));
+  res.json(await executionJson(executionId));
+});
 router.delete("/limpiezas/ejecuciones/:id", async (req, res) => {
   const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
   if (!userId) { res.status(401).json({ error: "No autenticado" }); return; }

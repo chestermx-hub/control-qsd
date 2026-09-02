@@ -21,6 +21,7 @@ import {
   X,
   Sparkles,
   Palette,
+  History as HistoryIcon,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
@@ -62,6 +63,7 @@ const navigation: NavSection[] = [
     title: "Limpiezas ICMX",
     items: [
       { href: "/limpiezas-icmx", label: "Reporte de limpieza", icon: Sparkles, permission: "reporte_limpieza" },
+      { href: "/limpiezas-icmx/historico", label: "Histórico de reportes", icon: HistoryIcon, permission: "reporte_limpieza" },
     ],
   },
   {
