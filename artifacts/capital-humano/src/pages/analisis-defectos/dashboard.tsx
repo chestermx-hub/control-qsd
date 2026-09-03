@@ -20,7 +20,6 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  Legend,
   LabelList,
   Line,
   LineChart,

@@ -11,3 +11,4 @@
 - [Overlay account actions](overlay-account-actions.md) — browser tests must open the navigation overlay before asserting logout or other account controls.
 - [Replit DATABASE_URL warning](replit-database-url-warning.md) — compare managed PG* values before treating the publishing warning as a data migration.
 - [E2E workflow validation](e2e-workflow-validation.md) — point browser tests at the active workflow port and await async mutations before asserting controlled state.
+- [Pie tooltip totals](pie-tooltip-totals.md) — pie tooltip payloads may contain only the active slice; calculate percentages from the full rendered dataset.
