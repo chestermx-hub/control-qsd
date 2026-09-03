@@ -951,13 +951,13 @@ export default function AnalisisDashboard() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex min-w-0 gap-3 overflow-x-auto pb-1">
+                  <div className="grid min-w-0 grid-cols-2 gap-3 pb-1 sm:grid-cols-3 lg:grid-cols-6">
                     <button
                       type="button"
                       data-testid="button-zone-all"
                       aria-pressed={activeZoneId === null}
                       onClick={() => handleZoneChange(null)}
-                      className={`min-w-[180px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                      className={`min-w-0 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
                         activeZoneId === null ? "border-primary bg-primary/5" : "bg-card"
                       }`}
                     >
@@ -994,7 +994,7 @@ export default function AnalisisDashboard() {
                         data-testid={`button-zone-${zone.id}`}
                         aria-pressed={activeZoneId === zone.id}
                         onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
-                        className={`min-w-[180px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                        className={`min-w-0 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
                           activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
                         }`}
                       >
