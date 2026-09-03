@@ -809,6 +809,10 @@ export default function AnalisisDashboard() {
     },
     [zoneBaseCaptures, zoneSummary, zones],
   );
+  const visibleZoneData =
+    activeZoneId === null
+      ? zoneData
+      : zoneData.filter((item) => item.id === activeZoneId);
   const panelData = useMemo(
     () => {
       const groups = new Map<string, PanelSideAggregate>();
@@ -1172,7 +1176,13 @@ export default function AnalisisDashboard() {
                         Defectos por zona
                       </CardTitle>
                       <CardDescription>
-                        {showZoneDpu ? "DPU por zona en el mes seleccionado" : "Comparativo del mes seleccionado"}
+                        {showZoneDpu
+                          ? activeZoneId === null
+                            ? "DPU por zona en el mes seleccionado"
+                            : `DPU de ${activeZoneName}`
+                          : activeZoneId === null
+                            ? "Comparativo del mes seleccionado"
+                            : `Comparativo de ${activeZoneName}`}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-3">
@@ -1187,7 +1197,7 @@ export default function AnalisisDashboard() {
                       <ChartExportButton
                         ariaLabel="Exportar defectos por zona"
                         filename="defectos-por-zona.csv"
-                        rows={zoneData.map((item) => ({
+                        rows={visibleZoneData.map((item) => ({
                           Zona: item.name,
                           Defectos: item.value,
                           DPU: Number(item.dpu.toFixed(2)),
@@ -1197,9 +1207,9 @@ export default function AnalisisDashboard() {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    {zoneData.length ? (
+                    {visibleZoneData.length ? (
                       <ResponsiveContainer width="100%" height={280} debounce={0}>
-                        <BarChart data={zoneData} margin={{ top: 8, right: 12, left: -16, bottom: 12 }}>
+                        <BarChart data={visibleZoneData} margin={{ top: 8, right: 12, left: -16, bottom: 12 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                           <XAxis
                             dataKey="name"
@@ -1233,7 +1243,7 @@ export default function AnalisisDashboard() {
                               if (!Number.isNaN(id)) handleZoneChange(activeZoneId === id ? null : id);
                             }}
                           >
-                            {zoneData.map((entry, index) => (
+                            {visibleZoneData.map((entry, index) => (
                               <Cell
                                 key={`${entry.id}-${index}`}
                                 fill={entry.id === activeZoneId ? CHART_COLORS.blue : CHART_COLOR_LIST[index % CHART_COLOR_LIST.length]}
