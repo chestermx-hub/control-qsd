@@ -35,14 +35,12 @@ import {
   ChevronDown,
   Download,
   Filter,
-  LayoutGrid,
   Map as MapIcon,
   Moon,
   PanelTop,
   Printer,
   RefreshCw,
   Sun,
-  Target,
   Users,
   X,
 } from "lucide-react";
@@ -593,31 +591,6 @@ export default function AnalisisDashboard() {
       return true;
     });
 
-  const filteredCaptures = useMemo(() => applyFilters(captures), [
-    activeZoneId,
-    auditedZoneIds,
-    captures,
-    effectiveMonth,
-    selectedDays,
-    selectedDefects,
-    selectedPanels,
-    selectedSides,
-    selectedWeeks,
-  ]);
-  const historicalFilteredCaptures = useMemo(
-    () => applyFilters(captures, { month: false }),
-    [
-      activeZoneId,
-      auditedZoneIds,
-      captures,
-      effectiveMonth,
-      selectedDays,
-      selectedDefects,
-      selectedPanels,
-      selectedSides,
-      selectedWeeks,
-    ],
-  );
   const zoneBaseCaptures = useMemo(
     () => applyFilters(captures, { zone: false }),
     [
@@ -933,13 +906,6 @@ export default function AnalisisDashboard() {
     panelName,
   ]);
 
-  const monthTotal = filteredCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
-  const historicalTotal = historicalFilteredCaptures.reduce(
-    (sum, capture) => sum + (capture.quantity ?? 1),
-    0,
-  );
-  const monthUnits = uniqueUnits(filteredCaptures);
-  const monthDpu = monthUnits ? monthTotal / monthUnits : 0;
   const activeZoneName = activeZoneId === null ? "Todas las zonas" : zoneName(activeZoneId);
   const filterCount =
     selectedWeeks.length +
@@ -1048,8 +1014,10 @@ export default function AnalisisDashboard() {
                       filename="resumen-por-zona.csv"
                       rows={zoneSummary.map((item) => ({
                         Zona: item.name,
-                        Defectos: item.value,
-                        Unidades: item.units,
+                        "Defectos del mes": item.value,
+                        Acumulado: item.historicalValue,
+                        "Unidades auditadas": item.units,
+                        "DPU del mes": Number(item.dpu.toFixed(2)),
                         Capturas: item.captures,
                       }))}
                     />
@@ -1074,9 +1042,21 @@ export default function AnalisisDashboard() {
                         {activeZoneId === null && <Check className="h-4 w-4 text-primary" />}
                       </div>
                       <div className="text-2xl font-bold">{formatNumber(allZonesSummary.value)}</div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        defectos · {formatNumber(allZonesSummary.units)} unidades
-                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">defectos del mes</p>
+                      <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-2">
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Acumulado</p>
+                          <p className="text-sm font-semibold">{formatNumber(allZonesSummary.historicalValue)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Unidades</p>
+                          <p className="text-sm font-semibold">{formatNumber(allZonesSummary.units)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">DPU del mes</p>
+                          <p className="text-sm font-semibold text-[#d97706]">{formatDecimal(allZonesSummary.dpu)}</p>
+                        </div>
+                      </div>
                     </button>
                     {zoneSummary.map((zone, index) => (
                       <button
@@ -1100,9 +1080,21 @@ export default function AnalisisDashboard() {
                           {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
                         </div>
                         <div className="text-2xl font-bold">{formatNumber(zone.value)}</div>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          defectos · {formatNumber(zone.units)} unidades
-                        </p>
+                        <p className="mt-1 text-[11px] text-muted-foreground">defectos del mes</p>
+                        <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-2">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Acumulado</p>
+                            <p className="text-sm font-semibold">{formatNumber(zone.historicalValue)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Unidades</p>
+                            <p className="text-sm font-semibold">{formatNumber(zone.units)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wide text-muted-foreground">DPU del mes</p>
+                            <p className="text-sm font-semibold text-[#d97706]">{formatDecimal(zone.dpu)}</p>
+                          </div>
+                        </div>
                         {!zone.captures && (
                           <p className="mt-1 text-[11px] text-muted-foreground">Sin registros en el periodo</p>
                         )}
@@ -1122,51 +1114,6 @@ export default function AnalisisDashboard() {
             </div>
           ) : (
             <>
-              <div className="order-3 mb-0 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Defectos del mes</CardTitle>
-                    <AlertTriangle className="h-4 w-4 text-[#0079F2]" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#0079F2]">{formatNumber(monthTotal)}</div>
-                    <p className="mt-1 text-xs capitalize text-muted-foreground">
-                      {monthLabel(effectiveMonth)} · {activeZoneName}
-                    </p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Acumulado</CardTitle>
-                    <Target className="h-4 w-4 text-[#795EFF]" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#795EFF]">{formatNumber(historicalTotal)}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">Histórico con la segmentación activa</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">Unidades auditadas</CardTitle>
-                    <Users className="h-4 w-4 text-[#009118]" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#009118]">{formatNumber(monthUnits)}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">En el mes seleccionado</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">DPU del mes</CardTitle>
-                    <LayoutGrid className="h-4 w-4 text-[#d97706]" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-3xl font-bold text-[#d97706]">{formatDecimal(monthDpu)}</div>
-                    <p className="mt-1 text-xs text-muted-foreground">Defectos por unidad</p>
-                  </CardContent>
-                </Card>
-              </div>
-
               <div className="order-4 mb-0 grid grid-cols-1 gap-4 lg:grid-cols-2">
                 <Card className={activeZoneId === null ? "order-2" : "order-1"}>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
