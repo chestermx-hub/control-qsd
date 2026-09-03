@@ -14,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Bar,
   BarChart,
@@ -228,10 +229,12 @@ function ChartTooltip({
   active,
   payload,
   label,
+  formatValuesAsDpu = false,
 }: {
   active?: boolean;
   payload?: Array<{ color?: string; name?: string; value?: string | number }>;
   label?: string;
+  formatValuesAsDpu?: boolean;
 }) {
   if (!active || !payload?.length) return null;
   return (
@@ -245,7 +248,11 @@ function ChartTooltip({
           />
           <span className="text-slate-600">{entry.name}</span>
           <strong className="ml-auto">
-            {typeof entry.value === "number" ? formatNumber(entry.value) : entry.value}
+            {typeof entry.value === "number"
+              ? formatValuesAsDpu
+                ? formatDecimal(entry.value)
+                : formatNumber(entry.value)
+              : entry.value}
           </strong>
         </div>
       ))}
@@ -450,6 +457,7 @@ export default function AnalisisDashboard() {
   const [selectedDefects, setSelectedDefects] = useState<string[]>([]);
   const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
   const [isDark, setIsDark] = useState(false);
+  const [showZoneDpu, setShowZoneDpu] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
 
   const capturesQuery = useListAuditCaptures();
@@ -714,11 +722,12 @@ export default function AnalisisDashboard() {
           id: zone.id,
           name: zone.name,
           value: aggregates.get(zone.id)?.value ?? 0,
+           dpu: zoneSummary.find((summary) => summary.id === zone.id)?.dpu ?? 0,
           captures: aggregates.get(zone.id)?.captures ?? 0,
         }))
         .sort((a, b) => zoneProcessOrder(a.name, a.id) - zoneProcessOrder(b.name, b.id));
     },
-    [zoneBaseCaptures, zones],
+    [zoneBaseCaptures, zoneSummary, zones],
   );
   const panelData = useMemo(
     () => {
@@ -1053,17 +1062,30 @@ export default function AnalisisDashboard() {
                         <MapIcon className="h-4 w-4" />
                         Defectos por zona
                       </CardTitle>
-                      <CardDescription>Comparativo del mes seleccionado</CardDescription>
+                      <CardDescription>
+                        {showZoneDpu ? "DPU por zona en el mes seleccionado" : "Comparativo del mes seleccionado"}
+                      </CardDescription>
                     </div>
-                    <ChartExportButton
-                      ariaLabel="Exportar defectos por zona"
-                      filename="defectos-por-zona.csv"
-                      rows={zoneData.map((item) => ({
-                        Zona: item.name,
-                        Defectos: item.value,
-                        Capturas: item.captures,
-                      }))}
-                    />
+                    <div className="flex items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-2 text-xs font-medium text-muted-foreground">
+                        <span>Mostrar por DPU</span>
+                        <Switch
+                          checked={showZoneDpu}
+                          onCheckedChange={setShowZoneDpu}
+                          aria-label="Mostrar defectos por DPU"
+                        />
+                      </label>
+                      <ChartExportButton
+                        ariaLabel="Exportar defectos por zona"
+                        filename="defectos-por-zona.csv"
+                        rows={zoneData.map((item) => ({
+                          Zona: item.name,
+                          Defectos: item.value,
+                          DPU: Number(item.dpu.toFixed(2)),
+                          Capturas: item.captures,
+                        }))}
+                      />
+                    </div>
                   </CardHeader>
                   <CardContent>
                     {zoneData.length ? (
@@ -1078,11 +1100,21 @@ export default function AnalisisDashboard() {
                             tick={<ZoneAxisTick fill={tickColor} />}
                             stroke={tickColor}
                           />
-                          <YAxis tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
-                          <Tooltip content={<ChartTooltip />} cursor={false} />
+                          <YAxis
+                            tick={{ fontSize: 11, fill: tickColor }}
+                            stroke={tickColor}
+                            allowDecimals={showZoneDpu}
+                            tickFormatter={(value: number) =>
+                              showZoneDpu ? formatDecimal(value) : formatNumber(value)
+                            }
+                          />
+                          <Tooltip
+                            content={<ChartTooltip formatValuesAsDpu={showZoneDpu} />}
+                            cursor={false}
+                          />
                           <Bar
-                            dataKey="value"
-                            name="Defectos"
+                            dataKey={showZoneDpu ? "dpu" : "value"}
+                            name={showZoneDpu ? "DPU" : "Defectos"}
                             radius={[4, 4, 0, 0]}
                             fill={CHART_COLORS.purple}
                             fillOpacity={0.8}
