@@ -124,6 +124,15 @@ test("flujo completo de Limpiezas ICMX", async () => {
     method: "PATCH",
     body: JSON.stringify({ completed: true }),
   });
+  const unchangedAfterCompleteAttempt = await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}`, 200);
+  const unchangedFirstActivity = unchangedAfterCompleteAttempt.activities.find((activity) => activity.id === firstActivity.id);
+  assert.equal(unchangedFirstActivity.completed, false);
+  assert.equal(unchangedFirstActivity.not_applicable, false);
+  assert.equal(unchangedFirstActivity.initial_photo, null);
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 400, {
+    method: "PATCH",
+    body: JSON.stringify({ not_applicable: true }),
+  });
   await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${firstActivity.id}`, 200, {
     method: "PATCH",
     body: JSON.stringify({ initial_photo: "storage://test/activity-initial.jpg", final_photo: "storage://test/activity-final.jpg", completed: true }),
@@ -143,13 +152,28 @@ test("flujo completo de Limpiezas ICMX", async () => {
 
   const secondActivity = created.execution.activities[1];
   const thirdActivity = created.execution.activities[2];
-  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${secondActivity.id}`, 200, {
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${secondActivity.id}`, 400, {
     method: "PATCH",
     body: JSON.stringify({ not_applicable: true }),
   });
-  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${thirdActivity.id}`, 200, {
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${thirdActivity.id}`, 400, {
     method: "PATCH",
     body: JSON.stringify({ completed: true }),
+  });
+  const unchangedAfterLaterAttempts = await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}`, 200);
+  const unchangedSecondActivity = unchangedAfterLaterAttempts.activities.find((activity) => activity.id === secondActivity.id);
+  const unchangedThirdActivity = unchangedAfterLaterAttempts.activities.find((activity) => activity.id === thirdActivity.id);
+  assert.equal(unchangedSecondActivity.not_applicable, false);
+  assert.equal(unchangedSecondActivity.initial_photo, null);
+  assert.equal(unchangedThirdActivity.completed, false);
+  assert.equal(unchangedThirdActivity.initial_photo, null);
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${secondActivity.id}`, 200, {
+    method: "PATCH",
+    body: JSON.stringify({ initial_photo: "storage://test/activity-initial-b.jpg", not_applicable: true }),
+  });
+  await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}/actividades/${thirdActivity.id}`, 200, {
+    method: "PATCH",
+    body: JSON.stringify({ initial_photo: "storage://test/activity-initial-c.jpg", completed: true }),
   });
 
   const stillInProgress = await expectStatus(`/limpiezas/ejecuciones/${created.execution.id}`, 200);
