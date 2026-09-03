@@ -138,9 +138,6 @@ type FilterOption = {
   count?: number;
 };
 
-type HistoryGranularity = "month" | "year";
-type HistoryDimension = "panel" | "defect";
-
 function formatNumber(value: number) {
   return new Intl.NumberFormat("es-MX").format(value);
 }
@@ -510,12 +507,29 @@ export default function AnalisisDashboard() {
   );
 
   useEffect(() => {
-    if (monthOptions.length && !monthOptions.some((month) => month.value === selectedMonth)) {
+    if (!selectedMonth && monthOptions.length) {
       setSelectedMonth(monthOptions.at(-1)?.value ?? "");
     }
   }, [monthOptions, selectedMonth]);
 
   const effectiveMonth = selectedMonth || monthOptions.at(-1)?.value || "";
+  const yearOptions = useMemo(
+    () =>
+      Array.from(new Set(auditedCaptures.map((capture) => capture.date.slice(0, 4))))
+        .sort()
+        .reverse(),
+    [auditedCaptures],
+  );
+  const selectedYear = effectiveMonth.slice(0, 4) || yearOptions[0] || String(new Date().getFullYear());
+  const monthLineOptions = Array.from({ length: 12 }, (_, index) => {
+    const monthNumber = String(index + 1).padStart(2, "0");
+    return {
+      value: `${selectedYear}-${monthNumber}`,
+      label: new Intl.DateTimeFormat("es-MX", { month: "short" })
+        .format(new Date(Number(selectedYear), index, 1))
+        .replace(".", ""),
+    };
+  });
 
   const monthZoneCaptures = useMemo(
     () =>
@@ -814,98 +828,6 @@ export default function AnalisisDashboard() {
     activeZoneId === null
       ? zoneDefectCharts
       : zoneDefectCharts.filter((zone) => zone.id === activeZoneId);
-  const [historyZoneId, setHistoryZoneId] = useState<number | null>(null);
-  const [historyGranularity, setHistoryGranularity] = useState<HistoryGranularity>("month");
-  const [historyPeriod, setHistoryPeriod] = useState("all");
-  const [historyDimension, setHistoryDimension] = useState<HistoryDimension>("panel");
-
-  const historyPeriodOptions = useMemo(() => {
-    const keys = new Set(
-      auditedCaptures
-        .filter((capture) => historyZoneId === null || capture.zone_id === historyZoneId)
-        .map((capture) =>
-          historyGranularity === "month" ? monthKey(capture.date) : capture.date.slice(0, 4),
-        ),
-    );
-    return Array.from(keys)
-      .sort((a, b) => b.localeCompare(a))
-      .map((key) => ({
-        value: key,
-        label: historyGranularity === "month" ? monthLabel(key) : key,
-      }));
-  }, [auditedCaptures, historyGranularity, historyZoneId]);
-
-  useEffect(() => {
-    if (historyPeriod !== "all" && !historyPeriodOptions.some((option) => option.value === historyPeriod)) {
-      setHistoryPeriod("all");
-    }
-  }, [historyPeriod, historyPeriodOptions]);
-
-  const historyChart = useMemo(() => {
-    const rows = auditedCaptures.filter((capture) => {
-      if (historyZoneId !== null && capture.zone_id !== historyZoneId) return false;
-      const periodKey =
-        historyGranularity === "month" ? monthKey(capture.date) : capture.date.slice(0, 4);
-      return historyPeriod === "all" || periodKey === historyPeriod;
-    });
-    const periodKey = (capture: Capture) =>
-      historyGranularity === "month" ? monthKey(capture.date) : capture.date.slice(0, 4);
-    const dimensionKey = (capture: Capture) =>
-      historyDimension === "panel"
-        ? `panel:${capture.panel_id ?? "none"}`
-        : defectKey(capture);
-    const dimensionLabel = (capture: Capture) => {
-      if (historyDimension === "panel") {
-        return capture.panel_id == null ? "Sin panel" : panelName(capture.panel_id);
-      }
-      if (capture.defect_id != null) return defectCode(capture.defect_id);
-      return capture.defect_other ? `Otro — ${capture.defect_other}` : "Sin defecto";
-    };
-    const seriesMap = new Map<string, { key: string; label: string }>();
-    const values = new Map<string, Map<string, number>>();
-
-    for (const capture of rows) {
-      const currentPeriod = periodKey(capture);
-      const currentDimension = dimensionKey(capture);
-      if (!seriesMap.has(currentDimension)) {
-        seriesMap.set(currentDimension, {
-          key: currentDimension,
-          label: dimensionLabel(capture),
-        });
-      }
-      const periodValues = values.get(currentPeriod) ?? new Map<string, number>();
-      periodValues.set(
-        currentDimension,
-        (periodValues.get(currentDimension) ?? 0) + (capture.quantity ?? 1),
-      );
-      values.set(currentPeriod, periodValues);
-    }
-
-    const series = Array.from(seriesMap.values()).map((item, index) => ({
-      ...item,
-      color: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length],
-    }));
-    const data = Array.from(values.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, periodValues]) => {
-        const row: Record<string, string | number> = {
-          key,
-          name: historyGranularity === "month" ? monthLabel(key) : key,
-        };
-        for (const item of series) row[item.key] = periodValues.get(item.key) ?? 0;
-        return row;
-      });
-    return { data, series };
-  }, [
-    auditedCaptures,
-    defectCode,
-    historyDimension,
-    historyGranularity,
-    historyPeriod,
-    historyZoneId,
-    panelName,
-  ]);
-
   const activeZoneName = activeZoneId === null ? "Todas las zonas" : zoneName(activeZoneId);
   const filterCount =
     selectedWeeks.length +
@@ -926,6 +848,11 @@ export default function AnalisisDashboard() {
 
   const handleMonthChange = (value: string) => {
     setSelectedMonth(value);
+    resetSecondaryFilters();
+  };
+  const handleYearChange = (value: string) => {
+    const monthsInYear = monthOptions.filter((month) => month.value.startsWith(`${value}-`));
+    setSelectedMonth(monthsInYear.at(-1)?.value ?? `${value}-01`);
     resetSecondaryFilters();
   };
 
@@ -1119,64 +1046,7 @@ export default function AnalisisDashboard() {
           ) : (
             <>
               <div className="order-4 mb-0 grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Card className={activeZoneId === null ? "order-2" : "order-1"}>
-                  <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
-                    <div>
-                      <CardTitle className="text-base">Histórico por zona</CardTitle>
-                      <CardDescription>
-                        {historyZoneId === null ? "Todas las zonas" : zoneName(historyZoneId)} ·{" "}
-                        {historyGranularity === "month" ? "por mes" : "por año"} ·{" "}
-                        {historyDimension === "panel" ? "desglosado por panel" : "desglosado por defecto"}
-                      </CardDescription>
-                    </div>
-                    <ChartExportButton
-                      ariaLabel="Exportar histórico por zona"
-                      filename="historico-por-zona.csv"
-                      rows={historyChart.data.map((item) => ({
-                        Periodo: String(item.name),
-                        ...Object.fromEntries(
-                          historyChart.series.map((series) => [
-                            series.label,
-                            Number(item[series.key] ?? 0),
-                          ]),
-                        ),
-                      }))}
-                    />
-                  </CardHeader>
-                  <CardContent>
-                    {historyChart.data.length ? (
-                      <ResponsiveContainer width="100%" height={280} debounce={0}>
-                        <BarChart data={historyChart.data} margin={{ top: 8, right: 12, left: -16, bottom: 0 }}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                          <XAxis
-                            dataKey="name"
-                            tick={{ fontSize: 11, fill: tickColor }}
-                            stroke={tickColor}
-                            tickFormatter={(value: string) => value.split(" ")[0].slice(0, 3)}
-                          />
-                          <YAxis tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
-                          <Tooltip content={<ChartTooltip />} cursor={false} />
-                          {historyChart.series.map((series) => (
-                            <Bar
-                              key={series.key}
-                              dataKey={series.key}
-                              name={series.label}
-                              stackId="history"
-                              fill={series.color}
-                              fillOpacity={0.85}
-                              radius={[3, 3, 0, 0]}
-                              isAnimationActive={false}
-                            />
-                          ))}
-                        </BarChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <EmptyChart message="No hay histórico para la zona y los controles seleccionados." />
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className={activeZoneId === null ? "order-1" : "order-2"}>
+                <Card className="lg:col-span-2">
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -1519,7 +1389,7 @@ export default function AnalisisDashboard() {
             </>
           )}
             </main>
-            <aside className="order-2 w-full self-end min-w-0 lg:w-[320px]">
+            <section className="order-2 w-full min-w-0">
               <Card className="border-[#d7d9dc] shadow-none">
                 <CardHeader className="border-b px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
@@ -1529,153 +1399,92 @@ export default function AnalisisDashboard() {
                         Controles de análisis
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        Ajusta el corte actual y el histórico sin perder el resumen de zonas.
+                        Selecciona el mes, año y filtros para actualizar las gráficas del dashboard.
                       </CardDescription>
                     </div>
                     {filterCount > 0 && <Badge variant="secondary">{filterCount}</Badge>}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2 px-3 py-3">
+                <CardContent className="space-y-4 px-4 py-4">
                   <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Corte actual · {activeZoneName}
                   </p>
-                  <div className="flex h-[64px] min-w-0 items-center gap-2 rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 dark:border-border dark:bg-muted/30">
-                    <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end">
                     <div className="min-w-0 flex-1">
-                      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Fecha · Meses
+                      <span className="mb-1 block px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Meses
                       </span>
-                      <Select value={effectiveMonth} onValueChange={handleMonthChange} disabled={!monthOptions.length}>
-                        <SelectTrigger data-testid="select-dashboard-month" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
-                          <SelectValue placeholder="Selecciona mes" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[...monthOptions].reverse().map((month) => (
-                            <SelectItem key={month.value} value={month.value}>
-                              <span className="capitalize">{month.label}</span>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <MultiFilter
-                    label="Semana"
-                    icon={CalendarDays}
-                    options={filterOptions.weeks}
-                    selected={selectedWeeks}
-                    onChange={setSelectedWeeks}
-                  />
-                  <MultiFilter
-                    label="Lado"
-                    icon={Users}
-                    options={filterOptions.sides}
-                    selected={selectedSides}
-                    onChange={setSelectedSides}
-                  />
-                  <MultiFilter
-                    label="Día"
-                    icon={CalendarDays}
-                    options={filterOptions.days}
-                    selected={selectedDays}
-                    onChange={setSelectedDays}
-                  />
-                  <MultiFilter
-                    label="Defecto"
-                    icon={AlertTriangle}
-                    options={filterOptions.defectOptions}
-                    selected={selectedDefects}
-                    onChange={setSelectedDefects}
-                  />
-                  <MultiFilter
-                    label="Panel"
-                    icon={PanelTop}
-                    options={filterOptions.panelOptions}
-                    selected={selectedPanels}
-                    onChange={setSelectedPanels}
-                  />
-
-                  <div className="my-3 border-t" />
-                  <div className="flex items-center justify-between px-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Histórico por zona
-                    </p>
-                    <Badge variant="outline">Independiente</Badge>
-                  </div>
-                  <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
-                    <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Zona
-                    </span>
-                    <Select
-                      value={historyZoneId === null ? "all" : String(historyZoneId)}
-                      onValueChange={(value) => setHistoryZoneId(value === "all" ? null : Number(value))}
-                    >
-                      <SelectTrigger data-testid="select-history-zone" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
-                        <SelectValue placeholder="Todas las zonas" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas las zonas</SelectItem>
-                        {(zones ?? []).map((zone) => (
-                          <SelectItem key={zone.id} value={String(zone.id)}>
-                            {zone.name}
-                          </SelectItem>
+                      <div className="flex min-w-0 gap-1.5 overflow-x-auto rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] p-1.5 dark:border-border dark:bg-muted/30">
+                        {monthLineOptions.map((month) => (
+                          <button
+                            key={month.value}
+                            type="button"
+                            data-testid={`button-dashboard-month-${month.value}`}
+                            aria-pressed={effectiveMonth === month.value}
+                            onClick={() => handleMonthChange(month.value)}
+                            className={`min-w-[58px] rounded-[5px] px-2.5 py-2 text-sm font-semibold capitalize transition-colors ${
+                              effectiveMonth === month.value
+                                ? "bg-primary text-primary-foreground shadow-sm"
+                                : "text-muted-foreground hover:bg-background hover:text-foreground"
+                            }`}
+                          >
+                            {month.label}
+                          </button>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
-                      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Agrupar por
-                      </span>
-                      <Select
-                        value={historyGranularity}
-                        onValueChange={(value) => {
-                          setHistoryGranularity(value as HistoryGranularity);
-                          setHistoryPeriod("all");
-                        }}
-                      >
-                        <SelectTrigger data-testid="select-history-granularity" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="month">Meses</SelectItem>
-                          <SelectItem value="year">Años</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      </div>
                     </div>
-                    <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
-                      <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Periodo
+                    <div className="w-full shrink-0 lg:w-[120px]">
+                      <span className="mb-1 block px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                        Año
                       </span>
-                      <Select value={historyPeriod} onValueChange={setHistoryPeriod}>
-                        <SelectTrigger data-testid="select-history-period" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
-                          <SelectValue />
+                      <Select value={selectedYear} onValueChange={handleYearChange} disabled={!yearOptions.length}>
+                        <SelectTrigger data-testid="select-dashboard-year" className="h-[45px] w-full rounded-[6px] border-[#d7d9dc] bg-[#f5f6f7] text-sm font-semibold dark:border-border dark:bg-muted/30">
+                          <SelectValue placeholder="Año" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="all">Todos</SelectItem>
-                          {historyPeriodOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              <span className="capitalize">{option.label}</span>
-                            </SelectItem>
+                          {yearOptions.map((year) => (
+                            <SelectItem key={year} value={year}>{year}</SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
-                  <div className="rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] px-3 py-2 dark:border-border dark:bg-muted/30">
-                    <span className="block text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Mostrar histórico
-                    </span>
-                    <Select value={historyDimension} onValueChange={(value) => setHistoryDimension(value as HistoryDimension)}>
-                      <SelectTrigger data-testid="select-history-dimension" className="h-6 w-full border-0 p-0 text-sm font-semibold shadow-none focus:ring-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="panel">Por panel</SelectItem>
-                        <SelectItem value="defect">Por defecto</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <MultiFilter
+                      label="Semana"
+                      icon={CalendarDays}
+                      options={filterOptions.weeks}
+                      selected={selectedWeeks}
+                      onChange={setSelectedWeeks}
+                    />
+                    <MultiFilter
+                      label="Día"
+                      icon={CalendarDays}
+                      options={filterOptions.days}
+                      selected={selectedDays}
+                      onChange={setSelectedDays}
+                    />
+                    <MultiFilter
+                      label="Panel"
+                      icon={PanelTop}
+                      options={filterOptions.panelOptions}
+                      selected={selectedPanels}
+                      onChange={setSelectedPanels}
+                    />
+                    <MultiFilter
+                      label="Lado"
+                      icon={Users}
+                      options={filterOptions.sides}
+                      selected={selectedSides}
+                      onChange={setSelectedSides}
+                    />
+                    <MultiFilter
+                      label="Defecto"
+                      icon={AlertTriangle}
+                      options={filterOptions.defectOptions}
+                      selected={selectedDefects}
+                      onChange={setSelectedDefects}
+                    />
                   </div>
                   {filterCount > 0 && (
                     <Button variant="ghost" size="sm" className="mt-1 h-8 w-full" onClick={clearFilters}>
@@ -1685,7 +1494,7 @@ export default function AnalisisDashboard() {
                   )}
                 </CardContent>
               </Card>
-            </aside>
+            </section>
           </div>
         </div>
       </div>
