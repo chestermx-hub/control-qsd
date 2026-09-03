@@ -1030,14 +1030,16 @@ export default function AnalisisDashboard() {
                       data-testid="button-zone-all"
                       aria-pressed={activeZoneId === null}
                       onClick={() => handleZoneChange(null)}
-                      className={`min-w-[160px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                      className={`min-w-[180px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
                         activeZoneId === null ? "border-primary bg-primary/5" : "bg-card"
                       }`}
                     >
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <span className="flex min-w-0 items-center gap-2">
                           <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-primary" />
-                          <span className="truncate text-sm font-semibold">Todas las zonas</span>
+                          <span className="min-w-0 whitespace-normal break-words text-sm font-semibold leading-tight">
+                            Todas las zonas
+                          </span>
                         </span>
                         {activeZoneId === null && <Check className="h-4 w-4 text-primary" />}
                       </div>
@@ -1065,7 +1067,7 @@ export default function AnalisisDashboard() {
                         data-testid={`button-zone-${zone.id}`}
                         aria-pressed={activeZoneId === zone.id}
                         onClick={() => handleZoneChange(activeZoneId === zone.id ? null : zone.id)}
-                        className={`min-w-[160px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
+                        className={`min-w-[180px] flex-1 rounded-lg border p-3 text-left transition-colors hover:border-primary/50 ${
                           activeZoneId === zone.id ? "border-primary bg-primary/5" : "bg-card"
                         }`}
                       >
@@ -1075,7 +1077,9 @@ export default function AnalisisDashboard() {
                               className="h-2.5 w-2.5 shrink-0 rounded-full"
                               style={{ backgroundColor: CHART_COLOR_LIST[index % CHART_COLOR_LIST.length] }}
                             />
-                            <span className="truncate text-sm font-semibold">{zone.name}</span>
+                            <span className="min-w-0 whitespace-normal break-words text-sm font-semibold leading-tight">
+                              {zone.name}
+                            </span>
                           </span>
                           {activeZoneId === zone.id && <Check className="h-4 w-4 text-primary" />}
                         </div>
