@@ -148,7 +148,7 @@ type ZoneDefectChart = {
     defects: number;
     units: number;
   }>;
-  pieData: Array<{ name: string; value: number }>;
+  pieData: Array<{ name: string; value: number; percentage: number }>;
   barData: Array<{ name: string; value: number }>;
 };
 
@@ -282,12 +282,13 @@ function ChartTooltip({
 function ZonePieTooltip({
   active,
   payload,
+  total,
 }: {
   active?: boolean;
   payload?: Array<{ name?: string; value?: number; color?: string }>;
+  total: number;
 }) {
   if (!active || !payload?.length) return null;
-  const total = payload.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
   const item = payload[0];
   const percentage = total > 0 ? ((item?.value ?? 0) / total) * 100 : 0;
   return (
@@ -309,6 +310,9 @@ function ZonePieLabel({
   midAngle = 0,
   outerRadius = 0,
   value = 0,
+  name = "",
+  percentage,
+  percent,
   total,
   fill,
 }: {
@@ -317,33 +321,59 @@ function ZonePieLabel({
   midAngle?: number;
   outerRadius?: number;
   value?: number | string;
-  total: number;
+  name?: string;
+  percentage?: number;
+  percent?: number;
+  total?: number;
   fill: string;
 }) {
   const numericValue = Number(value ?? 0);
   if (!numericValue || !total) return null;
   const angle = (-midAngle * Math.PI) / 180;
-  const radius = outerRadius + 18;
-  const x = cx + radius * Math.cos(angle);
-  const y = cy + radius * Math.sin(angle);
-  const percentage = (numericValue / total) * 100;
+  const startRadius = outerRadius + 2;
+  const elbowRadius = outerRadius + 22;
+  const startX = cx + startRadius * Math.cos(angle);
+  const startY = cy + startRadius * Math.sin(angle);
+  const elbowX = cx + elbowRadius * Math.cos(angle);
+  const elbowY = cy + elbowRadius * Math.sin(angle);
+  const isRight = Math.cos(angle) >= 0;
+  const textX = elbowX + (isRight ? 6 : -6);
+  const textAnchor = isRight ? "start" : "end";
+  const actualPercentage =
+    typeof percentage === "number"
+      ? percentage
+      : typeof percent === "number"
+        ? percent * 100
+        : (numericValue / total) * 100;
+  const displayName =
+    name.length > 22 ? `${name.slice(0, 21).trimEnd()}…` : name;
 
   return (
-    <text
-      x={x}
-      y={y}
-      textAnchor={x >= cx ? "start" : "end"}
-      fill={fill}
-      fontSize={10}
-      fontWeight={600}
-    >
-      <tspan x={x} dy="0">
-        {formatNumber(numericValue)}
-      </tspan>
-      <tspan x={x} dy="12">
-        {formatDecimal(percentage)}%
-      </tspan>
-    </text>
+    <g>
+      <polyline
+        points={`${startX},${startY} ${elbowX},${elbowY} ${textX},${elbowY}`}
+        fill="none"
+        stroke={fill}
+        strokeOpacity={0.7}
+        strokeWidth={1}
+      />
+      <circle cx={startX} cy={startY} r={2} fill={fill} />
+      <text
+        x={textX}
+        y={elbowY - 4}
+        textAnchor={textAnchor}
+        fill={fill}
+        fontSize={9}
+        fontWeight={600}
+      >
+        <tspan x={textX} dy="0">
+          {displayName}
+        </tspan>
+        <tspan x={textX} dy="12" fontWeight={700}>
+          {formatNumber(numericValue)} · {formatDecimal(actualPercentage)}%
+        </tspan>
+      </text>
+    </g>
   );
 }
 
@@ -920,6 +950,11 @@ export default function AnalisisDashboard() {
         const topForPie = sortedDefects.slice(0, 8);
         const otherValue = sortedDefects.slice(8).reduce((sum, item) => sum + item.value, 0);
         if (otherValue > 0) topForPie.push({ name: "Otros", value: otherValue });
+        const pieTotal = topForPie.reduce((sum, item) => sum + item.value, 0);
+        const pieData = topForPie.map((item) => ({
+          ...item,
+          percentage: pieTotal > 0 ? (item.value / pieTotal) * 100 : 0,
+        }));
 
         const daily = new Map<string, { total: number; units: Set<string> }>();
         for (const capture of zoneCaptures) {
@@ -948,7 +983,7 @@ export default function AnalisisDashboard() {
             ? dailyDpuData.reduce((sum, day) => sum + day.dpu, 0) / dailyDpuData.length
             : 0,
           dailyDpuData,
-          pieData: topForPie,
+          pieData,
           barData: topDefects,
         };
       }),
@@ -1324,19 +1359,26 @@ export default function AnalisisDashboard() {
                           </CardHeader>
                           <CardContent className="px-4 pb-4 pt-0">
                           {zone.pieData.length ? (
-                              <ResponsiveContainer width="100%" height={250}>
+                              <ResponsiveContainer width="100%" height={340}>
                                 <PieChart>
                                   <Pie
                                     data={zone.pieData}
                                     dataKey="value"
                                     nameKey="name"
                                     cx="50%"
-                                    cy="45%"
-                                    innerRadius={52}
-                                    outerRadius={86}
+                                    cy="43%"
+                                    innerRadius={62}
+                                    outerRadius={98}
                                     paddingAngle={2}
                                     stroke={isDark ? "#1f2937" : "#ffffff"}
                                     strokeWidth={2}
+                                    labelLine={false}
+                                    label={
+                                      <ZonePieLabel
+                                        total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
+                                        fill={isDark ? "#f8fafc" : "#334155"}
+                                      />
+                                    }
                                     isAnimationActive={false}
                                   >
                                     {zone.pieData.map((entry, index) => (
@@ -1345,23 +1387,12 @@ export default function AnalisisDashboard() {
                                         fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
                                       />
                                     ))}
-                                    <LabelList
-                                      dataKey="value"
-                                      content={
-                                        <ZonePieLabel
-                                          total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
-                                          fill={isDark ? "#f8fafc" : "#334155"}
-                                        />
-                                      }
-                                    />
                                   </Pie>
-                                  <Tooltip content={<ZonePieTooltip />} />
-                                  <Legend
-                                    verticalAlign="bottom"
-                                    height={54}
-                                    wrapperStyle={{ fontSize: 10 }}
-                                    formatter={(value) =>
-                                      value.length > 18 ? `${value.slice(0, 18)}…` : value
+                                  <Tooltip
+                                    content={
+                                      <ZonePieTooltip
+                                        total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
+                                      />
                                     }
                                   />
                                 </PieChart>
