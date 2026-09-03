@@ -22,8 +22,11 @@ import {
   Cell,
   Legend,
   LabelList,
+  Line,
+  LineChart,
   Pie,
   PieChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -138,6 +141,13 @@ type ZoneDefectChart = {
   total: number;
   units: number;
   averageDpu: number;
+  dailyDpuData: Array<{
+    date: string;
+    label: string;
+    dpu: number;
+    defects: number;
+    units: number;
+  }>;
   pieData: Array<{ name: string; value: number }>;
   barData: Array<{ name: string; value: number }>;
 };
@@ -918,18 +928,26 @@ export default function AnalisisDashboard() {
           day.units.add(`${capture.date}|${capture.unit_number}`);
           daily.set(capture.date, day);
         }
-        const dailyDpus = Array.from(daily.values())
-          .filter((day) => day.units.size > 0)
-          .map((day) => day.total / day.units.size);
+        const dailyDpuData = Array.from(daily.entries())
+          .sort(([firstDate], [secondDate]) => firstDate.localeCompare(secondDate))
+          .filter(([, day]) => day.units.size > 0)
+          .map(([date, day]) => ({
+            date,
+            label: dateLabel(date),
+            dpu: day.total / day.units.size,
+            defects: day.total,
+            units: day.units.size,
+          }));
 
         return {
           id: zone.id,
           name: zone.name,
           total: zoneCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
           units: uniqueUnits(zoneCaptures),
-          averageDpu: dailyDpus.length
-            ? dailyDpus.reduce((sum, dpu) => sum + dpu, 0) / dailyDpus.length
+          averageDpu: dailyDpuData.length
+            ? dailyDpuData.reduce((sum, day) => sum + day.dpu, 0) / dailyDpuData.length
             : 0,
+          dailyDpuData,
           pieData: topForPie,
           barData: topDefects,
         };
@@ -1407,6 +1425,82 @@ export default function AnalisisDashboard() {
                           </CardContent>
                         </Card>
                       </div>
+                      <Card className="min-w-0">
+                        <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-1 pt-4">
+                          <div>
+                            <CardTitle className="text-sm">Tendencia de DPU</CardTitle>
+                            <CardDescription>
+                              Evolución diaria del DPU en {zone.name}
+                            </CardDescription>
+                          </div>
+                          <div className="rounded-lg border bg-muted/30 px-3 py-2 text-right">
+                            <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              DPU promedio
+                            </span>
+                            <span className="text-xl font-bold text-[#d97706]">
+                              {formatDecimal(zone.averageDpu)}
+                            </span>
+                            <span className="block text-[10px] text-muted-foreground">por día</span>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4 pt-0">
+                          {zone.dailyDpuData.length ? (
+                            <ResponsiveContainer width="100%" height={250}>
+                              <LineChart
+                                data={zone.dailyDpuData}
+                                margin={{ top: 24, right: 12, left: -12, bottom: 8 }}
+                              >
+                                <CartesianGrid
+                                  strokeDasharray="3 3"
+                                  stroke={gridColor}
+                                  vertical={false}
+                                />
+                                <XAxis
+                                  dataKey="label"
+                                  interval="preserveStartEnd"
+                                  tick={{ fontSize: 10, fill: tickColor }}
+                                  stroke={tickColor}
+                                  tickFormatter={(value: string) => value.slice(0, 5)}
+                                />
+                                <YAxis
+                                  tick={{ fontSize: 10, fill: tickColor }}
+                                  stroke={tickColor}
+                                  allowDecimals
+                                  tickFormatter={(value: number) => formatDecimal(value)}
+                                />
+                                <Tooltip
+                                  content={<ChartTooltip formatValuesAsDpu />}
+                                  cursor={{ stroke: tickColor, strokeDasharray: "3 3" }}
+                                />
+                                <ReferenceLine
+                                  y={zone.averageDpu}
+                                  stroke={CHART_COLORS.amber}
+                                  strokeDasharray="5 5"
+                                />
+                                <Line
+                                  type="monotone"
+                                  dataKey="dpu"
+                                  name="DPU diario"
+                                  stroke={CHART_COLORS.blue}
+                                  strokeWidth={3}
+                                  dot={{ r: 3, fill: CHART_COLORS.blue }}
+                                  activeDot={{ r: 5 }}
+                                  isAnimationActive={false}
+                                >
+                                  <LabelList
+                                    dataKey="dpu"
+                                    position="top"
+                                    formatter={(value: number) => formatDecimal(value)}
+                                    style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                                  />
+                                </Line>
+                              </LineChart>
+                            </ResponsiveContainer>
+                          ) : (
+                            <EmptyChart message="No hay datos diarios de DPU para mostrar." />
+                          )}
+                        </CardContent>
+                      </Card>
                     </div>
                   ))}
                 </div>
