@@ -7,6 +7,7 @@
 - [Audit capture positions](audit-capture-positions.md) — new defects require LH/RH; historical Centro rows remain readable and correctable.
 - [Automatic cell keys](automatic-cell-keys.md) — new capture keys come from row and column labels; legacy alphanumeric fields remain only for historical compatibility.
 - [Playwright in Nix](playwright-nix.md) — use the system Chromium executable for browser tests when the bundled browser lacks Nix runtime libraries.
+- [Recharts hover targets](recharts-hover-targets.md) — scroll pie sectors into view and sample a point inside the path before moving the mouse in browser tests.
 - [Panel appearance preferences](panel-appearance-preferences.md) — panel image tint is user-scoped; explicit null means “Original” and overrides legacy shared defaults.
 - [Overlay account actions](overlay-account-actions.md) — browser tests must open the navigation overlay before asserting logout or other account controls.
 - [Replit DATABASE_URL warning](replit-database-url-warning.md) — compare managed PG* values before treating the publishing warning as a data migration.

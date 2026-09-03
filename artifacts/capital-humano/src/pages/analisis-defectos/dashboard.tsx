@@ -1346,7 +1346,7 @@ export default function AnalisisDashboard() {
                 </div>
                 <div className="space-y-5">
                   {visibleZoneDefectCharts.map((zone) => (
-                    <div key={zone.id} className="space-y-3">
+                    <div key={zone.id} className="space-y-3" data-testid={`zone-defect-analysis-${zone.id}`}>
                       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                         <div>
                           <h3 className="text-base font-semibold">{zone.name}</h3>
@@ -1367,7 +1367,7 @@ export default function AnalisisDashboard() {
                         </div>
                       </div>
                       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                        <Card className="min-w-0">
+                        <Card className="min-w-0" data-testid={`zone-pie-chart-${zone.id}`}>
                           <CardHeader className="px-4 pb-1 pt-4">
                             <CardTitle className="text-sm">Distribución de defectos</CardTitle>
                             <CardDescription>Participación porcentual por defecto</CardDescription>
