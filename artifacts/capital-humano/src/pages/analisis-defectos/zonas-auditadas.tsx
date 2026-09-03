@@ -60,6 +60,42 @@ type AuditCapture = {
   quantity: number;
 };
 
+type DefectCatalogItem = {
+  id: number;
+  code: string;
+  name: string;
+};
+
+function defectLabelForCapture(
+  capture: AuditCapture,
+  defects: DefectCatalogItem[] | undefined,
+) {
+  const defect = capture.defect_id != null
+    ? defects?.find((item) => item.id === capture.defect_id)
+    : undefined;
+  if (defect) return `${defect.code} — ${defect.name}`;
+  if (capture.defect_other?.trim()) return capture.defect_other.trim();
+  if (capture.defect_id != null) return `#${capture.defect_id}`;
+  return "—";
+}
+
+function uniqueExcelSheetName(name: string, usedNames: Set<string>) {
+  const cleanName = name
+    .replace(/[:\\/?*\[\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim() || "Sin zona";
+  const baseName = cleanName.slice(0, 31);
+  let candidate = baseName;
+  let suffix = 2;
+  while (usedNames.has(candidate)) {
+    const suffixText = ` ${suffix}`;
+    candidate = `${baseName.slice(0, 31 - suffixText.length)}${suffixText}`;
+    suffix += 1;
+  }
+  usedNames.add(candidate);
+  return candidate;
+}
+
 type UnitGroup = {
   unit_number: number;
   date: string;
@@ -726,12 +762,7 @@ function AgregarDefectosDialog({
                 <div key={cap.id} className="flex items-center gap-3 py-1.5 text-sm px-1">
                   <span className="font-mono font-medium w-10 shrink-0 text-muted-foreground">{cap.grid_row}{cap.grid_col_label ?? cap.grid_col}</span>
                   <span className="flex-1 text-muted-foreground">
-                    {cap.defect_other ? `Otro: ${cap.defect_other}` : cap.defect_id ? (
-                      (() => {
-                        const d = defects?.find((def) => def.id === cap.defect_id);
-                        return d ? `${d.code} — ${d.name}` : `#${cap.defect_id}`;
-                      })()
-                    ) : "—"}
+                    {defectLabelForCapture(cap, defects)}
                   </span>
                   <Badge variant="outline" className="text-xs">Cant: {cap.quantity}</Badge>
                 </div>
@@ -923,12 +954,7 @@ export default function AnalisisZonasAuditadas() {
   });
 
   const getDefectLabel = (capture: AuditCapture) => {
-    if (capture.defect_other) return `Otro: ${capture.defect_other}`;
-    if (capture.defect_id) {
-      const d = defects?.find((d) => d.id === capture.defect_id);
-      return d ? `${d.code} — ${d.name}` : `#${capture.defect_id}`;
-    }
-    return "-";
+    return defectLabelForCapture(capture, defects);
   };
 
   const unitGroups = useMemo<UnitGroup[]>(() => {
@@ -1000,53 +1026,96 @@ export default function AnalisisZonasAuditadas() {
       return a.id - b.id;
     });
 
-    // Stats por fecha
-    const statsByDate = new Map<string, { total: number; uniqueUnits: number; dpuDia: number; r1000: number }>();
-    const groupedByDate = new Map<string, AuditCapture[]>();
-    for (const c of sorted) {
-      if (!groupedByDate.has(c.date)) groupedByDate.set(c.date, []);
-      groupedByDate.get(c.date)!.push(c);
-    }
-    for (const [date, caps] of groupedByDate) {
-      const total = caps.reduce((s, c) => s + (c.quantity ?? 1), 0);
-      const uniqueUnits = new Set(caps.map((c) => c.unit_number)).size;
-      const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
-      statsByDate.set(date, { total, uniqueUnits, dpuDia, r1000: dpuDia * 1000 });
-    }
-
-    // Registrar primera fila por fecha para saber dónde mostrar totales
-    const firstRowByDate = new Map<string, number>();
-    sorted.forEach((c, i) => { if (!firstRowByDate.has(c.date)) firstRowByDate.set(c.date, i); });
-
-    const rows = sorted.map((c, i) => {
-      const panel = panels?.find((p) => p.id === c.panel_id);
-      const vz = visualZones?.find((v) => v.id === c.visual_zone_id);
-      const defect = defects?.find((d) => d.id === c.defect_id);
-      const defectLabel = c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—";
-      const isFirstOfDay = firstRowByDate.get(c.date) === i;
-      const stats = statsByDate.get(c.date);
-      return {
-        Unidad: c.unit_number,
-        Semana: c.week_number,
-        Fecha: c.date,
-        SK: c.skill_number ?? "",
-        Panel: panel?.name ?? "",
-        Posición: positionLabel(c.side_position),
-        "Zona Vista": vz?.name ?? "",
-        "Clave Alfa Numérica": `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
-        Defecto: defectLabel,
-        Cantidad: c.quantity,
-        Total: isFirstOfDay && stats ? stats.total : "",
-        "DPU Día": isFirstOfDay && stats ? Number(stats.dpuDia.toFixed(1)) : "",
-        R1000: isFirstOfDay && stats ? Number(stats.r1000.toFixed(0)) : "",
-         Analista: DEFAULT_ANALYST_NAME,
-        Turno: "1ro",
-      };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Capturas");
+    const exportHeaders = [
+      "Unidad",
+      "Semana",
+      "Fecha",
+      "SK",
+      "Panel",
+      "Posición",
+      "Zona Auditada",
+      "Zona Vista",
+      "Clave Alfa Numérica",
+      "Defecto",
+      "Cantidad",
+      "Total",
+      "DPU Día",
+      "R1000",
+      "Analista",
+      "Turno",
+    ];
+
+    const rowsForSheet = (source: AuditCapture[]) => {
+      const ordered = [...source].sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date);
+        if ((a.zone_id ?? 0) !== (b.zone_id ?? 0)) return (a.zone_id ?? 0) - (b.zone_id ?? 0);
+        if (a.unit_number !== b.unit_number) return a.unit_number - b.unit_number;
+        return a.id - b.id;
+      });
+      const statsByDate = new Map<string, { total: number; dpuDia: number; r1000: number }>();
+      const groupedByDate = new Map<string, AuditCapture[]>();
+      for (const capture of ordered) {
+        const capturesForDate = groupedByDate.get(capture.date) ?? [];
+        capturesForDate.push(capture);
+        groupedByDate.set(capture.date, capturesForDate);
+      }
+      for (const [date, capturesForDate] of groupedByDate) {
+        const total = capturesForDate.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
+        const uniqueUnits = new Set(capturesForDate.map((capture) => capture.unit_number)).size;
+        const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
+        statsByDate.set(date, { total, dpuDia, r1000: dpuDia * 1000 });
+      }
+
+      const firstRowByDate = new Set<string>();
+      return ordered.map((capture) => {
+        const panel = panels?.find((item) => item.id === capture.panel_id);
+        const visualZone = visualZones?.find((item) => item.id === capture.visual_zone_id);
+        const auditedZone = zones?.find((item) => item.id === capture.zone_id);
+        const stats = statsByDate.get(capture.date);
+        const isFirstOfDay = !firstRowByDate.has(capture.date);
+        firstRowByDate.add(capture.date);
+        return {
+          Unidad: capture.unit_number,
+          Semana: capture.week_number,
+          Fecha: capture.date,
+          SK: capture.skill_number ?? "",
+          Panel: panel?.name ?? "",
+          Posición: positionLabel(capture.side_position),
+          "Zona Auditada": auditedZone?.name ?? "Sin zona",
+          "Zona Vista": visualZone?.name ?? "",
+          "Clave Alfa Numérica": `${capture.grid_row}${capture.grid_col_label ?? capture.grid_col}`,
+          Defecto: getDefectLabel(capture),
+          Cantidad: capture.quantity,
+          Total: isFirstOfDay && stats ? stats.total : "",
+          "DPU Día": isFirstOfDay && stats ? Number(stats.dpuDia.toFixed(1)) : "",
+          R1000: isFirstOfDay && stats ? Number(stats.r1000.toFixed(0)) : "",
+          Analista: DEFAULT_ANALYST_NAME,
+          Turno: "1ro",
+        };
+      });
+    };
+
+    const appendSheet = (name: string, rows: ReturnType<typeof rowsForSheet>) => {
+      const sheet = rows.length
+        ? XLSX.utils.json_to_sheet(rows)
+        : XLSX.utils.json_to_sheet([], { header: exportHeaders });
+      XLSX.utils.book_append_sheet(wb, sheet, name);
+    };
+
+    const usedSheetNames = new Set<string>();
+    appendSheet(uniqueExcelSheetName("General", usedSheetNames), rowsForSheet(sorted));
+    for (const zone of zones ?? []) {
+      appendSheet(
+        uniqueExcelSheetName(zone.name, usedSheetNames),
+        rowsForSheet(sorted.filter((capture) => capture.zone_id === zone.id)),
+      );
+    }
+    const uncategorized = sorted.filter((capture) => capture.zone_id == null);
+    if (uncategorized.length) {
+      appendSheet(uniqueExcelSheetName("Sin zona", usedSheetNames), rowsForSheet(uncategorized));
+    }
+
     const year = new Date().getFullYear();
     XLSX.writeFile(wb, `capturas_auditoria_${year}.xlsx`);
   };
@@ -1072,7 +1141,6 @@ export default function AnalisisZonasAuditadas() {
     return allCaptures.map((c, idx) => {
       const panel = getPanel(c.panel_id);
       const vz = visualZones?.find((v) => v.id === c.visual_zone_id);
-      const defect = defects?.find((d) => d.id === c.defect_id);
       return {
         idx,
         capture: c,
@@ -1080,8 +1148,8 @@ export default function AnalisisZonasAuditadas() {
         zoneAbbreviation: zoneAbbreviation(zones?.find((zone) => zone.id === c.zone_id)?.name),
         vzName: vz?.name ?? "—",
         cellLabel: `${c.grid_row}${c.grid_col_label ?? c.grid_col}`,
-        defectSummary: c.defect_other ? "Otro" : defect?.code ?? "—",
-        defectLabel: c.defect_other ? `Otro: ${c.defect_other}` : defect ? `${defect.code} — ${defect.name}` : "—",
+        defectSummary: getDefectLabel(c),
+        defectLabel: getDefectLabel(c),
         analystName: DEFAULT_ANALYST_NAME,
       };
     });
