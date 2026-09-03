@@ -622,9 +622,6 @@ export default function AnalisisDashboard() {
   const defectCode = (id: number | null) =>
     defects?.find((item) => item.id === id)?.code ??
     (id === null ? "Sin defecto" : `#${id}`);
-  const defectName = (id: number | null) =>
-    defects?.find((item) => item.id === id)?.name ??
-    (id === null ? "Sin defecto" : `#${id}`);
   const legacyDefectCode = (value?: string | null) => {
     const text = value?.trim();
     if (!text) return "Sin defecto";
@@ -720,7 +717,7 @@ export default function AnalisisDashboard() {
         value,
         label:
           value === "other"
-            ? `Otro${capture?.defect_other ? ` — ${capture.defect_other}` : ""}`
+            ? legacyDefectCode(capture?.defect_other)
             : value === "none"
               ? "Sin defecto"
               : defectLabel(capture?.defect_id ?? null),
@@ -736,7 +733,7 @@ export default function AnalisisDashboard() {
     }));
 
     return { weeks, days, sides, defectOptions, panelOptions };
-  }, [defectLabel, monthZoneCaptures, panelName]);
+  }, [defectLabel, legacyDefectCode, monthZoneCaptures, panelName]);
 
   const applyFilters = (
     rows: Capture[],
@@ -935,24 +932,22 @@ export default function AnalisisDashboard() {
       return rows;
     });
   }, [panelData]);
-  const defectData = useMemo(
-    () =>
-      aggregateBy(
-        defectChartCaptures,
-        (capture) => capture.defect_id,
-        defectCode,
-      ).map((item) => {
-        if (item.id === null) {
-          const other = defectChartCaptures.find((capture) => capture.defect_id == null);
-          return {
-            ...item,
-            name: other?.defect_other ? `Otro — ${other.defect_other}` : item.name,
-          };
-        }
-        return item;
-      }).slice(0, 8),
-    [defectChartCaptures, defects],
-  );
+  const defectData = useMemo(() => {
+    const groups = new Map<string, Aggregate>();
+    for (const capture of defectChartCaptures) {
+      const name = defectCodeForCapture(capture);
+      const previous = groups.get(name);
+      groups.set(name, {
+        id: capture.defect_id ?? null,
+        name,
+        value: (previous?.value ?? 0) + (capture.quantity ?? 1),
+        captures: (previous?.captures ?? 0) + 1,
+      });
+    }
+    return Array.from(groups.values())
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8);
+  }, [defectChartCaptures, defectCodeForCapture]);
   const zoneDefectCharts = useMemo<ZoneDefectChart[]>(
     () =>
       (zones ?? []).map((zone) => {
