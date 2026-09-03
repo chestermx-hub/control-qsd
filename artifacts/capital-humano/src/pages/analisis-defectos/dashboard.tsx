@@ -78,6 +78,20 @@ const ZONE_CHART_COLORS = [
   "#65a30d",
 ];
 
+const ZONE_PROCESS_ORDER = [
+  "transferencia",
+  "zona u",
+  "entrada a lijado",
+  "salida de lijado",
+  "salida de 3 wet",
+];
+
+function zoneProcessOrder(name: string, fallback = Number.MAX_SAFE_INTEGER) {
+  const normalized = name.trim().toLocaleLowerCase();
+  const index = ZONE_PROCESS_ORDER.indexOf(normalized);
+  return index === -1 ? fallback : index;
+}
+
 const SIDE_OPTIONS = [
   { value: "right", label: "Derecho" },
   { value: "left", label: "Izquierdo" },
@@ -660,7 +674,7 @@ export default function AnalisisDashboard() {
             captures: rows.length,
           };
         })
-        .sort((a, b) => b.value - a.value),
+        .sort((a, b) => zoneProcessOrder(a.name, a.id) - zoneProcessOrder(b.name, b.id)),
     [zoneBaseCaptures, zones],
   );
   const allZonesSummary = useMemo(
@@ -680,12 +694,14 @@ export default function AnalisisDashboard() {
           item,
         ]),
       );
-      return (zones ?? []).map((zone) => ({
-        id: zone.id,
-        name: zone.name,
-        value: aggregates.get(zone.id)?.value ?? 0,
-        captures: aggregates.get(zone.id)?.captures ?? 0,
-      }));
+      return (zones ?? [])
+        .map((zone) => ({
+          id: zone.id,
+          name: zone.name,
+          value: aggregates.get(zone.id)?.value ?? 0,
+          captures: aggregates.get(zone.id)?.captures ?? 0,
+        }))
+        .sort((a, b) => zoneProcessOrder(a.name, a.id) - zoneProcessOrder(b.name, b.id));
     },
     [zoneBaseCaptures, zones],
   );
@@ -784,11 +800,19 @@ export default function AnalisisDashboard() {
     [defectName, zoneBaseCaptures, zones],
   );
   const overallAverageDpu = useMemo(() => {
-    const populated = zoneDefectCharts.filter((zone) => zone.units > 0);
+    const visibleZones =
+      activeZoneId === null
+        ? zoneDefectCharts
+        : zoneDefectCharts.filter((zone) => zone.id === activeZoneId);
+    const populated = visibleZones.filter((zone) => zone.units > 0);
     return populated.length
       ? populated.reduce((sum, zone) => sum + zone.averageDpu, 0) / populated.length
       : 0;
-  }, [zoneDefectCharts]);
+  }, [activeZoneId, zoneDefectCharts]);
+  const visibleZoneDefectCharts =
+    activeZoneId === null
+      ? zoneDefectCharts
+      : zoneDefectCharts.filter((zone) => zone.id === activeZoneId);
   const [historyZoneId, setHistoryZoneId] = useState<number | null>(null);
   const [historyGranularity, setHistoryGranularity] = useState<HistoryGranularity>("month");
   const [historyPeriod, setHistoryPeriod] = useState("all");
@@ -1239,9 +1263,13 @@ export default function AnalisisDashboard() {
               <section className="order-5 space-y-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-semibold">Análisis por zona</h2>
+                    <h2 className="text-lg font-semibold">
+                      Análisis por zona{activeZoneId !== null ? ` · ${activeZoneName}` : ""}
+                    </h2>
                     <p className="text-sm text-muted-foreground">
-                      Distribución de defectos y DPU promedio por día en el periodo seleccionado.
+                      {activeZoneId === null
+                        ? "Vista comparativa de las zonas. Selecciona una tarjeta para consultar una zona específica."
+                        : "Distribución de defectos y DPU promedio por día de la zona seleccionada."}
                     </p>
                   </div>
                   <Badge variant="secondary" className="text-sm">
@@ -1249,7 +1277,7 @@ export default function AnalisisDashboard() {
                   </Badge>
                 </div>
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                  {zoneDefectCharts.map((zone) => (
+                  {visibleZoneDefectCharts.map((zone) => (
                     <Card key={zone.id} className="overflow-hidden">
                       <CardHeader className="border-b px-4 pb-3 pt-4">
                         <div className="flex flex-wrap items-start justify-between gap-3">
