@@ -189,6 +189,14 @@ function dateLabel(date: string) {
   }).format(new Date(year, month - 1, day));
 }
 
+function normalizeDefectText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLocaleLowerCase();
+}
+
 function uniqueUnits(captures: Capture[]) {
   return new Set(
     captures.map(
@@ -612,9 +620,26 @@ export default function AnalisisDashboard() {
     return defect ? `${defect.code} — ${defect.name}` : "Sin defecto";
   };
   const defectCode = (id: number | null) =>
-    defects?.find((item) => item.id === id)?.code ?? "Otro";
+    defects?.find((item) => item.id === id)?.code ??
+    (id === null ? "Sin defecto" : `#${id}`);
   const defectName = (id: number | null) =>
-    defects?.find((item) => item.id === id)?.name ?? "Otro";
+    defects?.find((item) => item.id === id)?.name ??
+    (id === null ? "Sin defecto" : `#${id}`);
+  const legacyDefectCode = (value?: string | null) => {
+    const text = value?.trim();
+    if (!text) return "Sin defecto";
+    const normalizedText = normalizeDefectText(text);
+    const catalogDefect = defects?.find(
+      (item) =>
+        normalizeDefectText(item.name) === normalizedText ||
+        normalizeDefectText(item.code) === normalizedText,
+    );
+    return catalogDefect?.code ?? text;
+  };
+  const defectCodeForCapture = (capture: Capture) =>
+    capture.defect_id != null
+      ? defectCode(capture.defect_id)
+      : legacyDefectCode(capture.defect_other);
 
   const auditedZoneIds = useMemo(
     () => new Set((zones ?? []).map((zone) => zone.id)),
@@ -934,11 +959,7 @@ export default function AnalisisDashboard() {
         const zoneCaptures = zoneBaseCaptures.filter((capture) => capture.zone_id === zone.id);
         const defectTotals = new Map<string, number>();
         for (const capture of zoneCaptures) {
-          const key = capture.defect_id != null
-            ? defectName(capture.defect_id)
-            : capture.defect_other
-              ? `Otro — ${capture.defect_other}`
-              : "Sin defecto";
+          const key = defectCodeForCapture(capture);
           defectTotals.set(key, (defectTotals.get(key) ?? 0) + (capture.quantity ?? 1));
         }
 
@@ -986,7 +1007,7 @@ export default function AnalisisDashboard() {
           barData: topDefects,
         };
       }),
-    [defectName, zoneBaseCaptures, zones],
+    [defectCodeForCapture, zoneBaseCaptures, zones],
   );
   const overallAverageDpu = useMemo(() => {
     const visibleZones =
