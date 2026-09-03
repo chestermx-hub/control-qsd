@@ -1540,7 +1540,7 @@ export default function AnalisisDashboard() {
             </>
           )}
             </main>
-            <aside className="order-0 w-full self-end min-w-0 lg:w-[320px]">
+            <aside className="order-2 w-full self-end min-w-0 lg:w-[320px]">
               <Card className="border-[#d7d9dc] shadow-none">
                 <CardHeader className="border-b px-4 py-3">
                   <div className="flex items-start justify-between gap-2">
