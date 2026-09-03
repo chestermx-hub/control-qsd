@@ -1276,121 +1276,129 @@ export default function AnalisisDashboard() {
                     DPU promedio general: {formatDecimal(overallAverageDpu)}
                   </Badge>
                 </div>
-                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                <div className="space-y-5">
                   {visibleZoneDefectCharts.map((zone) => (
-                    <Card key={zone.id} className="overflow-hidden">
-                      <CardHeader className="border-b px-4 pb-3 pt-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <CardTitle className="text-base">{zone.name}</CardTitle>
-                            <CardDescription>
-                              {zone.total
-                                ? `${formatNumber(zone.total)} defectos · ${formatNumber(zone.units)} unidades`
-                                : "Sin registros en el periodo seleccionado"}
-                            </CardDescription>
-                          </div>
-                          <div className="rounded-lg border bg-muted/30 px-3 py-2 text-right">
-                            <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              DPU promedio
-                            </span>
-                            <span className="text-xl font-bold text-[#d97706]">
-                              {formatDecimal(zone.averageDpu)}
-                            </span>
-                            <span className="block text-[10px] text-muted-foreground">por día</span>
-                          </div>
+                    <div key={zone.id} className="space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                        <div>
+                          <h3 className="text-base font-semibold">{zone.name}</h3>
+                          <p className="text-xs text-muted-foreground">
+                            {zone.total
+                              ? `${formatNumber(zone.total)} defectos · ${formatNumber(zone.units)} unidades`
+                              : "Sin registros en el periodo seleccionado"}
+                          </p>
                         </div>
-                      </CardHeader>
-                      <CardContent className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2">
-                        <div className="min-w-0">
-                          <h3 className="mb-1 text-center text-sm font-semibold">Distribución de defectos</h3>
+                        <div className="rounded-lg border bg-muted/30 px-3 py-2 text-right">
+                          <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            DPU promedio
+                          </span>
+                          <span className="text-xl font-bold text-[#d97706]">
+                            {formatDecimal(zone.averageDpu)}
+                          </span>
+                          <span className="block text-[10px] text-muted-foreground">por día</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                        <Card className="min-w-0">
+                          <CardHeader className="px-4 pb-1 pt-4">
+                            <CardTitle className="text-sm">Distribución de defectos</CardTitle>
+                            <CardDescription>Participación porcentual por defecto</CardDescription>
+                          </CardHeader>
+                          <CardContent className="px-4 pb-4 pt-0">
                           {zone.pieData.length ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                              <PieChart>
-                                <Pie
-                                  data={zone.pieData}
-                                  dataKey="value"
-                                  nameKey="name"
-                                  cx="50%"
-                                  cy="45%"
-                                  innerRadius={52}
-                                  outerRadius={86}
-                                  paddingAngle={2}
-                                  stroke={isDark ? "#1f2937" : "#ffffff"}
-                                  strokeWidth={2}
-                                  isAnimationActive={false}
-                                >
-                                  {zone.pieData.map((entry, index) => (
-                                    <Cell
-                                      key={`${entry.name}-${index}`}
-                                      fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
-                                    />
-                                  ))}
-                                </Pie>
-                                <Tooltip content={<ZonePieTooltip />} />
-                                <Legend
-                                  verticalAlign="bottom"
-                                  height={54}
-                                  wrapperStyle={{ fontSize: 10 }}
-                                  formatter={(value) =>
-                                    value.length > 18 ? `${value.slice(0, 18)}…` : value
-                                  }
-                                />
-                              </PieChart>
-                            </ResponsiveContainer>
+                              <ResponsiveContainer width="100%" height={250}>
+                                <PieChart>
+                                  <Pie
+                                    data={zone.pieData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="45%"
+                                    innerRadius={52}
+                                    outerRadius={86}
+                                    paddingAngle={2}
+                                    stroke={isDark ? "#1f2937" : "#ffffff"}
+                                    strokeWidth={2}
+                                    isAnimationActive={false}
+                                  >
+                                    {zone.pieData.map((entry, index) => (
+                                      <Cell
+                                        key={`${entry.name}-${index}`}
+                                        fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
+                                      />
+                                    ))}
+                                  </Pie>
+                                  <Tooltip content={<ZonePieTooltip />} />
+                                  <Legend
+                                    verticalAlign="bottom"
+                                    height={54}
+                                    wrapperStyle={{ fontSize: 10 }}
+                                    formatter={(value) =>
+                                      value.length > 18 ? `${value.slice(0, 18)}…` : value
+                                    }
+                                  />
+                                </PieChart>
+                              </ResponsiveContainer>
                           ) : (
                             <EmptyChart message="Sin defectos para mostrar." />
                           )}
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="mb-1 text-center text-sm font-semibold">Defectos principales</h3>
+                          </CardContent>
+                        </Card>
+                        <Card className="min-w-0">
+                          <CardHeader className="px-4 pb-1 pt-4">
+                            <CardTitle className="text-sm">Defectos principales</CardTitle>
+                            <CardDescription>Ranking de defectos registrados</CardDescription>
+                          </CardHeader>
+                          <CardContent className="px-4 pb-4 pt-0">
                           {zone.barData.length ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                              <BarChart
-                                data={zone.barData}
-                                margin={{ top: 8, right: 8, left: -16, bottom: 54 }}
-                              >
-                                <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
-                                <XAxis
-                                  dataKey="name"
-                                  interval={0}
-                                  angle={-38}
-                                  textAnchor="end"
-                                  height={70}
-                                  tick={{ fontSize: 9, fill: tickColor }}
-                                  stroke={tickColor}
-                                  tickFormatter={(value: string) =>
-                                    value.length > 14 ? `${value.slice(0, 14)}…` : value
-                                  }
-                                />
-                                <YAxis
-                                  tick={{ fontSize: 10, fill: tickColor }}
-                                  stroke={tickColor}
-                                  allowDecimals={false}
-                                />
-                                <Tooltip content={<ChartTooltip />} cursor={false} />
-                                <Bar
-                                  dataKey="value"
-                                  name="Defectos"
-                                  fill={CHART_COLORS.blue}
-                                  fillOpacity={0.85}
-                                  radius={[4, 4, 0, 0]}
-                                  isAnimationActive={false}
+                              <ResponsiveContainer width="100%" height={250}>
+                                <BarChart
+                                  data={zone.barData}
+                                  margin={{ top: 8, right: 8, left: -16, bottom: 54 }}
                                 >
-                                  {zone.barData.map((entry, index) => (
-                                    <Cell
-                                      key={`${entry.name}-${index}`}
-                                      fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
-                                    />
-                                  ))}
-                                </Bar>
-                              </BarChart>
-                            </ResponsiveContainer>
+                                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                                  <XAxis
+                                    dataKey="name"
+                                    interval={0}
+                                    angle={-38}
+                                    textAnchor="end"
+                                    height={70}
+                                    tick={{ fontSize: 9, fill: tickColor }}
+                                    stroke={tickColor}
+                                    tickFormatter={(value: string) =>
+                                      value.length > 14 ? `${value.slice(0, 14)}…` : value
+                                    }
+                                  />
+                                  <YAxis
+                                    tick={{ fontSize: 10, fill: tickColor }}
+                                    stroke={tickColor}
+                                    allowDecimals={false}
+                                  />
+                                  <Tooltip content={<ChartTooltip />} cursor={false} />
+                                  <Bar
+                                    dataKey="value"
+                                    name="Defectos"
+                                    fill={CHART_COLORS.blue}
+                                    fillOpacity={0.85}
+                                    radius={[4, 4, 0, 0]}
+                                    isAnimationActive={false}
+                                  >
+                                    {zone.barData.map((entry, index) => (
+                                      <Cell
+                                        key={`${entry.name}-${index}`}
+                                        fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
+                                      />
+                                    ))}
+                                  </Bar>
+                                </BarChart>
+                              </ResponsiveContainer>
                           ) : (
                             <EmptyChart message="Sin defectos para mostrar." />
                           )}
-                        </div>
-                      </CardContent>
-                    </Card>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </section>
