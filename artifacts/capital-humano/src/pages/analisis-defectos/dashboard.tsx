@@ -1391,29 +1391,29 @@ export default function AnalisisDashboard() {
             </main>
             <section className="order-2 w-full min-w-0">
               <Card className="border-[#d7d9dc] shadow-none">
-                <CardHeader className="border-b px-4 py-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
+                <CardHeader className="flex-row items-center justify-between space-y-0 border-b px-4 py-2">
+                  <div className="flex min-w-0 items-center gap-3">
+                      <CardTitle className="flex shrink-0 items-center gap-2 text-sm">
                         <Filter className="h-4 w-4 text-primary" />
                         Controles de análisis
                       </CardTitle>
-                      <CardDescription className="mt-1">
+                      <CardDescription className="truncate text-xs">
                         Selecciona el mes, año y filtros para actualizar las gráficas del dashboard.
                       </CardDescription>
-                    </div>
-                    {filterCount > 0 && <Badge variant="secondary">{filterCount}</Badge>}
                   </div>
+                    {filterCount > 0 && <Badge variant="secondary">{filterCount}</Badge>}
                 </CardHeader>
-                <CardContent className="space-y-4 px-4 py-4">
-                  <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Corte actual · {activeZoneName}
-                  </p>
-                  <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-end">
+                <CardContent className="space-y-2 px-3 py-3">
+                  <div className="flex items-center justify-between gap-3 px-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Corte actual · {activeZoneName}
+                    </p>
+                    <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                      Meses
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-end">
                     <div className="min-w-0 flex-1">
-                      <span className="mb-1 block px-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                        Meses
-                      </span>
                       <div className="flex min-w-0 gap-1.5 overflow-x-auto rounded-[6px] border border-[#d7d9dc] bg-[#f5f6f7] p-1.5 dark:border-border dark:bg-muted/30">
                         {monthLineOptions.map((month) => (
                           <button
