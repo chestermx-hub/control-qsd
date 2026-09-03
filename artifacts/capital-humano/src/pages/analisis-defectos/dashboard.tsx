@@ -21,6 +21,7 @@ import {
   CartesianGrid,
   Cell,
   Legend,
+  LabelList,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -121,6 +122,14 @@ type PanelSideAggregate = Aggregate & {
   left: number;
   right: number;
   center: number;
+};
+
+type PanelSideChartRow = {
+  key: string;
+  label: string;
+  sideLabel: string;
+  value: number | null;
+  color: string;
 };
 
 type ZoneDefectChart = {
@@ -284,6 +293,50 @@ function ZonePieTooltip({
   );
 }
 
+function ZonePieLabel({
+  cx = 0,
+  cy = 0,
+  midAngle = 0,
+  outerRadius = 0,
+  value = 0,
+  total,
+  fill,
+}: {
+  cx?: number;
+  cy?: number;
+  midAngle?: number;
+  outerRadius?: number;
+  value?: number | string;
+  total: number;
+  fill: string;
+}) {
+  const numericValue = Number(value ?? 0);
+  if (!numericValue || !total) return null;
+  const angle = (-midAngle * Math.PI) / 180;
+  const radius = outerRadius + 18;
+  const x = cx + radius * Math.cos(angle);
+  const y = cy + radius * Math.sin(angle);
+  const percentage = (numericValue / total) * 100;
+
+  return (
+    <text
+      x={x}
+      y={y}
+      textAnchor={x >= cx ? "start" : "end"}
+      fill={fill}
+      fontSize={10}
+      fontWeight={600}
+    >
+      <tspan x={x} dy="0">
+        {formatNumber(numericValue)}
+      </tspan>
+      <tspan x={x} dy="12">
+        {formatDecimal(percentage)}%
+      </tspan>
+    </text>
+  );
+}
+
 function EmptyChart({ message }: { message: string }) {
   return (
     <div className="flex h-[280px] items-center justify-center rounded-lg border border-dashed bg-muted/10 px-6 text-center">
@@ -331,6 +384,33 @@ function ZoneAxisTick({
             {line}
           </tspan>
         ))}
+      </text>
+    </g>
+  );
+}
+
+function PanelAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  fill,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+  fill: string;
+}) {
+  const label = String(payload?.value ?? "");
+  if (!label.trim()) return null;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        transform="rotate(-55)"
+        textAnchor="end"
+        fill={fill}
+        fontSize={10}
+      >
+        {label.length > 18 ? `${label.slice(0, 18)}…` : label}
       </text>
     </g>
   );
@@ -758,6 +838,35 @@ export default function AnalisisDashboard() {
     },
     [panelChartCaptures, panelName],
   );
+  const panelSideChartData = useMemo<PanelSideChartRow[]>(() => {
+    const groups = [
+      { key: "right", label: "RH · Derecho", color: CHART_COLORS.red, getValue: (item: PanelSideAggregate) => item.right },
+      { key: "left", label: "LH · Izquierdo", color: CHART_COLORS.green, getValue: (item: PanelSideAggregate) => item.left },
+      { key: "center", label: "Centro", color: CHART_COLORS.blue, getValue: (item: PanelSideAggregate) => item.center },
+    ].filter((group) => panelData.some((item) => group.getValue(item) > 0));
+
+    return groups.flatMap((group, groupIndex) => {
+      const rows: PanelSideChartRow[] = panelData
+        .filter((item) => group.getValue(item) > 0)
+        .map((item) => ({
+          key: `${group.key}-${item.id ?? "none"}`,
+          label: item.name,
+          sideLabel: group.label,
+          value: group.getValue(item),
+          color: group.color,
+        }));
+      if (groupIndex < groups.length - 1) {
+        rows.push({
+          key: `${group.key}-spacer`,
+          label: " ",
+          sideLabel: "",
+          value: null,
+          color: "transparent",
+        });
+      }
+      return rows;
+    });
+  }, [panelData]);
   const defectData = useMemo(
     () =>
       aggregateBy(
@@ -1208,6 +1317,15 @@ export default function AnalisisDashboard() {
                                         fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
                                       />
                                     ))}
+                                    <LabelList
+                                      dataKey="value"
+                                      content={
+                                        <ZonePieLabel
+                                          total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
+                                          fill={isDark ? "#f8fafc" : "#334155"}
+                                        />
+                                      }
+                                    />
                                   </Pie>
                                   <Tooltip content={<ZonePieTooltip />} />
                                   <Legend
@@ -1290,10 +1408,12 @@ export default function AnalisisDashboard() {
                     <div>
                       <CardTitle className="flex items-center gap-2 text-base">
                         <PanelTop className="h-4 w-4" />
-                        Defectos por panel
+                        Lado · Panel
                       </CardTitle>
                       <CardDescription>
-                        {activeZoneId === null ? "Comparativo general" : `Paneles en ${activeZoneName}`}
+                        {activeZoneId === null
+                          ? "Defectos por lado y panel"
+                          : `Defectos por lado en ${activeZoneName}`}
                       </CardDescription>
                     </div>
                     <ChartExportButton
@@ -1311,54 +1431,80 @@ export default function AnalisisDashboard() {
                   </CardHeader>
                   <CardContent>
                     {panelData.length ? (
-                      <ResponsiveContainer width="100%" height={280} debounce={0}>
-                        <BarChart
-                          data={panelData}
-                          layout="vertical"
-                          margin={{ top: 8, right: 12, left: 12, bottom: 0 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
-                          <YAxis
-                            type="category"
-                            dataKey="name"
-                            width={110}
-                            tick={{ fontSize: 10, fill: tickColor }}
-                            stroke={tickColor}
-                            tickFormatter={(value: string) => value.length > 17 ? `${value.slice(0, 17)}…` : value}
-                          />
-                          <Tooltip content={<ChartTooltip />} cursor={false} />
-                          <Legend
-                            verticalAlign="top"
-                            height={28}
-                            wrapperStyle={{ fontSize: 11 }}
-                          />
-                          <Bar
-                            dataKey="left"
-                            name="LH · Izquierdo"
-                            fill={CHART_COLORS.green}
-                            fillOpacity={0.8}
-                            radius={[0, 4, 4, 0]}
-                            isAnimationActive={false}
-                          />
-                          <Bar
-                            dataKey="right"
-                            name="RH · Derecho"
-                            fill={CHART_COLORS.red}
-                            fillOpacity={0.8}
-                            radius={[0, 4, 4, 0]}
-                            isAnimationActive={false}
-                          />
-                          <Bar
-                            dataKey="center"
-                            name="Centro"
-                            fill={CHART_COLORS.blue}
-                            fillOpacity={0.75}
-                            radius={[0, 4, 4, 0]}
-                            isAnimationActive={false}
-                          />
-                        </BarChart>
-                      </ResponsiveContainer>
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
+                          {[
+                            { label: "RH · Derecho", color: CHART_COLORS.red },
+                            { label: "LH · Izquierdo", color: CHART_COLORS.green },
+                            { label: "Centro", color: CHART_COLORS.blue },
+                          ]
+                            .filter((side) =>
+                              panelSideChartData.some((item) => item.sideLabel === side.label),
+                            )
+                            .map((side) => (
+                              <span key={side.label} className="flex items-center gap-1.5">
+                                <span
+                                  className="h-2.5 w-2.5 rounded-sm"
+                                  style={{ backgroundColor: side.color }}
+                                />
+                                {side.label}
+                              </span>
+                            ))}
+                        </div>
+                        <ResponsiveContainer width="100%" height={330} debounce={0}>
+                          <BarChart
+                            data={panelSideChartData}
+                            margin={{ top: 22, right: 12, left: 0, bottom: 78 }}
+                            barCategoryGap="18%"
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
+                            <XAxis
+                              dataKey="label"
+                              interval={0}
+                              height={86}
+                              tick={<PanelAxisTick fill={tickColor} />}
+                              stroke={tickColor}
+                            />
+                            <YAxis
+                              tick={{ fontSize: 11, fill: tickColor }}
+                              stroke={tickColor}
+                              allowDecimals={false}
+                            />
+                            <Tooltip content={<ChartTooltip />} cursor={false} />
+                            <Bar
+                              dataKey="value"
+                              name="Defectos"
+                              fill={CHART_COLORS.blue}
+                              fillOpacity={0.9}
+                              radius={[4, 4, 0, 0]}
+                              isAnimationActive={false}
+                            >
+                              {panelSideChartData.map((entry) => (
+                                <Cell key={entry.key} fill={entry.color} />
+                              ))}
+                              <LabelList
+                                dataKey="value"
+                                position="top"
+                                formatter={(value: number | null) =>
+                                  value == null ? "" : formatNumber(value)
+                                }
+                                style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                              />
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                        <div className="flex justify-around px-8 text-[11px] font-semibold italic text-muted-foreground">
+                          {Array.from(
+                            new Set(
+                              panelSideChartData
+                                .map((item) => item.sideLabel)
+                                .filter(Boolean),
+                            ),
+                          ).map((side) => (
+                            <span key={side}>{side.replace(" · ", " · ")}</span>
+                          ))}
+                        </div>
+                      </div>
                     ) : (
                       <EmptyChart message="No hay defectos por panel para estos controles." />
                     )}
