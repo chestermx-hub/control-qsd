@@ -632,6 +632,20 @@ export default function AnalisisDashboard() {
       selectedWeeks,
     ],
   );
+  const zoneHistoricalCaptures = useMemo(
+    () => applyFilters(captures, { month: false, zone: false }),
+    [
+      activeZoneId,
+      auditedZoneIds,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedDefects,
+      selectedPanels,
+      selectedSides,
+      selectedWeeks,
+    ],
+  );
   const panelChartCaptures = useMemo(
     () => applyFilters(captures, { panel: false }),
     [
@@ -666,24 +680,38 @@ export default function AnalisisDashboard() {
       (zones ?? [])
         .map((zone) => {
           const rows = zoneBaseCaptures.filter((capture) => capture.zone_id === zone.id);
+          const historicalRows = zoneHistoricalCaptures.filter((capture) => capture.zone_id === zone.id);
+          const value = rows.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
+          const units = uniqueUnits(rows);
           return {
             id: zone.id,
             name: zone.name,
-            value: rows.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
-            units: uniqueUnits(rows),
+            value,
+            historicalValue: historicalRows.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
+            units,
+            dpu: units ? value / units : 0,
             captures: rows.length,
           };
         })
         .sort((a, b) => zoneProcessOrder(a.name, a.id) - zoneProcessOrder(b.name, b.id)),
-    [zoneBaseCaptures, zones],
+    [zoneBaseCaptures, zoneHistoricalCaptures, zones],
   );
   const allZonesSummary = useMemo(
-    () => ({
-      value: zoneBaseCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
-      units: uniqueUnits(zoneBaseCaptures),
-      captures: zoneBaseCaptures.length,
-    }),
-    [zoneBaseCaptures],
+    () => {
+      const value = zoneBaseCaptures.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
+      const units = uniqueUnits(zoneBaseCaptures);
+      return {
+        value,
+        historicalValue: zoneHistoricalCaptures.reduce(
+          (sum, capture) => sum + (capture.quantity ?? 1),
+          0,
+        ),
+        units,
+        dpu: units ? value / units : 0,
+        captures: zoneBaseCaptures.length,
+      };
+    },
+    [zoneBaseCaptures, zoneHistoricalCaptures],
   );
 
   const zoneData = useMemo(
