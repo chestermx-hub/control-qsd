@@ -353,7 +353,7 @@ function ZonePieLabel({
         ? percent * 100
         : (numericValue / total) * 100;
   const displayName =
-    name.length > 22 ? `${name.slice(0, 21).trimEnd()}…` : name;
+    name.length > 30 ? `${name.slice(0, 29).trimEnd()}…` : name;
 
   return (
     <g>
@@ -622,6 +622,17 @@ export default function AnalisisDashboard() {
   const defectCode = (id: number | null) =>
     defects?.find((item) => item.id === id)?.code ??
     (id === null ? "Sin defecto" : `#${id}`);
+  const legacyDefectName = (value?: string | null) => {
+    const text = value?.trim();
+    if (!text) return "Sin defecto";
+    const normalizedText = normalizeDefectText(text);
+    const catalogDefect = defects?.find(
+      (item) =>
+        normalizeDefectText(item.name) === normalizedText ||
+        normalizeDefectText(item.code) === normalizedText,
+    );
+    return catalogDefect?.name ?? text;
+  };
   const legacyDefectCode = (value?: string | null) => {
     const text = value?.trim();
     if (!text) return "Sin defecto";
@@ -633,10 +644,12 @@ export default function AnalisisDashboard() {
     );
     return catalogDefect?.code ?? text;
   };
-  const defectCodeForCapture = (capture: Capture) =>
-    capture.defect_id != null
-      ? defectCode(capture.defect_id)
-      : legacyDefectCode(capture.defect_other);
+  const defectNameForCapture = (capture: Capture) => {
+    if (capture.defect_id != null) {
+      return defects?.find((item) => item.id === capture.defect_id)?.name ?? `#${capture.defect_id}`;
+    }
+    return legacyDefectName(capture.defect_other);
+  };
 
   const auditedZoneIds = useMemo(
     () => new Set((zones ?? []).map((zone) => zone.id)),
@@ -935,7 +948,7 @@ export default function AnalisisDashboard() {
   const defectData = useMemo(() => {
     const groups = new Map<string, Aggregate>();
     for (const capture of defectChartCaptures) {
-      const name = defectCodeForCapture(capture);
+      const name = defectNameForCapture(capture);
       const previous = groups.get(name);
       groups.set(name, {
         id: capture.defect_id ?? null,
@@ -947,14 +960,14 @@ export default function AnalisisDashboard() {
     return Array.from(groups.values())
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
-  }, [defectChartCaptures, defectCodeForCapture]);
+  }, [defectChartCaptures, defectNameForCapture]);
   const zoneDefectCharts = useMemo<ZoneDefectChart[]>(
     () =>
       (zones ?? []).map((zone) => {
         const zoneCaptures = zoneBaseCaptures.filter((capture) => capture.zone_id === zone.id);
         const defectTotals = new Map<string, number>();
         for (const capture of zoneCaptures) {
-          const key = defectCodeForCapture(capture);
+          const key = defectNameForCapture(capture);
           defectTotals.set(key, (defectTotals.get(key) ?? 0) + (capture.quantity ?? 1));
         }
 
@@ -1002,7 +1015,7 @@ export default function AnalisisDashboard() {
           barData: topDefects,
         };
       }),
-    [defectCodeForCapture, zoneBaseCaptures, zones],
+    [defectNameForCapture, zoneBaseCaptures, zones],
   );
   const overallAverageDpu = useMemo(() => {
     const visibleZones =
@@ -1433,14 +1446,9 @@ export default function AnalisisDashboard() {
                                   <XAxis
                                     dataKey="name"
                                     interval={0}
-                                    angle={-38}
-                                    textAnchor="end"
-                                    height={70}
-                                    tick={{ fontSize: 9, fill: tickColor }}
+                                    height={84}
+                                    tick={<ZoneAxisTick fill={tickColor} />}
                                     stroke={tickColor}
-                                    tickFormatter={(value: string) =>
-                                      value.length > 14 ? `${value.slice(0, 14)}…` : value
-                                    }
                                   />
                                   <YAxis
                                     tick={{ fontSize: 10, fill: tickColor }}
