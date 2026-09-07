@@ -1550,12 +1550,12 @@ export default function AnalisisDashboard() {
                         <Card className="min-w-0">
                           <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-1 pt-4">
                             <div>
-                              <CardTitle className="text-sm">Detalle de defectos encontrados</CardTitle>
+                              <CardTitle className="text-sm">Detalle de Defectos encontrados</CardTitle>
                               <CardDescription>Cantidad por defecto</CardDescription>
                             </div>
                             <ChartImageDownloadButton
                               targetId={`chart-zone-${zone.id}-bar`}
-                              title={`Detalle de defectos encontrados ${zone.name}`}
+                              title={`Detalle de Defectos encontrados ${zone.name}`}
                             />
                           </CardHeader>
                           <CardContent className="px-4 pb-4 pt-0">
@@ -1728,6 +1728,10 @@ export default function AnalisisDashboard() {
                         Capturas: item.captures,
                       }))}
                     />
+                    <ChartImageDownloadButton
+                      targetId="chart-panel-side"
+                      title="Defectos por lado y panel"
+                    />
                   </CardHeader>
                   <CardContent>
                     {panelData.length ? (
@@ -1751,12 +1755,13 @@ export default function AnalisisDashboard() {
                               </span>
                             ))}
                         </div>
-                        <ResponsiveContainer width="100%" height={330} debounce={0}>
-                          <BarChart
-                            data={panelSideChartData}
-                            margin={{ top: 22, right: 12, left: 0, bottom: 78 }}
-                            barCategoryGap="18%"
-                          >
+                        <div id="chart-panel-side">
+                          <ResponsiveContainer width="100%" height={330} debounce={0}>
+                            <BarChart
+                              data={panelSideChartData}
+                              margin={{ top: 22, right: 12, left: 0, bottom: 78 }}
+                              barCategoryGap="18%"
+                            >
                             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                             <XAxis
                               dataKey="label"
@@ -1791,8 +1796,9 @@ export default function AnalisisDashboard() {
                                 style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
                               />
                             </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
                         <div className="flex justify-around px-8 text-[11px] font-semibold italic text-muted-foreground">
                           {Array.from(
                             new Set(
@@ -1816,7 +1822,7 @@ export default function AnalisisDashboard() {
                     <div>
                         <CardTitle className="flex items-center gap-2 text-base">
                         <AlertTriangle className="h-4 w-4" />
-                          Defectos registrados
+                          Detalle de Defectos encontrados
                       </CardTitle>
                         <CardDescription>Todos los defectos de la selección</CardDescription>
                     </div>
@@ -1829,19 +1835,24 @@ export default function AnalisisDashboard() {
                         Capturas: item.captures,
                       }))}
                     />
+                    <ChartImageDownloadButton
+                      targetId="chart-defect-detail"
+                      title="Detalle de Defectos encontrados"
+                    />
                   </CardHeader>
                   <CardContent>
                     {defectData.length ? (
-                      <ResponsiveContainer
-                        width="100%"
-                        height={Math.max(280, 90 + defectData.length * 34)}
-                        debounce={0}
-                      >
-                        <BarChart
-                          data={defectData}
-                          layout="vertical"
-                            margin={{ top: 8, right: 28, left: 12, bottom: 0 }}
+                      <div id="chart-defect-detail">
+                        <ResponsiveContainer
+                          width="100%"
+                          height={Math.max(280, 90 + defectData.length * 34)}
+                          debounce={0}
                         >
+                          <BarChart
+                            data={defectData}
+                            layout="vertical"
+                            margin={{ top: 8, right: 28, left: 12, bottom: 0 }}
+                          >
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                           <XAxis type="number" tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
                           <YAxis
@@ -1867,8 +1878,9 @@ export default function AnalisisDashboard() {
                                 style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
                               />
                             </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
                     ) : (
                       <EmptyChart message="No hay defectos para los controles seleccionados." />
                     )}
