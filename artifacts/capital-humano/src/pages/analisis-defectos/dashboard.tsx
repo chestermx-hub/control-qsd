@@ -914,7 +914,7 @@ export default function AnalisisDashboard() {
     ],
   );
   const defectChartCaptures = useMemo(
-    () => applyFilters(captures, { defect: false }),
+    () => applyFilters(captures),
     [
       activeZoneId,
       auditedZoneIds,
