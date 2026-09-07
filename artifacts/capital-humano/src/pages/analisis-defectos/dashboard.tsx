@@ -486,6 +486,110 @@ function ChartExportButton({
   );
 }
 
+function downloadChartImage(targetId: string, title: string) {
+  const target = document.getElementById(targetId);
+  const sourceSvg = target?.querySelector("svg");
+  if (!sourceSvg) return Promise.reject(new Error("No se encontró la gráfica para exportar."));
+
+  const bounds = sourceSvg.getBoundingClientRect();
+  const width = Math.max(1, Math.ceil(sourceSvg.clientWidth || bounds.width));
+  const height = Math.max(1, Math.ceil(sourceSvg.clientHeight || bounds.height));
+  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  const svg = sourceSvg.cloneNode(true) as SVGSVGElement;
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+  const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], {
+    type: "image/svg+xml;charset=utf-8",
+  });
+  const svgUrl = URL.createObjectURL(svgBlob);
+
+  return new Promise<void>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.ceil(width * scale);
+      canvas.height = Math.ceil(height * scale);
+      const context = canvas.getContext("2d");
+      if (!context) {
+        URL.revokeObjectURL(svgUrl);
+        reject(new Error("No se pudo preparar la imagen."));
+        return;
+      }
+      context.scale(scale, scale);
+      context.fillStyle = "#ffffff";
+      context.fillRect(0, 0, width, height);
+      context.drawImage(image, 0, 0, width, height);
+      URL.revokeObjectURL(svgUrl);
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          reject(new Error("No se pudo generar el archivo de imagen."));
+          return;
+        }
+        const safeTitle = title
+          .normalize("NFD")
+          .replace(/\p{Diacritic}/gu, "")
+          .replace(/[^a-zA-Z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .toLocaleLowerCase() || "grafica";
+        const date = new Date();
+        const dateLabel = [
+          date.getFullYear(),
+          String(date.getMonth() + 1).padStart(2, "0"),
+          String(date.getDate()).padStart(2, "0"),
+        ].join("-");
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `${safeTitle}_${dateLabel}.png`;
+        link.click();
+        URL.revokeObjectURL(link.href);
+        resolve();
+      }, "image/png");
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(svgUrl);
+      reject(new Error("No se pudo cargar la gráfica."));
+    };
+    image.src = svgUrl;
+  });
+}
+
+function ChartImageDownloadButton({
+  targetId,
+  title,
+}: {
+  targetId: string;
+  title: string;
+}) {
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    setIsDownloading(true);
+    try {
+      await downloadChartImage(targetId, title);
+    } catch (error) {
+      console.error("No se pudo descargar la gráfica como imagen.", error);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleDownload}
+      disabled={isDownloading}
+      className="print:hidden flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#F0F1F2] text-[#4b5563] transition-colors hover:opacity-80 disabled:opacity-40"
+      aria-label={`Descargar imagen de ${title}`}
+      title={`Descargar imagen: ${title}`}
+    >
+      <Download className="h-3.5 w-3.5" />
+    </button>
+  );
+}
+
 function MultiFilter({
   label,
   icon: Icon,
@@ -958,8 +1062,7 @@ export default function AnalisisDashboard() {
       });
     }
     return Array.from(groups.values())
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8);
+      .sort((a, b) => b.value - a.value);
   }, [defectChartCaptures, defectNameForCapture]);
   const zoneDefectCharts = useMemo<ZoneDefectChart[]>(
     () =>
@@ -974,7 +1077,7 @@ export default function AnalisisDashboard() {
         const sortedDefects = Array.from(defectTotals.entries())
           .map(([name, value]) => ({ name, value }))
           .sort((a, b) => b.value - a.value);
-        const topDefects = sortedDefects.slice(0, 10);
+        const topDefects = sortedDefects;
         const topForPie = sortedDefects.slice(0, 8);
         const otherValue = sortedDefects.slice(8).reduce((sum, item) => sum + item.value, 0);
         if (otherValue > 0) topForPie.push({ name: "Otros", value: otherValue });
@@ -1275,6 +1378,10 @@ export default function AnalisisDashboard() {
                           aria-label="Mostrar defectos por DPU"
                         />
                       </label>
+                      <ChartImageDownloadButton
+                        targetId="chart-zone-comparison"
+                        title={showZoneDpu ? "DPU por zona" : "Defectos por zona"}
+                      />
                       <ChartExportButton
                         ariaLabel="Exportar defectos por zona"
                         filename="defectos-por-zona.csv"
@@ -1289,8 +1396,9 @@ export default function AnalisisDashboard() {
                   </CardHeader>
                   <CardContent>
                     {visibleZoneData.length ? (
-                      <ResponsiveContainer width="100%" height={280} debounce={0}>
-                        <BarChart data={visibleZoneData} margin={{ top: 8, right: 12, left: -16, bottom: 12 }}>
+                      <div id="chart-zone-comparison">
+                        <ResponsiveContainer width="100%" height={280} debounce={0}>
+                          <BarChart data={visibleZoneData} margin={{ top: 8, right: 12, left: -16, bottom: 12 }}>
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                           <XAxis
                             dataKey="name"
@@ -1332,8 +1440,9 @@ export default function AnalisisDashboard() {
                               />
                             ))}
                           </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
                     ) : (
                       <EmptyChart message="No hay defectos por zona para este filtro." />
                     )}
@@ -1381,14 +1490,21 @@ export default function AnalisisDashboard() {
                       </div>
                       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                         <Card className="min-w-0" data-testid={`zone-pie-chart-${zone.id}`}>
-                          <CardHeader className="px-4 pb-1 pt-4">
+                          <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-1 pt-4">
                             <CardTitle className="text-sm">Distribución de defectos</CardTitle>
-                            <CardDescription>Participación porcentual por defecto</CardDescription>
+                            <div>
+                              <CardDescription>Participación porcentual por defecto</CardDescription>
+                            </div>
+                            <ChartImageDownloadButton
+                              targetId={`chart-zone-${zone.id}-pie`}
+                              title={`Distribución de defectos ${zone.name}`}
+                            />
                           </CardHeader>
                           <CardContent className="px-4 pb-4 pt-0">
                           {zone.pieData.length ? (
-                              <ResponsiveContainer width="100%" height={340}>
-                                <PieChart>
+                              <div id={`chart-zone-${zone.id}-pie`}>
+                                <ResponsiveContainer width="100%" height={340}>
+                                  <PieChart>
                                   <Pie
                                     data={zone.pieData}
                                     dataKey="value"
@@ -1423,24 +1539,35 @@ export default function AnalisisDashboard() {
                                       />
                                     }
                                   />
-                                </PieChart>
-                              </ResponsiveContainer>
+                                  </PieChart>
+                                </ResponsiveContainer>
+                              </div>
                           ) : (
                             <EmptyChart message="Sin defectos para mostrar." />
                           )}
                           </CardContent>
                         </Card>
                         <Card className="min-w-0">
-                          <CardHeader className="px-4 pb-1 pt-4">
-                            <CardTitle className="text-sm">Defectos principales</CardTitle>
-                            <CardDescription>Ranking de defectos registrados</CardDescription>
+                          <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-1 pt-4">
+                            <div>
+                              <CardTitle className="text-sm">Detalle de defectos encontrados</CardTitle>
+                              <CardDescription>Cantidad por defecto</CardDescription>
+                            </div>
+                            <ChartImageDownloadButton
+                              targetId={`chart-zone-${zone.id}-bar`}
+                              title={`Detalle de defectos encontrados ${zone.name}`}
+                            />
                           </CardHeader>
                           <CardContent className="px-4 pb-4 pt-0">
                           {zone.barData.length ? (
-                              <ResponsiveContainer width="100%" height={250}>
+                                <div id={`chart-zone-${zone.id}-bar`}>
+                                  <ResponsiveContainer
+                                    width="100%"
+                                    height={Math.max(250, 210 + zone.barData.length * 8)}
+                                  >
                                 <BarChart
                                   data={zone.barData}
-                                  margin={{ top: 8, right: 8, left: -16, bottom: 54 }}
+                                   margin={{ top: 20, right: 8, left: -16, bottom: 62 }}
                                 >
                                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                                   <XAxis
@@ -1464,6 +1591,12 @@ export default function AnalisisDashboard() {
                                     radius={[4, 4, 0, 0]}
                                     isAnimationActive={false}
                                   >
+                                    <LabelList
+                                      dataKey="value"
+                                      position="top"
+                                      formatter={(value: number) => formatNumber(value)}
+                                      style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                                    />
                                     {zone.barData.map((entry, index) => (
                                       <Cell
                                         key={`${entry.name}-${index}`}
@@ -1472,7 +1605,8 @@ export default function AnalisisDashboard() {
                                     ))}
                                   </Bar>
                                 </BarChart>
-                              </ResponsiveContainer>
+                                  </ResponsiveContainer>
+                                </div>
                           ) : (
                             <EmptyChart message="Sin defectos para mostrar." />
                           )}
@@ -1487,23 +1621,30 @@ export default function AnalisisDashboard() {
                               Evolución diaria del DPU en {zone.name}
                             </CardDescription>
                           </div>
-                          <div className="rounded-lg border bg-muted/30 px-3 py-2 text-right">
-                            <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                              DPU promedio
-                            </span>
-                            <span className="text-xl font-bold text-[#d97706]">
-                              {formatDecimal(zone.averageDpu)}
-                            </span>
-                            <span className="block text-[10px] text-muted-foreground">por día</span>
+                          <div className="flex items-start gap-2">
+                            <ChartImageDownloadButton
+                              targetId={`chart-zone-${zone.id}-dpu`}
+                              title={`Tendencia de DPU ${zone.name}`}
+                            />
+                            <div className="rounded-lg border bg-muted/30 px-3 py-2 text-right">
+                              <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                DPU promedio
+                              </span>
+                              <span className="text-xl font-bold text-[#d97706]">
+                                {formatDecimal(zone.averageDpu)}
+                              </span>
+                              <span className="block text-[10px] text-muted-foreground">por día</span>
+                            </div>
                           </div>
                         </CardHeader>
                         <CardContent className="px-4 pb-4 pt-0">
                           {zone.dailyDpuData.length ? (
-                            <ResponsiveContainer width="100%" height={250}>
-                              <LineChart
-                                data={zone.dailyDpuData}
-                                margin={{ top: 24, right: 12, left: -12, bottom: 8 }}
-                              >
+                            <div id={`chart-zone-${zone.id}-dpu`}>
+                              <ResponsiveContainer width="100%" height={250}>
+                                <LineChart
+                                  data={zone.dailyDpuData}
+                                  margin={{ top: 24, right: 12, left: -12, bottom: 8 }}
+                                >
                                 <CartesianGrid
                                   strokeDasharray="3 3"
                                   stroke={gridColor}
@@ -1548,8 +1689,9 @@ export default function AnalisisDashboard() {
                                     style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
                                   />
                                 </Line>
-                              </LineChart>
-                            </ResponsiveContainer>
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
                           ) : (
                             <EmptyChart message="No hay datos diarios de DPU para mostrar." />
                           )}
@@ -1672,11 +1814,11 @@ export default function AnalisisDashboard() {
                 <Card>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
-                      <CardTitle className="flex items-center gap-2 text-base">
+                        <CardTitle className="flex items-center gap-2 text-base">
                         <AlertTriangle className="h-4 w-4" />
-                        Principales defectos
+                          Defectos registrados
                       </CardTitle>
-                      <CardDescription>Defectos con mayor cantidad en la selección</CardDescription>
+                        <CardDescription>Todos los defectos de la selección</CardDescription>
                     </div>
                     <ChartExportButton
                       ariaLabel="Exportar principales defectos"
@@ -1690,18 +1832,22 @@ export default function AnalisisDashboard() {
                   </CardHeader>
                   <CardContent>
                     {defectData.length ? (
-                      <ResponsiveContainer width="100%" height={280} debounce={0}>
+                      <ResponsiveContainer
+                        width="100%"
+                        height={Math.max(280, 90 + defectData.length * 34)}
+                        debounce={0}
+                      >
                         <BarChart
                           data={defectData}
                           layout="vertical"
-                          margin={{ top: 8, right: 12, left: 12, bottom: 0 }}
+                            margin={{ top: 8, right: 28, left: 12, bottom: 0 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
                           <XAxis type="number" tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
                           <YAxis
                             type="category"
                             dataKey="name"
-                            width={80}
+                            width={180}
                             tick={{ fontSize: 11, fill: tickColor }}
                             stroke={tickColor}
                           />
@@ -1713,7 +1859,14 @@ export default function AnalisisDashboard() {
                             fillOpacity={0.8}
                             radius={[0, 4, 4, 0]}
                             isAnimationActive={false}
-                          />
+                            >
+                              <LabelList
+                                dataKey="value"
+                                position="right"
+                                formatter={(value: number) => formatNumber(value)}
+                                style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                              />
+                            </Bar>
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
