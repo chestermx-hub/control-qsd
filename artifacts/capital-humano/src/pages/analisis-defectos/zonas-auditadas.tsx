@@ -40,6 +40,10 @@ function isCurrentDay(date: string) {
   return date === todayStr();
 }
 
+function isFutureDay(date: string) {
+  return date > todayStr();
+}
+
 type AuditCapture = {
   id: number;
   unit_number: number;
@@ -828,6 +832,107 @@ function AgregarDefectosDialog({
   );
 }
 
+function EditarCapturaDialog({
+  capture,
+  defects,
+  onClose,
+}: {
+  capture: AuditCapture;
+  defects: (DefectCatalogItem & { applicable_zones?: { id: number }[] })[] | undefined;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [defectId, setDefectId] = useState(capture.defect_id?.toString() ?? "");
+  const [quantity, setQuantity] = useState(String(capture.quantity));
+  const applicableDefects = useMemo(
+    () => capture.zone_id == null
+      ? defects ?? []
+      : defects?.filter((defect) =>
+        defect.applicable_zones?.some((zone) => zone.id === capture.zone_id),
+      ) ?? [],
+    [capture.zone_id, defects],
+  );
+  const updateCapture = useUpdateAuditCapture({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListAuditCapturesQueryKey() });
+        toast({ title: "Registro actualizado" });
+        onClose();
+      },
+      onError: (error) => {
+        toast({ title: error.message || "No se pudo actualizar el registro", variant: "destructive" });
+      },
+    },
+  });
+
+  const handleSave = () => {
+    const nextQuantity = Number(quantity);
+    if (!Number.isInteger(nextQuantity) || nextQuantity < 1) {
+      toast({ title: "La cantidad debe ser un entero mayor a 0", variant: "destructive" });
+      return;
+    }
+    updateCapture.mutate({
+      id: capture.id,
+      data: {
+        ...(defectId ? { defect_id: Number(defectId), defect_other: "" } : {}),
+        quantity: nextQuantity,
+      },
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Editar registro #{capture.id}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label>Defecto</Label>
+            <select
+              value={defectId}
+              onChange={(event) => setDefectId(event.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {!defectId && capture.defect_other && (
+                <option value="">Histórico: {capture.defect_other}</option>
+              )}
+              {applicableDefects.map((defect) => (
+                <option key={defect.id} value={defect.id}>
+                  {defect.code} — {defect.name}
+                </option>
+              ))}
+            </select>
+            {capture.defect_other && !defectId && (
+              <p className="text-xs text-muted-foreground">
+                Puedes conservar el defecto histórico y modificar sólo la cantidad.
+              </p>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Cantidad</Label>
+            <Input
+              type="number"
+              min={1}
+              step={1}
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={handleSave} disabled={updateCapture.isPending}>
+            {updateCapture.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Guardar cambios
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 /* ──────────────────────────────────────────────
    Página principal
 ────────────────────────────────────────────── */
@@ -842,6 +947,7 @@ export default function AnalisisZonasAuditadas() {
   const [addDialog, setAddDialog] = useState<UnitGroup | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [newCaptureStart, setNewCaptureStart] = useState<NewCaptureStart | null>(null);
+  const [editDialog, setEditDialog] = useState<AuditCapture | null>(null);
   const [detailSortKey, setDetailSortKey] = useState<DetailSortKey>("date");
   const [detailSortDirection, setDetailSortDirection] = useState<SortDirection>("desc");
   const [detailFilters, setDetailFilters] = useState<Partial<Record<DetailFilterKey, string[]>>>({});
@@ -930,6 +1036,13 @@ export default function AnalisisZonasAuditadas() {
       zoneId: String(newCaptureStart.zoneId),
     });
     if (newCaptureStart.skillNumber) params.set("skillNumber", newCaptureStart.skillNumber);
+    window.location.href = `/analisis-defectos/nuevo-registro?${params.toString()}`;
+  };
+
+  const openNewCaptureForSelectedDate = () => {
+    const params = new URLSearchParams();
+    if (filterDate) params.set("date", filterDate);
+    if (filterZoneId !== "all") params.set("zoneId", filterZoneId);
     window.location.href = `/analisis-defectos/nuevo-registro?${params.toString()}`;
   };
 
@@ -1299,6 +1412,10 @@ export default function AnalisisZonasAuditadas() {
                 <Download className="mr-2 h-4 w-4" />
                 Exportar Excel
               </Button>
+              <Button variant="default" size="sm" onClick={openNewCaptureForSelectedDate}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nuevo registro para esta fecha
+              </Button>
             </div>
             <div className="flex items-center gap-2 flex-wrap border-t pt-3">
               <span className="text-sm font-medium text-muted-foreground">Zonas:</span>
@@ -1373,7 +1490,7 @@ export default function AnalisisZonasAuditadas() {
                       <col style={{ width: "6%" }} />
                       <col style={{ width: showZoneColumn ? "7%" : "9%" }} />
                       <col style={{ width: "5%" }} />
-                      {canDeleteCaptures && <col style={{ width: "3%" }} />}
+                         {canDeleteCaptures && <col style={{ width: "6%" }} />}
                     </colgroup>
                     <TableHeader>
                       <TableRow className="hover:bg-transparent">
@@ -1455,8 +1572,21 @@ export default function AnalisisZonasAuditadas() {
                               {analystInitials(row.analystName)}
                             </TableCell>
                             <TableCell className="break-words px-1 py-2 text-center">1ro</TableCell>
-                            {canDeleteCaptures && (
+                             {canDeleteCaptures && (
                               <TableCell className="px-1 py-2 text-center">
+                                 {!isFutureDay(row.capture.date) && (
+                                   <Button
+                                     type="button"
+                                     variant="ghost"
+                                     size="icon"
+                                     className="h-7 w-7"
+                                     title="Editar registro"
+                                     aria-label={`Editar registro ${row.capture.id}`}
+                                     onClick={() => setEditDialog(row.capture)}
+                                   >
+                                     <Pencil className="h-3.5 w-3.5" />
+                                   </Button>
+                                 )}
                                 {(isCurrentDay(row.capture.date) || canDeleteHistoricalCaptures) && (
                                   <Button
                                     type="button"
@@ -1488,9 +1618,9 @@ export default function AnalisisZonasAuditadas() {
                 {unitGroups.map((group) => {
                   const key = `${group.zone_id ?? "none"}__${group.unit_number}__${group.date}`;
                   const isExpanded = expandedUnits.has(key);
-                  const editable = isCurrentDay(group.date);
+                   const editable = !isFutureDay(group.date);
                   const canDeleteGroup =
-                    canDeleteCaptures && (editable || canDeleteHistoricalCaptures);
+                     canDeleteCaptures && (isCurrentDay(group.date) || canDeleteHistoricalCaptures);
                   const panel = getPanel(group.panel_id);
                   const auditedZone = zones?.find((zone) => zone.id === group.zone_id);
 
@@ -1570,7 +1700,7 @@ export default function AnalisisZonasAuditadas() {
                             </Button>
                           )}
 
-                           {panel && panel.is_active !== false && (
+                           {panel && panel.is_active !== false && editable && (
                            <Button
                              type="button"
                              variant="outline"
@@ -1609,6 +1739,18 @@ export default function AnalisisZonasAuditadas() {
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
                               </Button>}
+                               {editable && (
+                                 <Button
+                                   variant="ghost"
+                                   size="icon"
+                                   className="h-7 w-7 shrink-0"
+                                   title="Editar registro"
+                                   aria-label={`Editar registro ${cap.id}`}
+                                   onClick={() => setEditDialog(cap)}
+                                 >
+                                   <Pencil className="h-3.5 w-3.5" />
+                                 </Button>
+                               )}
                             </div>
                           ))}
                         </div>
@@ -1758,6 +1900,14 @@ export default function AnalisisZonasAuditadas() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {editDialog && (
+        <EditarCapturaDialog
+          capture={editDialog}
+          defects={defects as (DefectCatalogItem & { applicable_zones?: { id: number }[] })[] | undefined}
+          onClose={() => setEditDialog(null)}
+        />
       )}
 
     </AppLayout>

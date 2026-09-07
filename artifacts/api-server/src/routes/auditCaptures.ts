@@ -143,8 +143,8 @@ router.post("/audit-captures", async (req: Request, res: Response) => {
     zone_id?: number; panel_id?: number; side_id?: number; visual_zone_id?: number; alphanumeric_id?: number;
     side_position?: string; grid_col: number; grid_col_label?: string; grid_row: string; defect_id?: number; defect_other?: string; quantity: number;
   };
-  if (date !== currentMexicoDate()) {
-    res.status(409).json({ error: "Solo se pueden registrar capturas del día en curso" });
+  if (date > currentMexicoDate()) {
+    res.status(409).json({ error: "No se pueden registrar capturas en fechas futuras" });
     return;
   }
   if (!(await panelIsActive(panel_id))) {
@@ -202,10 +202,6 @@ router.patch("/audit-captures/:id", async (req: Request, res: Response) => {
   const id = parseInt(req.params["id"] as string);
   const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
-  if (existing.date !== currentMexicoDate()) {
-    res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
-    return;
-  }
   const {
     skill_number, zone_id, panel_id, side_id, visual_zone_id, alphanumeric_id,
     side_position, grid_col, grid_col_label, grid_row, defect_id, defect_other, quantity,

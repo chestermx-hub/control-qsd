@@ -3,8 +3,8 @@ name: Audit capture rules
 description: Business rules for audit capture immutability and unit numbering.
 ---
 
-Unit numbers are scoped independently by audited zone and calendar date: each zone starts at its own next number for that day, and deleted numbers are not reused. Captures from previous days are read-only; the server rejects updates, deletes, and new inserts for non-current dates.
+Unit numbers are scoped independently by audited zone and calendar date: each zone starts at its own next number for that day, and deleted numbers are not reused. Captures may be created and edited for today or previous dates, but future dates remain blocked; historical deletion stays restricted to the administrative permission.
 
-**Why:** Each audited zone represents a separate operational control, and historical audit data must remain immutable for traceability.
+**Why:** Each audited zone represents a separate operational control, while the workflow now needs controlled retroactive correction and historical loading without allowing future-dated data.
 
-**How to apply:** Keep date + zone in counter and list filters, preserve read-only historical UI states, and enforce immutability in the API rather than relying only on the frontend.
+**How to apply:** Keep date + zone in counter and list filters, expose create/edit controls for non-future dates, and enforce the future-date restriction in the API rather than relying only on the frontend.
