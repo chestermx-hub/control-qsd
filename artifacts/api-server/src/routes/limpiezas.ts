@@ -199,9 +199,12 @@ router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, r
   const { initial_photo, final_photo, completed, not_applicable } = req.body;
   const [current] = await db.select().from(cleaningExecutionActivitiesTable).where(and(eq(cleaningExecutionActivitiesTable.id, activityId), eq(cleaningExecutionActivitiesTable.executionId, executionId)));
   if (!current) { res.status(404).json({ error: "Actividad no encontrada" }); return; }
+  const executionAreas = await db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId));
+  const currentArea = executionAreas.find((area) => area.areaName === (current.areaName || "Área general"));
   const nextInitial = initial_photo ?? current.initialPhoto; const nextFinal = final_photo ?? current.finalPhoto; const nextCompleted = completed ?? current.completed; const nextNotApplicable = not_applicable ?? current.notApplicable;
   if (nextCompleted && nextNotApplicable) { res.status(400).json({ error: "Una actividad no puede estar completada y marcada como no aplica" }); return; }
-   if ((nextCompleted || nextNotApplicable) && current.requiresPhoto && !nextInitial) { res.status(400).json({ error: "Esta actividad requiere una foto inicial antes de completarse" }); return; }
+  if ((nextCompleted || nextNotApplicable) && (!currentArea || (!currentArea.excluded && !currentArea.initialPhoto))) { res.status(400).json({ error: "Toma primero la foto inicial del área antes de completar sus actividades" }); return; }
+  if ((nextCompleted || nextNotApplicable) && current.requiresPhoto && !nextInitial) { res.status(400).json({ error: "Esta actividad requiere una foto inicial antes de completarse" }); return; }
   const [updated] = await db.update(cleaningExecutionActivitiesTable).set({ initialPhoto: nextInitial, finalPhoto: nextFinal, completed: nextCompleted, notApplicable: nextNotApplicable, completedAt: nextCompleted ? new Date() : null }).where(eq(cleaningExecutionActivitiesTable.id, activityId)).returning();
   await maybeCompleteExecution(executionId);
   res.json(json(updated));
