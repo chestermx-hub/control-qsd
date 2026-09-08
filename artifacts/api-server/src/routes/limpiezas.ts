@@ -59,12 +59,27 @@ router.post("/limpiezas/areas", async (req, res) => {
 });
 router.patch("/limpiezas/areas/:id", async (req, res) => {
   const id = Number(req.params.id); const { name, description, area_type, client_id, activities = [] } = req.body;
+  const [previousArea] = await db.select().from(cleaningAreasTable).where(eq(cleaningAreasTable.id, id));
+  if (!previousArea) { res.status(404).json({ error: "Área no encontrada" }); return; }
   const [area] = await db.update(cleaningAreasTable).set({ name, description, areaType: area_type, clientId: client_id ? Number(client_id) : null }).where(eq(cleaningAreasTable.id, id)).returning();
-  if (!area) { res.status(404).json({ error: "Área no encontrada" }); return; }
   await db.delete(cleaningAreaActivitiesTable).where(eq(cleaningAreaActivitiesTable.areaId, id));
   for (const [index, activity] of activities.entries()) {
     const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
     await db.insert(cleaningAreaActivitiesTable).values({ areaId: id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+  }
+  if (previousArea.name !== area.name) {
+    await db.update(cleaningTypeActivitiesTable)
+      .set({ areaName: area.name })
+      .where(eq(cleaningTypeActivitiesTable.areaName, previousArea.name));
+    const executions = await db.select().from(cleaningExecutionsTable);
+    for (const execution of executions.filter((item) => item.status !== "completed" && !item.signature)) {
+      await db.update(cleaningExecutionAreasTable)
+        .set({ areaName: area.name })
+        .where(and(eq(cleaningExecutionAreasTable.executionId, execution.id), eq(cleaningExecutionAreasTable.areaName, previousArea.name)));
+      await db.update(cleaningExecutionActivitiesTable)
+        .set({ areaName: area.name })
+        .where(and(eq(cleaningExecutionActivitiesTable.executionId, execution.id), eq(cleaningExecutionActivitiesTable.areaName, previousArea.name)));
+    }
   }
   await syncAreaActivitiesToOpenExecutions(area.id, area.name);
   res.json(await areaWithActivities(id));
@@ -111,27 +126,47 @@ async function syncNewAreasToOpenExecutions(typeId: number) {
       db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, execution.id)),
       db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id)),
     ]);
-    let nextAreaSort = existingAreas.reduce((max, area) => Math.max(max, area.sortOrder), -1) + 1;
-    let nextActivitySort = existingActivities.reduce((max, activity) => Math.max(max, activity.sortOrder), -1) + 1;
-    const existingAreaNames = new Set(existingAreas.map((area) => area.areaName));
-    const existingActivityKeys = new Set(existingActivities.map((activity) => `${activity.areaName || "Área general"}\u0000${activity.description}`));
-    for (const areaName of areaNames) {
-      if (!existingAreaNames.has(areaName)) {
-        await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: nextAreaSort++ });
-        existingAreaNames.add(areaName);
+    const currentAreaNames = new Set(areaNames);
+    const staleActivities = existingActivities.filter((activity) => !currentAreaNames.has(activity.areaName || "Área general"));
+    for (const activity of staleActivities) {
+      await db.delete(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.id, activity.id));
+    }
+    const staleAreas = existingAreas.filter((area) => !currentAreaNames.has(area.areaName));
+    for (const area of staleAreas) {
+      await db.delete(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.id, area.id));
+    }
+
+    const refreshedAreas = existingAreas.filter((area) => currentAreaNames.has(area.areaName));
+    const refreshedActivities = existingActivities.filter((activity) => currentAreaNames.has(activity.areaName || "Área general"));
+    for (const [areaIndex, areaName] of areaNames.entries()) {
+      const existingArea = refreshedAreas.find((area) => area.areaName === areaName);
+      if (existingArea) {
+        await db.update(cleaningExecutionAreasTable).set({ sortOrder: areaIndex }).where(eq(cleaningExecutionAreasTable.id, existingArea.id));
+      } else {
+        await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: areaIndex });
       }
-      for (const activity of typeActivities.filter((item) => (item.areaName || "Área general") === areaName)) {
-        const activityKey = `${areaName}\u0000${activity.description}`;
-        if (existingActivityKeys.has(activityKey)) continue;
-        await db.insert(cleaningExecutionActivitiesTable).values({
-          executionId: execution.id,
-          description: activity.description,
-          areaName: activity.areaName,
-          sortOrder: nextActivitySort++,
-          requiresPhoto: activity.requiresPhoto,
-        });
-        existingActivityKeys.add(activityKey);
+    }
+
+    const existingActivityKeys = new Set(refreshedActivities.map((activity) => `${activity.areaName || "Área general"}\u0000${activity.description}`));
+    for (const activity of typeActivities) {
+      const areaName = activity.areaName || "Área general";
+      const activityKey = `${areaName}\u0000${activity.description}`;
+      const existingActivity = refreshedActivities.find((item) => `${item.areaName || "Área general"}\u0000${item.description}` === activityKey);
+      if (existingActivity) {
+        await db.update(cleaningExecutionActivitiesTable)
+          .set({ sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto })
+          .where(eq(cleaningExecutionActivitiesTable.id, existingActivity.id));
+        continue;
       }
+      if (existingActivityKeys.has(activityKey)) continue;
+      await db.insert(cleaningExecutionActivitiesTable).values({
+        executionId: execution.id,
+        description: activity.description,
+        areaName: activity.areaName,
+        sortOrder: activity.sortOrder,
+        requiresPhoto: activity.requiresPhoto,
+      });
+      existingActivityKeys.add(activityKey);
     }
   }
 }
