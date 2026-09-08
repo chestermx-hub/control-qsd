@@ -288,7 +288,7 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
 
   const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
   const [user] = userId ? await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, userId)) : [];
-  const signerName = String(user?.name || req.body.signature_user_name || "").trim();
+  const signerName = String(req.body.signature_user_name || user?.name || "").trim();
   if (!signerName) { res.status(401).json({ error: "No se pudo identificar al usuario que firma" }); return; }
   await db.update(cleaningExecutionsTable).set({
     signature,
