@@ -380,8 +380,8 @@ export function CleaningReport({
                 </span>
               )}
               <span className="h-px w-8 bg-[#2b68a2]" aria-hidden="true" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#b9ddeb]">
-                ICMX
+              <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.17em] text-[#b9ddeb]">
+                Limpiezas industriales
               </span>
             </div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#a9ddf2]">
@@ -495,7 +495,7 @@ export function CleaningReport({
       <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
 
     <footer className="report-footer flex flex-col gap-2 border-t border-[#d8d9d3] bg-[#eeeDE5] px-5 py-4 font-mono text-[9px] uppercase tracking-[0.13em] text-[#7d8780] sm:flex-row sm:items-center sm:justify-between sm:px-8">
-        <span>Reporte generado desde Limpiezas ICMX</span>
+        <span>Reporte generado desde Limpiezas industriales</span>
         <span>Folio {reportNumber} · Conserva este documento con sus evidencias</span>
       </footer>
     </article>
