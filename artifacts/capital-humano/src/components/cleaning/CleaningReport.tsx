@@ -269,7 +269,7 @@ function SignatureBlock({
             type="button"
             variant="outline"
             onClick={onRequestSignature}
-            className="w-full border-[#9fc5dc] bg-[#fbfaf6] text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
+            className="w-full border-[#9fc5dc] bg-[#fbfaf6] text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto print:hidden"
           >
             <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
             {signature ? "Actualizar firma" : "Solicitar firma"}
