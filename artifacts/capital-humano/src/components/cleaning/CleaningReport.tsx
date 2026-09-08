@@ -122,7 +122,10 @@ function PhotoFrame({
       <img
         src={src}
         alt={alt}
-        className={cn("block w-full object-cover", compact ? "h-16" : "h-28")}
+        className={cn(
+          "block w-full bg-[#dedfd8] object-contain",
+          compact ? "h-20" : "h-52 sm:h-60",
+        )}
       />
       <figcaption className="border-t border-[#d8d9d3] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.13em] text-[#737d77]">
         {label}
@@ -222,7 +225,7 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
           {activity.description}
         </p>
         {activity.note && <p className="mt-1 text-xs italic text-[#78827b]">{activity.note}</p>}
-        {(activity.requires_photo || activity.initial_photo || activity.final_photo) && (
+        {activity.requires_photo && (
           <div className="mt-3 grid max-w-sm grid-cols-2 gap-2">
             <PhotoFrame
               src={activity.initial_photo}
