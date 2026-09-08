@@ -2,8 +2,6 @@ import { useMemo } from "react";
 import {
   ArrowUpRight,
   Check,
-  CheckCircle2,
-  CircleDashed,
   FileDown,
   Image as ImageIcon,
   PenLine,
@@ -195,16 +193,6 @@ function AreaHeader({
             Trazabilidad por área · {completed} de {total} actividades verificadas
           </p>
         </div>
-      </div>
-      <div className="flex items-center gap-2 self-start">
-        {area.ready ? (
-          <CheckCircle2 className="h-4 w-4 text-[#008acb]" aria-hidden="true" />
-        ) : (
-          <CircleDashed className="h-4 w-4 text-[#a0a8a2]" aria-hidden="true" />
-        )}
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[#65716a]">
-          {area.ready ? "Área lista" : "Revisión pendiente"}
-        </span>
       </div>
     </div>
   );
