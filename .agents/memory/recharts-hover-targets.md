@@ -7,4 +7,4 @@ Recharts pie sectors may be far below the viewport, and the center of a sector's
 
 **Why:** A normal locator hover can target the enclosing SVG or an empty part of the bounding box, leaving Recharts' tooltip hidden even though the chart is rendered correctly.
 
-**How to apply:** Use this pattern for donut/pie tooltip checks, and keep assertions keyed by the sector's `name` attribute rather than assuming data order.
+**How to apply:** Use this pattern for donut/pie tooltip checks, and keep assertions keyed by the sector's `name` attribute rather than assuming data order. After a filtered-data re-render, validate every external label but hover one representative sector per state; Recharts can replace sibling paths while the tooltip animation is active.

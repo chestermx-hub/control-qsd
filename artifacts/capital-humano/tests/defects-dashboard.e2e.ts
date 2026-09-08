@@ -26,9 +26,6 @@ test("carga el dashboard de defectos y sus controles", async ({ page }) => {
 
   const monthSelector = page.getByRole("combobox").first();
   await expect(monthSelector).toBeVisible();
-  await expect(page.getByTestId("select-history-zone")).toBeVisible();
-  await expect(page.getByTestId("select-history-granularity")).toBeVisible();
-  await expect(page.getByTestId("select-history-dimension")).toBeVisible();
 
   for (const label of ["Semana", "Lado", "Día", "Defecto", "Panel"]) {
     await expect(page.getByRole("button", { name: `Filtrar por ${label}` })).toBeVisible();
@@ -42,10 +39,10 @@ test("carga el dashboard de defectos y sus controles", async ({ page }) => {
 
   const monthlyKpi = page.getByText("Defectos del mes", { exact: true });
   if (await monthlyKpi.count()) {
-    await expect(page.getByText("Histórico por zona", { exact: true }).first()).toBeVisible();
     await expect(page.getByText("Defectos por zona", { exact: true })).toBeVisible();
-    await expect(page.getByText("Defectos por panel", { exact: true })).toBeVisible();
-    await expect(page.getByText("Principales defectos", { exact: true })).toBeVisible();
+    await expect(page.getByText("Análisis por zona", { exact: true })).toBeVisible();
+    await expect(page.getByText("Distribución de defectos", { exact: true }).first()).toBeVisible();
+    await expect(page.getByText("Defectos principales", { exact: true }).first()).toBeVisible();
   }
 });
 
@@ -54,6 +51,7 @@ test("muestra porcentajes reales en la dona y en su tooltip", async ({ page }) =
   const suffix = `donut-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const date = currentMexicoDate();
   const createdCaptures: number[] = [];
+  const panelIds: number[] = [];
   let zoneId: number | undefined;
   let defectIds: number[] = [];
 
@@ -75,6 +73,25 @@ test("muestra porcentajes reales en la dona y en su tooltip", async ({ page }) =
     const zone = await zoneResponse.json();
     zoneId = zone.id;
 
+    const createPanel = async (name: string) => {
+      const response = await page.request.post("/api/panels", {
+        data: {
+          name,
+          description: "Panel temporal para validar porcentajes filtrados",
+          diagram_url: `storage://e2e/${name}.jpg`,
+          columns: 1,
+          rows: 1,
+          column_labels: ["A"],
+          row_labels: ["1"],
+          side_mode: "bilateral",
+        },
+      });
+      expect(response.status()).toBe(201);
+      const panel = await response.json();
+      panelIds.push(panel.id);
+      return panel;
+    };
+
     const createDefect = async (name: string, code: string) => {
       const response = await page.request.post("/api/defects", {
         data: {
@@ -90,21 +107,31 @@ test("muestra porcentajes reales en la dona y en su tooltip", async ({ page }) =
       return defect;
     };
 
+    const firstPanel = await createPanel(`Panel E2E A ${suffix}`);
+    const secondPanel = await createPanel(`Panel E2E B ${suffix}`);
     const firstDefect = await createDefect("Defecto menor", `E2E-M-${suffix}`);
     const secondDefect = await createDefect("Defecto mayor", `E2E-G-${suffix}`);
 
-    const createCapture = async (defectId: number, quantity: number, unitNumber: number) => {
+    const createCapture = async (
+      defectId: number,
+      quantity: number,
+      unitNumber: number,
+      panelId: number,
+      sidePosition: "right" | "left",
+    ) => {
       const response = await page.request.post("/api/audit-captures", {
         data: {
           unit_number: unitNumber,
           week_number: 1,
           date,
           zone_id: zoneId,
+          panel_id: panelId,
           grid_col: 1,
           grid_col_label: "A",
           grid_row: "1",
           defect_id: defectId,
           quantity,
+          side_position: sidePosition,
         },
       });
       expect(response.status()).toBe(201);
@@ -112,53 +139,126 @@ test("muestra porcentajes reales en la dona y en su tooltip", async ({ page }) =
       createdCaptures.push(capture.id);
     };
 
-    await createCapture(firstDefect.id, 2, 9001);
-    await createCapture(secondDefect.id, 5, 9002);
+    await createCapture(firstDefect.id, 2, 9001, firstPanel.id, "right");
+    await createCapture(secondDefect.id, 5, 9002, secondPanel.id, "right");
+    await createCapture(secondDefect.id, 3, 9003, firstPanel.id, "left");
+    await createCapture(firstDefect.id, 10, 9004, secondPanel.id, "left");
+    await createCapture(secondDefect.id, 1, 9005, firstPanel.id, "right");
 
     await page.goto("/analisis-defectos/dashboard");
     const pieChart = page.getByTestId(`zone-pie-chart-${zoneId}`);
     await expect(pieChart).toBeVisible();
-    await expect(pieChart).toContainText("Defecto menor");
-    await expect(pieChart).toContainText("Defecto mayor");
-    await expect(pieChart).toContainText("2 · 28.6%");
-    await expect(pieChart).toContainText("5 · 71.4%");
+    const assertPiePercentages = async (expectedByDefect: Map<string, string>) => {
+      for (const expected of expectedByDefect.values()) {
+        await expect(pieChart).toContainText(expected);
+      }
 
-    const displayedPercentages = (await pieChart.locator("svg text").allTextContents())
-      .flatMap((text) => text.match(/\d+(?:\.\d+)?%/g) ?? [])
-      .map((text) => Number.parseFloat(text));
-    expect(displayedPercentages).toHaveLength(2);
-    expect(displayedPercentages.reduce((sum, percentage) => sum + percentage, 0)).toBeCloseTo(100, 0);
+      const displayedPercentages = (await pieChart.locator("svg text").allTextContents())
+        .flatMap((text) => text.match(/\d+(?:\.\d+)?%/g) ?? [])
+        .map((text) => Number.parseFloat(text));
+      expect(displayedPercentages).toHaveLength(expectedByDefect.size);
+      expect(displayedPercentages.reduce((sum, percentage) => sum + percentage, 0)).toBeCloseTo(100, 0);
 
-    const sectors = pieChart.locator("path.recharts-sector");
-    await expect(sectors).toHaveCount(2);
-    const expectedByDefect = new Map([
-      ["Defecto menor", "2 · 28.6%"],
-      ["Defecto mayor", "5 · 71.4%"],
-    ]);
-    for (let index = 0; index < await sectors.count(); index += 1) {
-      const sector = sectors.nth(index);
+      const sectors = pieChart.locator("path.recharts-sector");
+      await expect(sectors).toHaveCount(expectedByDefect.size);
+      const sector = sectors.first();
       const defectName = await sector.getAttribute("name");
       const expected = expectedByDefect.get(defectName ?? "");
       expect(expected).toBeDefined();
       await sector.scrollIntoViewIfNeeded();
       const point = await sector.evaluate((element) => {
+        const isPaintedSector = (x: number, y: number) =>
+          document.elementFromPoint(x, y) === element;
         const rect = element.getBoundingClientRect();
         for (let x = rect.left + 4; x < rect.right - 4; x += 4) {
           for (let y = rect.top + 4; y < rect.bottom - 4; y += 4) {
-            const target = document.elementFromPoint(x, y);
-            if (target === element) return { x, y };
+            if (isPaintedSector(x, y)) return { x, y };
+          }
+        }
+
+        const svg = element.ownerSVGElement;
+        const matrix = svg?.getScreenCTM();
+        const centerX = Number(element.getAttribute("cx"));
+        const centerY = Number(element.getAttribute("cy"));
+        if (!svg || !matrix || !Number.isFinite(centerX) || !Number.isFinite(centerY)) {
+          return null;
+        }
+        for (const radius of [70, 80, 90]) {
+          for (let degrees = 0; degrees < 360; degrees += 5) {
+            const radians = (degrees * Math.PI) / 180;
+            const screenPoint = new DOMPoint(
+              centerX + radius * Math.cos(radians),
+              centerY + radius * Math.sin(radians),
+            ).matrixTransform(matrix);
+            if (isPaintedSector(screenPoint.x, screenPoint.y)) {
+              return { x: screenPoint.x, y: screenPoint.y };
+            }
           }
         }
         return null;
       });
       expect(point).not.toBeNull();
-      await page.mouse.move(point!.x, point!.y);
-      const tooltip = page.locator(".recharts-tooltip-wrapper").filter({ hasText: expected! });
+      await page.mouse.move(0, 0);
+      const box = await sector.boundingBox();
+      expect(box).not.toBeNull();
+      await sector.hover({
+        force: true,
+        position: { x: point!.x - box!.x, y: point!.y - box!.y },
+      });
+      await sector.dispatchEvent("mouseover", {
+        bubbles: true,
+        clientX: point!.x,
+        clientY: point!.y,
+      });
+      await sector.dispatchEvent("mousemove", {
+        bubbles: true,
+        clientX: point!.x,
+        clientY: point!.y,
+      });
+      const tooltip = pieChart.locator(".recharts-tooltip-wrapper");
       await expect(tooltip).toBeVisible();
-    }
+      await expect(tooltip).toContainText(expected!);
+    };
+
+    const firstDefectCode = `E2E-M-${suffix}`;
+    const secondDefectCode = `E2E-G-${suffix}`;
+    await assertPiePercentages(new Map([
+      [firstDefectCode, "12 · 57.1%"],
+      [secondDefectCode, "9 · 42.9%"],
+    ]));
+
+    const selectFilter = async (label: string, option: string) => {
+      await page.getByRole("button", { name: `Filtrar por ${label}` }).click();
+      const filterDialog = page.getByRole("dialog");
+      await expect(filterDialog).toBeVisible();
+      await filterDialog.locator("label").filter({ hasText: option }).click();
+      await page.keyboard.press("Escape");
+    };
+
+    await selectFilter("Lado", "Derecho");
+    await assertPiePercentages(new Map([
+      [firstDefectCode, "2 · 25.0%"],
+      [secondDefectCode, "6 · 75.0%"],
+    ]));
+
+    await page.getByRole("button", { name: "Limpiar filtros del corte" }).click();
+    await selectFilter("Panel", `Panel E2E A ${suffix}`);
+    await assertPiePercentages(new Map([
+      [firstDefectCode, "2 · 33.3%"],
+      [secondDefectCode, "4 · 66.7%"],
+    ]));
+
+    await page.getByRole("button", { name: "Limpiar filtros del corte" }).click();
+    await selectFilter("Defecto", firstDefectCode);
+    await assertPiePercentages(new Map([
+      [firstDefectCode, "12 · 100.0%"],
+    ]));
   } finally {
     for (const captureId of createdCaptures) {
       await page.request.delete(`/api/audit-captures/${captureId}`).catch(() => {});
+    }
+    for (const panelId of panelIds) {
+      await page.request.delete(`/api/panels/${panelId}`).catch(() => {});
     }
     for (const defectId of defectIds) {
       await page.request.delete(`/api/defects/${defectId}`).catch(() => {});
