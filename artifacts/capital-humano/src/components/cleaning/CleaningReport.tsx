@@ -332,11 +332,6 @@ export function CleaningReport({
   const completedActivities = execution.activities.filter(
     (activity) => activity.completed || activity.not_applicable,
   ).length;
-  const requiredPhotos = execution.activities.filter((activity) => activity.requires_photo);
-  const documentedPhotos = requiredPhotos.filter(
-    (activity) => activity.initial_photo && activity.final_photo,
-  ).length;
-  const readyAreas = execution.areas.filter((area) => area.ready && !area.excluded).length;
   const completion = totalActivities ? Math.round((completedActivities / totalActivities) * 100) : 0;
   const reportNumber = `ICMX-${String(execution.id).padStart(5, "0")}`;
 
@@ -429,14 +424,6 @@ export function CleaningReport({
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Resumen del servicio</p>
             <h2 className="mt-2 font-serif text-3xl leading-tight text-[#123b66]">{execution.client.name}</h2>
             <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-              <div className="border-l-2 border-[#2b68a2] pl-3">
-                <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Planta</p>
-                <p className="mt-1 text-[#30443e]">{execution.client.plant_number || "No especificada"}</p>
-              </div>
-              <div className="border-l-2 border-[#008acb] pl-3">
-                <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Tipo de limpieza</p>
-                <p className="mt-1 text-[#30443e]">{execution.cleaning_type.name}</p>
-              </div>
               <div className="border-l-2 border-[#123b66] pl-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Fecha de ejecución</p>
                 <p className="mt-1 text-[#30443e]">{formatDate(execution.execution_date)}</p>
@@ -451,8 +438,6 @@ export function CleaningReport({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Metric eyebrow="Avance" value={`${completion}%`} detail={`${completedActivities} de ${totalActivities} actividades`} accent="teal" />
-            <Metric eyebrow="Áreas listas" value={`${readyAreas}/${execution.areas.length}`} detail="Revisión por módulo" accent="amber" />
-            <Metric eyebrow="Evidencia" value={`${documentedPhotos}/${requiredPhotos.length}`} detail="Pares de fotos requeridos" accent="navy" />
             <Metric eyebrow="Áreas incluidas" value={`${execution.areas.filter((area) => !area.excluded).length}`} detail="En este servicio" accent="teal" />
           </div>
         </div>
