@@ -364,7 +364,7 @@ export function CleaningReport({
           .cleaning-report > section { padding: 16px 20px !important; }
           .cleaning-report > section .mt-7 { margin-top: 12px !important; }
           .cleaning-report > section .mb-5 { margin-bottom: 10px !important; }
-          .cleaning-report .avoid-break { break-inside: auto; }
+          .cleaning-report .avoid-break { break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; }
           .cleaning-report .report-area-header h3 { font-size: 20px !important; }
           .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 100px !important; }
