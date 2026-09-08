@@ -66,6 +66,7 @@ router.patch("/limpiezas/areas/:id", async (req, res) => {
     const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
     await db.insert(cleaningAreaActivitiesTable).values({ areaId: id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
   }
+  await syncAreaActivitiesToOpenExecutions(area.id, area.name);
   res.json(await areaWithActivities(id));
 });
 router.delete("/limpiezas/areas/:id", async (req, res) => { await db.delete(cleaningAreasTable).where(eq(cleaningAreasTable.id, Number(req.params.id))); res.status(204).send(); });
@@ -110,15 +111,18 @@ async function syncNewAreasToOpenExecutions(typeId: number) {
       db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, execution.id)),
       db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id)),
     ]);
-    const existingAreaNames = new Set(existingAreas.map((area) => area.areaName));
-    const missingAreaNames = areaNames.filter((areaName) => !existingAreaNames.has(areaName));
-    if (!missingAreaNames.length) continue;
-
     let nextAreaSort = existingAreas.reduce((max, area) => Math.max(max, area.sortOrder), -1) + 1;
     let nextActivitySort = existingActivities.reduce((max, activity) => Math.max(max, activity.sortOrder), -1) + 1;
-    for (const areaName of missingAreaNames) {
-      await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: nextAreaSort++ });
+    const existingAreaNames = new Set(existingAreas.map((area) => area.areaName));
+    const existingActivityKeys = new Set(existingActivities.map((activity) => `${activity.areaName || "Área general"}\u0000${activity.description}`));
+    for (const areaName of areaNames) {
+      if (!existingAreaNames.has(areaName)) {
+        await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: nextAreaSort++ });
+        existingAreaNames.add(areaName);
+      }
       for (const activity of typeActivities.filter((item) => (item.areaName || "Área general") === areaName)) {
+        const activityKey = `${areaName}\u0000${activity.description}`;
+        if (existingActivityKeys.has(activityKey)) continue;
         await db.insert(cleaningExecutionActivitiesTable).values({
           executionId: execution.id,
           description: activity.description,
@@ -126,7 +130,39 @@ async function syncNewAreasToOpenExecutions(typeId: number) {
           sortOrder: nextActivitySort++,
           requiresPhoto: activity.requiresPhoto,
         });
+        existingActivityKeys.add(activityKey);
       }
+    }
+  }
+}
+
+async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: string) {
+  const [executions, areaActivities] = await Promise.all([
+    db.select().from(cleaningExecutionsTable),
+    db.select().from(cleaningAreaActivitiesTable)
+      .where(eq(cleaningAreaActivitiesTable.areaId, areaId))
+      .orderBy(asc(cleaningAreaActivitiesTable.sortOrder)),
+  ]);
+  const openExecutions = executions.filter((execution) => execution.status !== "completed" && !execution.signature);
+  if (!openExecutions.length || !areaActivities.length) return;
+
+  for (const execution of openExecutions) {
+    const executionAreas = await db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, execution.id));
+    if (!executionAreas.some((area) => area.areaName === areaName)) continue;
+    const existingActivities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id));
+    const existingKeys = new Set(existingActivities.map((activity) => `${activity.areaName || "Área general"}\u0000${activity.description}`));
+    let nextSort = existingActivities.reduce((max, activity) => Math.max(max, activity.sortOrder), -1) + 1;
+    for (const activity of areaActivities) {
+      const key = `${areaName}\u0000${activity.description}`;
+      if (existingKeys.has(key)) continue;
+      await db.insert(cleaningExecutionActivitiesTable).values({
+        executionId: execution.id,
+        description: activity.description,
+        areaName,
+        sortOrder: nextSort++,
+        requiresPhoto: activity.requiresPhoto,
+      });
+      existingKeys.add(key);
     }
   }
 }
@@ -167,14 +203,38 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   for (const [index, areaName] of areaNames.entries()) await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: index });
   res.status(201).json(await executionJson(execution.id));
 });
-router.get("/limpiezas/ejecuciones/:id", async (req, res) => { const data = await executionJson(Number(req.params.id)); if (!data) { res.status(404).json({ error: "Ejecución no encontrada" }); return; } res.json(data); });
+router.get("/limpiezas/ejecuciones/:id", async (req, res) => {
+  const executionId = Number(req.params.id);
+  const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
+  if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  if (execution.status !== "completed" && !execution.signature) await syncNewAreasToOpenExecutions(execution.cleaningTypeId);
+  res.json(await executionJson(executionId));
+});
 router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   const executionId = Number(req.params.id);
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
   if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  const requestedDate = typeof req.body.execution_date === "string" ? req.body.execution_date.trim() : undefined;
+  if (requestedDate !== undefined) {
+    if (execution.signature || execution.status === "completed") {
+      res.status(400).json({ error: "La fecha no puede modificarse después de cerrar el reporte" });
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) {
+      res.status(400).json({ error: "La fecha de ejecución no es válida" });
+      return;
+    }
+    await db.update(cleaningExecutionsTable).set({ executionDate: requestedDate }).where(eq(cleaningExecutionsTable.id, executionId));
+  }
   const signature = typeof req.body.signature === "string" ? req.body.signature.trim() : "";
-  if (!signature) { res.status(400).json({ error: "La firma es obligatoria para cerrar el reporte" }); return; }
-
+  if (!signature) {
+    if (requestedDate === undefined) {
+      res.status(400).json({ error: "Indica una fecha o una firma para actualizar el reporte" });
+      return;
+    }
+    res.json(await executionJson(executionId));
+    return;
+  }
   const [activities, areas] = await Promise.all([
     db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId)),
     db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId)),

@@ -388,11 +388,46 @@ function ExecutionPageModern({
   const [clientId, setClientId] = useState("");
   const [flowId, setFlowId] = useState("");
   const [execution, setExecution] = useState<Execution | null>(initialExecution || null);
+  const [executionDate, setExecutionDate] = useState(initialExecution?.execution_date || currentDateInputValue());
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [savingSignature, setSavingSignature] = useState(false);
+  const [savingDate, setSavingDate] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (!initialExecution?.id) return;
+    let active = true;
+    api(`/limpiezas/ejecuciones/${initialExecution.id}`)
+      .then((latest) => {
+        if (!active) return;
+        setExecution(latest);
+        setExecutionDate(latest.execution_date);
+      })
+      .catch((error) => {
+        if (active) toast({ title: error instanceof Error ? error.message : "No se pudo actualizar el reporte", variant: "destructive" });
+      });
+    return () => { active = false; };
+  }, [initialExecution?.id]);
+
+  const saveExecutionDate = async () => {
+    if (!execution || execution.signature || !executionDate) return;
+    setSavingDate(true);
+    try {
+      const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ execution_date: executionDate }),
+      });
+      setExecution(updated);
+      setExecutionDate(updated.execution_date);
+      toast({ title: "Fecha de ejecución actualizada" });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo actualizar la fecha", variant: "destructive" });
+    } finally {
+      setSavingDate(false);
+    }
+  };
 
   const start = async () => {
     try {
@@ -513,7 +548,19 @@ function ExecutionPageModern({
           </div>
           <p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+          {!execution.signature && (
+            <div className="flex items-end gap-2">
+              <label className="space-y-1 text-xs font-medium">
+                <span className="block text-muted-foreground">Fecha de ejecución</span>
+                <Input type="date" value={executionDate} onChange={(event) => setExecutionDate(event.target.value)} className="h-10 w-full sm:w-40" />
+              </label>
+              <Button type="button" variant="outline" className="h-10" onClick={saveExecutionDate} disabled={savingDate || !executionDate}>
+                {savingDate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+                <span className="sr-only">Guardar fecha</span>
+              </Button>
+            </div>
+          )}
           <Button className="w-full sm:w-auto" variant="outline" onClick={() => setShowReport(true)}>
             <FileText className="mr-2 h-4 w-4" />
             Reporte ejecutivo
