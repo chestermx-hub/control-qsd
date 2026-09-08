@@ -24,6 +24,12 @@ type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas
 type ExecutionArea = { id: number; area_name: string; initial_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
 type Execution = { id: number; execution_date: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string };
 
+function currentDateInputValue() {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
 const api = async (path: string, options?: RequestInit) => {
   const response = await fetch(`/api${path}`, { credentials: "include", headers: { "Content-Type": "application/json", ...(options?.headers || {}) }, ...options });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "No se pudo completar la operación");
@@ -224,7 +230,7 @@ function StartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted
   const start = async () => {
     setLoading(true);
     try {
-      onStarted(await api("/limpiezas/ejecuciones", { method: "POST", body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: new Date().toISOString().slice(0, 10) }) }));
+      onStarted(await api("/limpiezas/ejecuciones", { method: "POST", body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: currentDateInputValue() }) }));
     } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" }); } finally { setLoading(false); }
   };
   return <div className="space-y-6"><Card><CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><CardTitle>Iniciar una limpieza</CardTitle><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCustomOpen(true)}><Plus className="mr-2 h-4 w-4" />Agregar flujo personalizado</Button></CardHeader><CardContent className="grid gap-4 md:grid-cols-3"><label className="space-y-1 text-sm font-medium">Cliente<Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); }}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Flujo de limpieza<Select value={flowId} onValueChange={setFlowId}><SelectTrigger><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger><SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent></Select></label><div className="flex items-end"><Button className="w-full" disabled={!clientId || !flowId || loading} onClick={start}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}<ClipboardCheck className="mr-2 h-4 w-4" />Iniciar reporte</Button></div></CardContent></Card><CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); }} /></div>;
@@ -274,6 +280,7 @@ async function uploadSignatureImage(dataUrl: string) {
 function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Catalogs; onStarted: (execution: Execution) => void; onHistory?: () => void }) {
   const [clientId, setClientId] = useState("");
   const [flowId, setFlowId] = useState("");
+  const [executionDate, setExecutionDate] = useState(currentDateInputValue);
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -283,7 +290,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
     try {
       onStarted(await api("/limpiezas/ejecuciones", {
         method: "POST",
-        body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: new Date().toISOString().slice(0, 10) }),
+        body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: executionDate }),
       }));
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" });
@@ -321,7 +328,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
           </div>
           <p className="text-sm text-muted-foreground">Paso 01 · Selección de alcance</p>
         </div>
-        <div className="grid gap-5 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
+        <div className="grid gap-5 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
           <label className="space-y-2 text-sm font-medium">
             <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">1</span>Cliente</span>
             <Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); }}>
@@ -335,6 +342,10 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
               <SelectTrigger className="h-12"><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger>
               <SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent>
             </Select>
+          </label>
+          <label className="space-y-2 text-sm font-medium">
+            <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">3</span>Fecha de ejecución</span>
+            <Input type="date" value={executionDate} onChange={(event) => setExecutionDate(event.target.value)} className="h-12" required />
           </label>
           <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || loading} onClick={start}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}

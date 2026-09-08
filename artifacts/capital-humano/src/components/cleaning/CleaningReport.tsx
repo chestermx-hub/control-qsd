@@ -150,16 +150,16 @@ function Metric({
       <span
         className={cn(
           "absolute inset-y-0 left-0 w-1",
-          accent === "teal" && "bg-[#2e8b83]",
-          accent === "amber" && "bg-[#d39856]",
-          accent === "navy" && "bg-[#183641]",
+           accent === "teal" && "bg-[#008acb]",
+           accent === "amber" && "bg-[#2b68a2]",
+           accent === "navy" && "bg-[#123b66]",
         )}
         aria-hidden="true"
       />
       <p className="pl-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[#758079]">
         {eyebrow}
       </p>
-      <p className="pl-2 pt-1 font-serif text-3xl leading-none text-[#183641]">{value}</p>
+      <p className="pl-2 pt-1 font-serif text-3xl leading-none text-[#123b66]">{value}</p>
       <p className="pl-2 pt-2 text-xs text-[#69736d]">{detail}</p>
     </div>
   );
@@ -179,12 +179,12 @@ function AreaHeader({
   return (
     <div className="flex flex-col gap-4 border-b border-[#d8d9d3] px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#183641] font-mono text-xs text-[#f5f2e9]">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#123b66] font-mono text-xs text-[#f5f2e9]">
           {String(number).padStart(2, "0")}
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-serif text-2xl leading-none text-[#183641]">{area.area_name}</h3>
+            <h3 className="font-serif text-2xl leading-none text-[#123b66]">{area.area_name}</h3>
             {area.excluded && (
               <Badge className="border-[#d8d9d3] bg-[#ecebe5] font-mono text-[9px] uppercase tracking-[0.12em] text-[#6d7771]">
                 Excluida
@@ -198,7 +198,7 @@ function AreaHeader({
       </div>
       <div className="flex items-center gap-2 self-start">
         {area.ready ? (
-          <CheckCircle2 className="h-4 w-4 text-[#2e8b83]" aria-hidden="true" />
+          <CheckCircle2 className="h-4 w-4 text-[#008acb]" aria-hidden="true" />
         ) : (
           <CircleDashed className="h-4 w-4 text-[#a0a8a2]" aria-hidden="true" />
         )}
@@ -245,8 +245,8 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
       <span
         className={cn(
           "inline-flex w-fit items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.12em]",
-          state.tone === "complete" && "border-[#b9d8d0] bg-[#eaf4f1] text-[#28776e]",
-          state.tone === "pending" && "border-[#ead2b5] bg-[#fcf2e5] text-[#a5662d]",
+          state.tone === "complete" && "border-[#b7ddef] bg-[#e9f6fc] text-[#0a699d]",
+          state.tone === "pending" && "border-[#bfd6e6] bg-[#eff7fc] text-[#2b6a92]",
           state.tone === "neutral" && "border-[#d8d9d3] bg-[#f0f0eb] text-[#7c847e]",
         )}
       >
@@ -271,7 +271,7 @@ function SignatureBlock({
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">
             Validación del servicio
           </p>
-          <h2 className="mt-2 font-serif text-2xl text-[#183641]">Conformidad y firma</h2>
+          <h2 className="mt-2 font-serif text-2xl text-[#123b66]">Conformidad y firma</h2>
           <p className="mt-1 max-w-md text-sm leading-5 text-[#69736d]">
             La firma confirma la revisión del reporte y de las evidencias adjuntas.
           </p>
@@ -281,14 +281,14 @@ function SignatureBlock({
             type="button"
             variant="outline"
             onClick={onRequestSignature}
-            className="w-full border-[#b9c7c0] bg-[#fbfaf6] text-[#285d59] hover:bg-[#edf4f1] sm:w-auto"
+            className="w-full border-[#9fc5dc] bg-[#fbfaf6] text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
           >
             <PenLine className="mr-2 h-4 w-4" aria-hidden="true" />
             {signature ? "Actualizar firma" : "Solicitar firma"}
           </Button>
         )}
       </div>
-      <div className="mt-6 max-w-md border-b border-[#183641] pb-3">
+      <div className="mt-6 max-w-md border-b border-[#123b66] pb-3">
         {signature?.dataUrl ? (
           <img
             src={signature.dataUrl}
@@ -351,7 +351,7 @@ export function CleaningReport({
   return (
     <article
       className={cn(
-        "cleaning-report mx-auto max-w-5xl overflow-hidden bg-[#f5f2e9] text-[#30443e] shadow-[0_20px_60px_rgba(24,54,65,0.12)] print:max-w-none print:overflow-visible print:bg-[#f5f2e9] print:shadow-none",
+        "cleaning-report mx-auto max-w-5xl overflow-hidden bg-[#f3f8fb] text-[#30443e] shadow-[0_20px_60px_rgba(18,59,102,0.12)] print:max-w-none print:overflow-visible print:bg-[#f3f8fb] print:shadow-none",
         className,
       )}
     >
@@ -366,9 +366,9 @@ export function CleaningReport({
         }
       `}</style>
 
-      <header className="relative overflow-hidden bg-[#183641] px-5 py-7 text-[#f5f2e9] sm:px-8 sm:py-9">
-        <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full border-[28px] border-[#2e8b83]/30" aria-hidden="true" />
-        <div className="absolute bottom-0 right-20 h-1 w-28 bg-[#d39856]" aria-hidden="true" />
+      <header className="relative overflow-hidden bg-[#123b66] px-5 py-7 text-[#f5f2e9] sm:px-8 sm:py-9">
+        <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full border-[28px] border-[#008acb]/30" aria-hidden="true" />
+        <div className="absolute bottom-0 right-20 h-1 w-28 bg-[#2b68a2]" aria-hidden="true" />
         <div className="relative flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-xl">
             <div className="mb-7 flex items-center gap-3">
@@ -376,31 +376,31 @@ export function CleaningReport({
                 <img src={logoSrc} alt="Identidad del servicio" className="h-8 w-auto max-w-[9rem] object-contain brightness-0 invert" />
               )}
               {!logoSrc && (
-                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#b5cbc4]">
+                <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#b9ddeb]">
                   QSD · Clean Technology
                 </span>
               )}
-              <span className="h-px w-8 bg-[#d39856]" aria-hidden="true" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#b5cbc4]">
+              <span className="h-px w-8 bg-[#2b68a2]" aria-hidden="true" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.17em] text-[#b9ddeb]">
                 ICMX
               </span>
             </div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#9dc9c1]">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#a9ddf2]">
               Informe ejecutivo de servicio
             </p>
             <h1 className="mt-3 max-w-lg font-serif text-4xl leading-[0.98] tracking-[-0.02em] sm:text-5xl">
               Reporte de limpieza industrial
             </h1>
-            <p className="mt-4 max-w-md text-sm leading-6 text-[#bed0ca]">
+            <p className="mt-4 max-w-md text-sm leading-6 text-[#c7e1ed]">
               Evidencia ordenada de ejecución, revisión por área y conformidad del servicio.
             </p>
           </div>
           <div className="shrink-0 sm:text-right">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#9dc9c1]">Folio</p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#a9ddf2]">Folio</p>
             <p className="mt-1 font-mono text-lg text-[#f5f2e9]">{reportNumber}</p>
-            <div className="mt-4 inline-flex items-center gap-2 border border-[#5d827d] px-3 py-2">
-              <ShieldCheck className="h-4 w-4 text-[#9dc9c1]" aria-hidden="true" />
-              <span className="font-mono text-[10px] uppercase tracking-[0.13em] text-[#d9e6e0]">
+            <div className="mt-4 inline-flex items-center gap-2 border border-[#4c85ab] px-3 py-2">
+              <ShieldCheck className="h-4 w-4 text-[#a9ddf2]" aria-hidden="true" />
+              <span className="font-mono text-[10px] uppercase tracking-[0.13em] text-[#d7eef8]">
                 {statusLabel(execution.status)}
               </span>
             </div>
@@ -416,7 +416,7 @@ export function CleaningReport({
           type="button"
           onClick={printReport}
           variant="outline"
-          className="w-full border-[#b9c7c0] bg-transparent text-[#285d59] hover:bg-[#edf4f1] sm:w-auto"
+          className="w-full border-[#9fc5dc] bg-transparent text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
         >
           <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
           Imprimir / PDF
@@ -427,17 +427,17 @@ export function CleaningReport({
         <div className="grid gap-7 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Resumen del servicio</p>
-            <h2 className="mt-2 font-serif text-3xl leading-tight text-[#183641]">{execution.client.name}</h2>
+            <h2 className="mt-2 font-serif text-3xl leading-tight text-[#123b66]">{execution.client.name}</h2>
             <div className="mt-5 grid gap-4 text-sm sm:grid-cols-2">
-              <div className="border-l-2 border-[#d39856] pl-3">
+              <div className="border-l-2 border-[#2b68a2] pl-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Planta</p>
                 <p className="mt-1 text-[#30443e]">{execution.client.plant_number || "No especificada"}</p>
               </div>
-              <div className="border-l-2 border-[#2e8b83] pl-3">
+              <div className="border-l-2 border-[#008acb] pl-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Tipo de limpieza</p>
                 <p className="mt-1 text-[#30443e]">{execution.cleaning_type.name}</p>
               </div>
-              <div className="border-l-2 border-[#183641] pl-3">
+              <div className="border-l-2 border-[#123b66] pl-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Fecha de ejecución</p>
                 <p className="mt-1 text-[#30443e]">{formatDate(execution.execution_date)}</p>
               </div>
@@ -462,7 +462,7 @@ export function CleaningReport({
             <span>{completion}%</span>
           </div>
           <div className="h-2 bg-[#dfe3dd]" role="progressbar" aria-valuenow={completion} aria-valuemin={0} aria-valuemax={100}>
-            <div className="h-full bg-[#2e8b83] transition-[width]" style={{ width: `${completion}%` }} />
+            <div className="h-full bg-[#008acb] transition-[width]" style={{ width: `${completion}%` }} />
           </div>
         </div>
       </section>
@@ -471,9 +471,9 @@ export function CleaningReport({
         <div className="mb-5 flex items-end justify-between gap-4">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Detalle operativo</p>
-            <h2 className="mt-2 font-serif text-3xl text-[#183641]">Áreas y actividades</h2>
+            <h2 className="mt-2 font-serif text-3xl text-[#123b66]">Áreas y actividades</h2>
           </div>
-          <ArrowUpRight className="h-6 w-6 text-[#d39856]" aria-hidden="true" />
+          <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
         <div className="space-y-5">
           {execution.areas.map((area, index) => {

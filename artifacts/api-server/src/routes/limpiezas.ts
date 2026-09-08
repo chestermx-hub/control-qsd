@@ -89,12 +89,47 @@ router.patch("/limpiezas/tipos/:id", async (req, res) => {
     const value = typeof activity === "string" ? { description: activity } : activity;
     await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: id, description: String(value.description || value), areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
   }
+  await syncNewAreasToOpenExecutions(id);
   res.json(await typeWithActivities(id));
 });
 router.delete("/limpiezas/tipos/:id", async (req, res) => {
   try { await db.delete(cleaningTypesTable).where(eq(cleaningTypesTable.id, Number(req.params.id))); res.status(204).send(); }
   catch { res.status(409).json({ error: "No se puede eliminar el flujo porque tiene ejecuciones registradas" }); }
 });
+
+async function syncNewAreasToOpenExecutions(typeId: number) {
+  const [executions, typeActivities] = await Promise.all([
+    db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.cleaningTypeId, typeId)),
+    db.select().from(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, typeId)).orderBy(asc(cleaningTypeActivitiesTable.sortOrder)),
+  ]);
+  const areaNames = Array.from(new Set(typeActivities.map((activity) => activity.areaName || "Área general")));
+  const openExecutions = executions.filter((execution) => execution.status !== "completed" && !execution.signature);
+
+  for (const execution of openExecutions) {
+    const [existingAreas, existingActivities] = await Promise.all([
+      db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, execution.id)),
+      db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id)),
+    ]);
+    const existingAreaNames = new Set(existingAreas.map((area) => area.areaName));
+    const missingAreaNames = areaNames.filter((areaName) => !existingAreaNames.has(areaName));
+    if (!missingAreaNames.length) continue;
+
+    let nextAreaSort = existingAreas.reduce((max, area) => Math.max(max, area.sortOrder), -1) + 1;
+    let nextActivitySort = existingActivities.reduce((max, activity) => Math.max(max, activity.sortOrder), -1) + 1;
+    for (const areaName of missingAreaNames) {
+      await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: nextAreaSort++ });
+      for (const activity of typeActivities.filter((item) => (item.areaName || "Área general") === areaName)) {
+        await db.insert(cleaningExecutionActivitiesTable).values({
+          executionId: execution.id,
+          description: activity.description,
+          areaName: activity.areaName,
+          sortOrder: nextActivitySort++,
+          requiresPhoto: activity.requiresPhoto,
+        });
+      }
+    }
+  }
+}
 
 async function executionJson(id: number) {
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, id));
