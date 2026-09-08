@@ -103,7 +103,7 @@ function PhotoFrame({
     return (
       <div
         className={cn(
-          "flex min-h-24 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
+          "report-photo-frame flex min-h-24 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
           compact ? "min-h-16" : "min-h-28",
         )}
       >
@@ -118,7 +118,7 @@ function PhotoFrame({
   }
 
   return (
-    <figure className="overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]">
+    <figure className={cn("report-photo-frame overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]", compact && "report-photo-compact")}>
       <img
         src={src}
         alt={alt}
@@ -146,7 +146,7 @@ function Metric({
   accent?: "teal" | "amber" | "navy";
 }) {
   return (
-    <div className="relative overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6] px-4 py-4">
+    <div className="report-metric relative overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6] px-4 py-4">
       <span
         className={cn(
           "absolute inset-y-0 left-0 w-1",
@@ -177,7 +177,7 @@ function AreaHeader({
   total: number;
 }) {
   return (
-    <div className="flex flex-col gap-4 border-b border-[#d8d9d3] px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
+    <div className="report-area-header flex flex-col gap-4 border-b border-[#d8d9d3] px-5 py-5 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex min-w-0 gap-3">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center bg-[#123b66] font-mono text-xs text-[#f5f2e9]">
           {String(number).padStart(2, "0")}
@@ -213,7 +213,7 @@ function AreaHeader({
 function ActivityRow({ activity, index }: { activity: CleaningReportActivity; index: number }) {
   const state = activityStatus(activity);
   return (
-    <div className="grid gap-3 border-b border-[#e4e3dd] px-4 py-4 last:border-b-0 sm:grid-cols-[30px_minmax(0,1fr)_auto] sm:items-start">
+    <div className="report-activity-row grid gap-3 border-b border-[#e4e3dd] px-4 py-4 last:border-b-0 sm:grid-cols-[30px_minmax(0,1fr)_auto] sm:items-start">
       <span className="font-mono text-[11px] text-[#a0a7a1]">{String(index + 1).padStart(2, "0")}</span>
       <div className="min-w-0">
         <p
@@ -265,7 +265,7 @@ function SignatureBlock({
   onRequestSignature?: () => void;
 }) {
   return (
-    <section className="border-t border-[#d8d9d3] px-5 py-7 sm:px-8">
+    <section className="report-signature border-t border-[#d8d9d3] px-5 py-7 sm:px-8">
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">
@@ -352,11 +352,27 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-          @page { size: A4; margin: 12mm; }
+          @page { size: A4; margin: 8mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
            .cleaning-report { position: absolute; left: 0; top: 0; width: 100%; }
-          .cleaning-report .avoid-break { break-inside: avoid; }
+          .cleaning-report > header { padding: 16px 20px !important; }
+          .cleaning-report > header .gap-8 { gap: 16px !important; }
+          .cleaning-report > header .mb-7 { margin-bottom: 8px !important; }
+          .cleaning-report > header h1 { font-size: 26px !important; }
+          .cleaning-report > header .mt-4 { margin-top: 8px !important; }
+          .cleaning-report > section { padding: 16px 20px !important; }
+          .cleaning-report > section .mt-7 { margin-top: 12px !important; }
+          .cleaning-report > section .mb-5 { margin-bottom: 10px !important; }
+          .cleaning-report .avoid-break { break-inside: auto; }
+          .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; }
+          .cleaning-report .report-area-header h3 { font-size: 20px !important; }
+          .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 100px !important; }
+          .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 100px; }
+          .cleaning-report .report-activity-row { gap: 8px; padding: 6px 10px !important; }
+          .cleaning-report .report-activity-row p { line-height: 1.25; }
+          .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
+          .cleaning-report .report-footer { padding: 8px 20px !important; }
           .cleaning-report .report-action-bar { display: none; }
         }
       `}</style>
@@ -490,7 +506,7 @@ export function CleaningReport({
 
       <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
 
-      <footer className="flex flex-col gap-2 border-t border-[#d8d9d3] bg-[#eeeDE5] px-5 py-4 font-mono text-[9px] uppercase tracking-[0.13em] text-[#7d8780] sm:flex-row sm:items-center sm:justify-between sm:px-8">
+    <footer className="report-footer flex flex-col gap-2 border-t border-[#d8d9d3] bg-[#eeeDE5] px-5 py-4 font-mono text-[9px] uppercase tracking-[0.13em] text-[#7d8780] sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <span>Reporte generado desde Limpiezas ICMX</span>
         <span>Folio {reportNumber} · Conserva este documento con sus evidencias</span>
       </footer>
