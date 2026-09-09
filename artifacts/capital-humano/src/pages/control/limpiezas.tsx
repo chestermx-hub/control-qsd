@@ -15,24 +15,14 @@ import { useAuth } from "@/lib/auth";
 import { CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
-type Client = { id: number; name: string; plant_number: string; periodicity: string; udn_id?: number };
+type Client = { id: number; name: string; plant_number: string; line_number?: string; periodicity: string; udn_id?: number };
 type AreaActivity = { id: number; description: string; requires_photo?: boolean };
 type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; activities: AreaActivity[] };
 type FlowActivity = { id?: number; description: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
 type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
 type ExecutionArea = { id: number; area_name: string; initial_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
-type Execution = { id: number; execution_date: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string };
-
-const AREA_TYPE_OPTIONS = [
-  { value: "normal", label: "Normal" },
-  { value: "critica", label: "Crítica" },
-  { value: "numero_linea", label: "Número de línea" },
-] as const;
-
-function areaTypeLabel(value?: string) {
-  return AREA_TYPE_OPTIONS.find((option) => option.value === value)?.label || value || "Normal";
-}
+type Execution = { id: number; execution_date: string; line_number?: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string };
 
 function currentDateInputValue() {
   const now = new Date();
@@ -55,7 +45,7 @@ function useCatalogs() {
 }
 
 function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "client" | "area" | "flow"; initial?: any; catalogs: Catalogs; onSaved: () => void; onClose: () => void }) {
-  const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
+  const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", line_number: "", periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
   const [activity, setActivity] = useState("");
   const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>(() => {
     if (kind !== "flow") return [];
@@ -100,9 +90,10 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label className="space-y-1 text-sm font-medium">Nombre<Input required value={form.name} onChange={e => update("name", e.target.value)} /></label>
       {kind === "client" && <><label className="space-y-1 text-sm font-medium">No. de planta<Input required value={form.plant_number} onChange={e => update("plant_number", e.target.value)} /></label>
-        <label className="space-y-1 text-sm font-medium">Periodicidad<Select value={form.periodicity} onValueChange={v => update("periodicity", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Diaria", "Semanal", "Quincenal", "Mensual", "Bajo demanda"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></label>
-        <label className="space-y-1 text-sm font-medium">UDN prestadora<Select value={String(form.udn_id || "")} onValueChange={v => update("udn_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona una UDN" /></SelectTrigger><SelectContent>{catalogs.udns.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}</SelectContent></Select></label></>}
-      {kind === "area" && <><label className="space-y-1 text-sm font-medium">Clasificación<Select value={form.area_type} onValueChange={v => update("area_type", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{AREA_TYPE_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={v => update("client_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label></>}
+        <label className="space-y-1 text-sm font-medium sm:col-start-2">No. de línea<Input type="number" min="1" required value={form.line_number || ""} onChange={e => update("line_number", e.target.value)} /></label>
+        <label className="space-y-1 text-sm font-medium sm:col-start-1">Periodicidad<Select value={form.periodicity} onValueChange={v => update("periodicity", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Diaria", "Semanal", "Quincenal", "Mensual", "Bajo demanda"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></label>
+        <label className="space-y-1 text-sm font-medium sm:col-start-2">UDN prestadora<Select value={String(form.udn_id || "")} onValueChange={v => update("udn_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona una UDN" /></SelectTrigger><SelectContent>{catalogs.udns.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}</SelectContent></Select></label></>}
+      {kind === "area" && <><label className="space-y-1 text-sm font-medium">Tipo<Select value={form.area_type} onValueChange={v => update("area_type", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="critica">Crítica</SelectItem></SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={v => update("client_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label></>}
       {kind === "flow" && <label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={v => update("client_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label>}
     </div>
     {kind !== "client" && <label className="space-y-1 block text-sm font-medium">Descripción<Textarea value={form.description || ""} onChange={e => update("description", e.target.value)} /></label>}
@@ -141,7 +132,7 @@ function CatalogTab({ kind, title, catalogs, reload }: { kind: "client" | "area"
   const items: any[] = kind === "client" ? catalogs.clients : kind === "area" ? catalogs.areas : catalogs.types;
   const remove = async (id: number) => { if (!confirm("¿Eliminar este registro?")) return; try { await api(`${kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos"}/${id}`, { method: "DELETE" }); reload(); } catch (e) { toast({ title: e instanceof Error ? e.message : "No se puede eliminar", variant: "destructive" }); } };
   return <div className="space-y-4">
-      <div className="grid gap-3">{items.map(item => <Card key={item.id}><CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-2 items-center"><h3 className="font-semibold break-words">{item.name}</h3>{item.code && <Badge variant="outline">{item.code}</Badge>}{item.area_type && <Badge variant={item.area_type === "critica" ? "destructive" : "secondary"}>{areaTypeLabel(item.area_type)}</Badge>}</div><p className="text-sm text-muted-foreground break-words">{kind === "client" ? `Planta ${item.plant_number} · ${item.periodicity}` : kind === "area" ? `${catalogs.clients.find(c => c.id === item.client_id)?.name || "Sin cliente"} · ${item.description || "Sin descripción"} · ${item.activities?.length || 0} actividades` : `${catalogs.clients.find(c => c.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`}</p></div><div className="flex justify-end gap-1 sm:shrink-0"><Button variant="outline" size="icon" aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setOpen(true); }}><Pencil className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label={`Eliminar ${item.name}`} onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>)}{!items.length && <Card><CardContent className="p-10 text-center text-muted-foreground">Aún no hay registros. Crea el primero.</CardContent></Card>}</div>
+      <div className="grid gap-3">{items.map(item => <Card key={item.id}><CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-2 items-center"><h3 className="font-semibold break-words">{item.name}</h3>{item.code && <Badge variant="outline">{item.code}</Badge>}{item.area_type && <Badge variant={item.area_type === "critica" ? "destructive" : "secondary"}>{item.area_type}</Badge>}</div><p className="text-sm text-muted-foreground break-words">{kind === "client" ? `Planta ${item.plant_number} · Línea ${item.line_number || "—"} · ${item.periodicity}` : kind === "area" ? `${catalogs.clients.find(c => c.id === item.client_id)?.name || "Sin cliente"} · ${item.description || "Sin descripción"} · ${item.activities?.length || 0} actividades` : `${catalogs.clients.find(c => c.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`}</p></div><div className="flex justify-end gap-1 sm:shrink-0"><Button variant="outline" size="icon" aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setOpen(true); }}><Pencil className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label={`Eliminar ${item.name}`} onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>)}{!items.length && <Card><CardContent className="p-10 text-center text-muted-foreground">Aún no hay registros. Crea el primero.</Card></Card>}</div>
      <Dialog open={open} onOpenChange={setOpen}><DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:max-w-xl sm:p-6"><DialogHeader><DialogTitle>{editing ? "Editar" : "Nuevo"} {title.slice(0, -1)}</DialogTitle></DialogHeader><CatalogForm kind={kind} initial={editing} catalogs={catalogs} onSaved={reload} onClose={() => setOpen(false)} /></DialogContent></Dialog>
   </div>;
 }
