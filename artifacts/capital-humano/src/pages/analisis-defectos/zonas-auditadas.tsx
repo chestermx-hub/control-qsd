@@ -948,8 +948,8 @@ export default function AnalisisZonasAuditadas() {
   const [showDetail, setShowDetail] = useState(false);
   const [newCaptureStart, setNewCaptureStart] = useState<NewCaptureStart | null>(null);
   const [editDialog, setEditDialog] = useState<AuditCapture | null>(null);
-  const [detailSortKey, setDetailSortKey] = useState<DetailSortKey>("date");
-  const [detailSortDirection, setDetailSortDirection] = useState<SortDirection>("desc");
+  const [detailSortKey, setDetailSortKey] = useState<DetailSortKey>("unit_number");
+  const [detailSortDirection, setDetailSortDirection] = useState<SortDirection>("asc");
   const [detailFilters, setDetailFilters] = useState<Partial<Record<DetailFilterKey, string[]>>>({});
 
   const queryClient = useQueryClient();
@@ -1074,7 +1074,7 @@ export default function AnalisisZonasAuditadas() {
     if (!captures) return [];
     const map = new Map<string, UnitGroup>();
     for (const c of captures as AuditCapture[]) {
-       const key = `${c.zone_id ?? "none"}__${c.unit_number}__${c.date}`;
+       const key = `${c.zone_id ?? "none"}__${c.unit_number}__${c.date}__${c.panel_id ?? "none"}__${c.side_position ?? "none"}`;
       if (!map.has(key)) {
         map.set(key, {
           unit_number: c.unit_number,
@@ -1616,7 +1616,7 @@ export default function AnalisisZonasAuditadas() {
             ) : (
               <div className="space-y-3">
                 {unitGroups.map((group) => {
-                  const key = `${group.zone_id ?? "none"}__${group.unit_number}__${group.date}`;
+                  const key = `${group.zone_id ?? "none"}__${group.unit_number}__${group.date}__${group.panel_id ?? "none"}__${group.captures[0]?.side_position ?? "none"}`;
                   const isExpanded = expandedUnits.has(key);
                    const editable = !isFutureDay(group.date);
                   const canDeleteGroup =
