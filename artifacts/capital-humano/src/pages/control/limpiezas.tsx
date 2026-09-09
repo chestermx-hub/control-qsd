@@ -127,14 +127,86 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   </form>;
 }
 
-function CatalogTab({ kind, title, catalogs, reload }: { kind: "client" | "area" | "flow"; title: string; catalogs: Catalogs; reload: () => void }) {
+function catalogItemSummary(kind: "client" | "area" | "flow", item: any, catalogs: Catalogs) {
+  if (kind === "client") return `Planta ${item.plant_number} · Línea ${item.line_number || "—"} · ${item.periodicity}`;
+  if (kind === "area") return `${catalogs.clients.find((client) => client.id === item.client_id)?.name || "Sin cliente"} · ${item.description || "Sin descripción"} · ${item.activities?.length || 0} actividades`;
+  return `${catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`;
+}
+
+/*
+function CatalogTabLegacy({ kind, title, catalogs, reload }: { kind: "client" | "area" | "flow"; title: string; catalogs: Catalogs; reload: () => void }) {
   const [open, setOpen] = useState(false); const [editing, setEditing] = useState<any>(); const { toast } = useToast();
   const items: any[] = kind === "client" ? catalogs.clients : kind === "area" ? catalogs.areas : catalogs.types;
   const remove = async (id: number) => { if (!confirm("¿Eliminar este registro?")) return; try { await api(`${kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos"}/${id}`, { method: "DELETE" }); reload(); } catch (e) { toast({ title: e instanceof Error ? e.message : "No se puede eliminar", variant: "destructive" }); } };
-  return <div className="space-y-4">
+  return (
+    <div className="space-y-4">
       <div className="grid gap-3">{items.map(item => <Card key={item.id}><CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center"><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-2 items-center"><h3 className="font-semibold break-words">{item.name}</h3>{item.code && <Badge variant="outline">{item.code}</Badge>}{item.area_type && <Badge variant={item.area_type === "critica" ? "destructive" : "secondary"}>{item.area_type}</Badge>}</div><p className="text-sm text-muted-foreground break-words">{kind === "client" ? `Planta ${item.plant_number} · Línea ${item.line_number || "—"} · ${item.periodicity}` : kind === "area" ? `${catalogs.clients.find(c => c.id === item.client_id)?.name || "Sin cliente"} · ${item.description || "Sin descripción"} · ${item.activities?.length || 0} actividades` : `${catalogs.clients.find(c => c.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`}</p></div><div className="flex justify-end gap-1 sm:shrink-0"><Button variant="outline" size="icon" aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setOpen(true); }}><Pencil className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label={`Eliminar ${item.name}`} onClick={() => remove(item.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></CardContent></Card>)}{!items.length && <Card><CardContent className="p-10 text-center text-muted-foreground">Aún no hay registros. Crea el primero.</Card></Card>}</div>
      <Dialog open={open} onOpenChange={setOpen}><DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:max-w-xl sm:p-6"><DialogHeader><DialogTitle>{editing ? "Editar" : "Nuevo"} {title.slice(0, -1)}</DialogTitle></DialogHeader><CatalogForm kind={kind} initial={editing} catalogs={catalogs} onSaved={reload} onClose={() => setOpen(false)} /></DialogContent></Dialog>
-  </div>;
+    </div>
+  );
+}
+
+*/
+function CatalogTab({ kind, title, catalogs, reload }: { kind: "client" | "area" | "flow"; title: string; catalogs: Catalogs; reload: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<any>();
+  const { toast } = useToast();
+  const items: any[] = kind === "client" ? catalogs.clients : kind === "area" ? catalogs.areas : catalogs.types;
+  const path = kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos";
+  const remove = async (id: number) => {
+    if (!confirm("¿Eliminar este registro?")) return;
+    try {
+      await api(`${path}/${id}`, { method: "DELETE" });
+      reload();
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se puede eliminar", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold">{title}</h2>
+          <p className="text-sm text-muted-foreground">Administra la información que utilizarán las limpiezas.</p>
+        </div>
+        <Button className="w-full sm:w-auto" onClick={() => { setEditing(undefined); setOpen(true); }}>
+          <Plus className="mr-2 h-4 w-4" />Nuevo
+        </Button>
+      </div>
+      <div className="grid gap-3">
+        {items.map((item) => (
+          <Card key={item.id}>
+            <CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="break-words font-semibold">{item.name}</h3>
+                  {item.code && <Badge variant="outline">{item.code}</Badge>}
+                  {item.area_type && <Badge variant={item.area_type === "critica" ? "destructive" : "secondary"}>{item.area_type}</Badge>}
+                </div>
+                <p className="break-words text-sm text-muted-foreground">{catalogItemSummary(kind, item, catalogs)}</p>
+              </div>
+              <div className="flex justify-end gap-1 sm:shrink-0">
+                <Button variant="outline" size="icon" aria-label={`Editar ${item.name}`} onClick={() => { setEditing(item); setOpen(true); }}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+                <Button variant="outline" size="icon" aria-label={`Eliminar ${item.name}`} onClick={() => remove(item.id)}>
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!items.length && <Card><CardContent className="p-10 text-center text-muted-foreground">Aún no hay registros. Crea el primero.</CardContent></Card>}
+      </div>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:max-w-xl sm:p-6">
+          <DialogHeader><DialogTitle>{editing ? "Editar" : "Nuevo"} {title.slice(0, -1)}</DialogTitle></DialogHeader>
+          <CatalogForm kind={kind} initial={editing} catalogs={catalogs} onSaved={reload} onClose={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
 }
 
 function Configuration({ catalogs, reload, initialTab }: { catalogs: Catalogs; reload: () => void; initialTab: string }) {
@@ -210,31 +282,33 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
 function LegacyStartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted: (execution: Execution) => void }) {
   const [clientId, setClientId] = useState("");
   const [flowId, setFlowId] = useState("");
+  const [lineNumber, setLineNumber] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const start = async () => {
     setLoading(true);
     try {
-      onStarted(await api("/limpiezas/ejecuciones", { method: "POST", body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: new Date().toISOString().slice(0, 10) }) }));
+      onStarted(await api("/limpiezas/ejecuciones", { method: "POST", body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), line_number: lineNumber, execution_date: new Date().toISOString().slice(0, 10) }) }));
     } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" }); } finally { setLoading(false); }
   };
-  return <div className="space-y-6"><Card><CardHeader><CardTitle>Iniciar una limpieza</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 md:grid-cols-3"><label className="space-y-1 text-sm font-medium">Cliente<Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); }}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Flujo de limpieza<Select value={flowId} onValueChange={setFlowId}><SelectTrigger><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger><SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent></Select></label><div className="flex items-end"><Button className="w-full" disabled={!clientId || !flowId || loading} onClick={start}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}<ClipboardCheck className="mr-2 h-4 w-4" />Iniciar captura de reporte</Button></div></div><div className="flex flex-col items-start gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium">¿Necesitas una combinación diferente de áreas?</p><p className="text-xs text-muted-foreground">Crea un flujo personalizado para un cliente.</p></div><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCustomOpen(true)}><Plus className="mr-2 h-4 w-4" />Agregar flujo personalizado</Button></div></CardContent></Card><CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); }} /><Card><CardContent className="p-8 text-center text-muted-foreground"><Sparkles className="mx-auto h-10 w-10 mb-3 text-primary" /><p>Selecciona un cliente y un flujo para iniciar la captura del reporte.</p></CardContent></Card></div>;
+  return <div className="space-y-6"><Card><CardHeader><CardTitle>Iniciar una limpieza</CardTitle></CardHeader><CardContent className="space-y-4"><div className="grid gap-4 md:grid-cols-4"><label className="space-y-1 text-sm font-medium">Cliente<Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); setLineNumber(catalogs.clients.find((client) => client.id === Number(value))?.line_number || ""); }}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Flujo de limpieza<Select value={flowId} onValueChange={setFlowId}><SelectTrigger><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger><SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Número de línea<Input type="number" min="1" value={lineNumber} onChange={(event) => setLineNumber(event.target.value)} /></label><div className="flex items-end"><Button className="w-full" disabled={!clientId || !flowId || !lineNumber.trim() || loading} onClick={start}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}<ClipboardCheck className="mr-2 h-4 w-4" />Iniciar captura de reporte</Button></div></div><div className="flex flex-col items-start gap-2 border-t pt-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-sm font-medium">¿Necesitas una combinación diferente de áreas?</p><p className="text-xs text-muted-foreground">Crea un flujo personalizado para un cliente.</p></div><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCustomOpen(true)}><Plus className="mr-2 h-4 w-4" />Agregar flujo personalizado</Button></div></CardContent></Card><CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); setLineNumber(catalogs.clients.find((client) => client.id === flow.client_id)?.line_number || ""); }} /><Card><CardContent className="p-8 text-center text-muted-foreground"><Sparkles className="mx-auto h-10 w-10 mb-3 text-primary" /><p>Selecciona un cliente, un flujo y una línea para iniciar la captura del reporte.</p></CardContent></Card></div>;
 }
 
 function StartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted: (execution: Execution) => void }) {
   const [clientId, setClientId] = useState("");
   const [flowId, setFlowId] = useState("");
+  const [lineNumber, setLineNumber] = useState("");
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const start = async () => {
     setLoading(true);
     try {
-      onStarted(await api("/limpiezas/ejecuciones", { method: "POST", body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: currentDateInputValue() }) }));
+      onStarted(await api("/limpiezas/ejecuciones", { method: "POST", body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), line_number: lineNumber, execution_date: currentDateInputValue() }) }));
     } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" }); } finally { setLoading(false); }
   };
-  return <div className="space-y-6"><Card><CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><CardTitle>Iniciar una limpieza</CardTitle><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCustomOpen(true)}><Plus className="mr-2 h-4 w-4" />Agregar flujo personalizado</Button></CardHeader><CardContent className="grid gap-4 md:grid-cols-3"><label className="space-y-1 text-sm font-medium">Cliente<Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); }}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Flujo de limpieza<Select value={flowId} onValueChange={setFlowId}><SelectTrigger><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger><SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent></Select></label><div className="flex items-end"><Button className="w-full" disabled={!clientId || !flowId || loading} onClick={start}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}<ClipboardCheck className="mr-2 h-4 w-4" />Iniciar reporte</Button></div></CardContent></Card><CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); }} /></div>;
+  return <div className="space-y-6"><Card><CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><CardTitle>Iniciar una limpieza</CardTitle><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setCustomOpen(true)}><Plus className="mr-2 h-4 w-4" />Agregar flujo personalizado</Button></CardHeader><CardContent className="grid gap-4 md:grid-cols-4"><label className="space-y-1 text-sm font-medium">Cliente<Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); setLineNumber(catalogs.clients.find((client) => client.id === Number(value))?.line_number || ""); }}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Flujo de limpieza<Select value={flowId} onValueChange={setFlowId}><SelectTrigger><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger><SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Número de línea<Input type="number" min="1" value={lineNumber} onChange={(event) => setLineNumber(event.target.value)} /></label><div className="flex items-end"><Button className="w-full" disabled={!clientId || !flowId || !lineNumber.trim() || loading} onClick={start}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}<ClipboardCheck className="mr-2 h-4 w-4" />Iniciar reporte</Button></div></CardContent></Card><CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); setLineNumber(catalogs.clients.find((client) => client.id === flow.client_id)?.line_number || ""); }} /></div>;
 }
 
 function ExecutionPage({ catalogs, reload }: { catalogs: Catalogs; reload: () => void }) {
@@ -281,6 +355,7 @@ async function uploadSignatureImage(dataUrl: string) {
 function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Catalogs; onStarted: (execution: Execution) => void; onHistory?: () => void }) {
   const [clientId, setClientId] = useState("");
   const [flowId, setFlowId] = useState("");
+  const [lineNumber, setLineNumber] = useState("");
   const [executionDate, setExecutionDate] = useState(currentDateInputValue);
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -291,7 +366,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
     try {
       onStarted(await api("/limpiezas/ejecuciones", {
         method: "POST",
-        body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), execution_date: executionDate }),
+        body: JSON.stringify({ client_id: Number(clientId), cleaning_type_id: Number(flowId), line_number: lineNumber, execution_date: executionDate }),
       }));
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : "No se pudo iniciar", variant: "destructive" });
@@ -329,10 +404,10 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
           </div>
           <p className="text-sm text-muted-foreground">Paso 01 · Selección de alcance</p>
         </div>
-        <div className="grid gap-5 lg:grid-cols-[1fr_1fr_1fr_auto] lg:items-end">
+        <div className="grid gap-5 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">
           <label className="space-y-2 text-sm font-medium">
             <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">1</span>Cliente</span>
-            <Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); }}>
+            <Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); setLineNumber(catalogs.clients.find((client) => client.id === Number(value))?.line_number || ""); }}>
               <SelectTrigger className="h-12"><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger>
               <SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
             </Select>
@@ -348,7 +423,11 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
             <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">3</span>Fecha de ejecución</span>
             <Input type="date" value={executionDate} onChange={(event) => setExecutionDate(event.target.value)} className="h-12" required />
           </label>
-          <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || loading} onClick={start}>
+          <label className="space-y-2 text-sm font-medium">
+            <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">4</span>Número de línea</span>
+            <Input type="number" min="1" value={lineNumber} onChange={(event) => setLineNumber(event.target.value)} className="h-12" required />
+          </label>
+          <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || !lineNumber.trim() || loading} onClick={start}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}
             Iniciar reporte
           </Button>
@@ -368,7 +447,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
           </div>
         ))}
       </div>
-      <CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); }} />
+      <CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); setLineNumber(catalogs.clients.find((client) => client.id === flow.client_id)?.line_number || ""); }} />
     </div>
   );
 }

@@ -35,6 +35,7 @@ export type CleaningReportArea = {
 export type CleaningReportExecution = {
   id: number | string;
   execution_date: string;
+  line_number?: string;
   status?: string;
   client: {
     name: string;
@@ -431,6 +432,10 @@ export function CleaningReport({
               <div className="border-l-2 border-[#123b66] pl-3">
                 <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Fecha de ejecución</p>
                 <p className="mt-1 text-[#30443e]">{formatDate(execution.execution_date)}</p>
+              </div>
+              <div className="border-l-2 border-[#123b66] pl-3">
+                <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#7d8780]">Número de línea</p>
+                <p className="mt-1 text-[#30443e]">{execution.line_number || "No indicado"}</p>
               </div>
               {execution.cleaning_type.description && (
                 <div className="border-l-2 border-[#c8cec8] pl-3">
