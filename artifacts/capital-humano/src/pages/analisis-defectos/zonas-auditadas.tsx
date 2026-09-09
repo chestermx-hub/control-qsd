@@ -1113,6 +1113,31 @@ export default function AnalisisZonasAuditadas() {
     );
   }, [captures]);
 
+  const unitBuckets = useMemo<UnitBucket[]>(() => {
+    const map = new Map<string, UnitBucket>();
+    for (const panelGroup of unitGroups) {
+      const key = `${panelGroup.zone_id ?? "none"}__${panelGroup.unit_number}__${panelGroup.date}`;
+      const bucket = map.get(key) ?? {
+        unit_number: panelGroup.unit_number,
+        date: panelGroup.date,
+        week_number: panelGroup.week_number,
+        zone_id: panelGroup.zone_id,
+        skill_number: panelGroup.skill_number,
+        captures: [],
+        panels: [],
+      };
+      bucket.captures.push(...panelGroup.captures);
+      bucket.panels.push(panelGroup);
+      if (!bucket.skill_number && panelGroup.skill_number) {
+        bucket.skill_number = panelGroup.skill_number;
+      }
+      map.set(key, bucket);
+    }
+    return Array.from(map.values()).sort((a, b) =>
+      a.date !== b.date ? a.date.localeCompare(b.date) : a.unit_number - b.unit_number
+    );
+  }, [unitGroups]);
+
   const toggleUnit = (key: string) => {
     setExpandedUnits((prev) => {
       const next = new Set(prev);
@@ -1635,21 +1660,32 @@ export default function AnalisisZonasAuditadas() {
               </div>
             ) : (
               <div className="space-y-3">
-                {unitGroups.map((group) => {
-                  const key = `${group.zone_id ?? "none"}__${group.unit_number}__${group.date}__${group.panel_id ?? "none"}__${group.captures[0]?.side_position ?? "none"}`;
-                  const isExpanded = expandedUnits.has(key);
-                   const editable = !isFutureDay(group.date);
-                  const canDeleteGroup =
-                     canDeleteCaptures && (isCurrentDay(group.date) || canDeleteHistoricalCaptures);
-                  const panel = getPanel(group.panel_id);
-                  const auditedZone = zones?.find((zone) => zone.id === group.zone_id);
+                {unitBuckets.map((bucket) => {
+                  const unitKey = `${bucket.zone_id ?? "none"}__${bucket.unit_number}__${bucket.date}`;
+                  const isExpanded = expandedUnits.has(unitKey);
+                  const editable = !isFutureDay(bucket.date);
+                  const canDeleteUnit =
+                    canDeleteCaptures && (isCurrentDay(bucket.date) || canDeleteHistoricalCaptures);
+                  const auditedZone = zones?.find((zone) => zone.id === bucket.zone_id);
+                  const unitPositions = Array.from(
+                    new Set(bucket.captures.map((capture) => capture.side_position).filter(Boolean)),
+                  ) as AuditCapture["side_position"][];
+                  const unitSummary: UnitGroup = {
+                    unit_number: bucket.unit_number,
+                    date: bucket.date,
+                    week_number: bucket.week_number,
+                    zone_id: bucket.zone_id,
+                    panel_id: null,
+                    skill_number: bucket.skill_number,
+                    captures: bucket.captures,
+                  };
 
                   return (
-                    <div key={key} className="border rounded-lg bg-card overflow-hidden">
-                      {/* Unit header */}
-                       <div className="flex flex-wrap items-center gap-2 px-3 py-2 bg-muted/40 sm:flex-nowrap sm:gap-3 sm:px-4 sm:py-3">
+                    <div key={unitKey} className="overflow-hidden rounded-lg border bg-card">
+                      <div className="flex flex-wrap items-center gap-2 bg-muted/40 px-3 py-2 sm:flex-nowrap sm:gap-3 sm:px-4 sm:py-3">
                         <button
-                          onClick={() => toggleUnit(key)}
+                          type="button"
+                          onClick={() => toggleUnit(unitKey)}
                           className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1 text-left"
                         >
                           {isExpanded ? (
@@ -1657,91 +1693,63 @@ export default function AnalisisZonasAuditadas() {
                           ) : (
                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                           )}
-                          <span className="font-bold text-base shrink-0">Unidad #{group.unit_number}</span>
-                           {auditedZone && <span className="text-sm font-medium text-foreground shrink-0">· {auditedZone.name}</span>}
-                          {panel && <span className="text-sm font-medium text-foreground shrink-0">· {panel.name}</span>}
-                           {panel?.is_active === false && (
-                             <Badge variant="outline" className="text-muted-foreground">
-                               Panel inactivo
-                             </Badge>
-                           )}
-                           <PositionBadge position={group.captures[0]?.side_position} />
+                          <span className="shrink-0 text-base font-bold">Unidad #{bucket.unit_number}</span>
+                          {auditedZone && (
+                            <span className="shrink-0 text-sm font-medium text-foreground">· {auditedZone.name}</span>
+                          )}
+                          {unitPositions.map((position) => (
+                            <PositionBadge key={position} position={position} />
+                          ))}
                         </button>
 
-                         <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
-                          {/* Skill badge + lápiz inline si no tiene Skill */}
-                          {group.skill_number ? (
+                        <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+                          {bucket.skill_number ? (
                             <Badge variant="secondary" className="font-mono">
-                              Skill: {group.skill_number}
+                              Skill: {bucket.skill_number}
                             </Badge>
                           ) : (
                             <div className="flex items-center gap-1">
                               <Badge variant="outline" className="text-muted-foreground">
                                 Sin Skill
                               </Badge>
-                              {editable && <button
-                                title="Asignar No. de Skill"
-                                onClick={() => handleOpenSkillDialog(group)}
-                                className="text-muted-foreground hover:text-foreground transition-colors"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>}
+                              {editable && (
+                                <button
+                                  type="button"
+                                  title="Asignar No. de Skill"
+                                  onClick={() => handleOpenSkillDialog(unitSummary)}
+                                  className="text-muted-foreground transition-colors hover:text-foreground"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                              )}
                             </div>
                           )}
 
-                           <Button
-                             type="button"
-                             variant="outline"
-                             size="sm"
-                             className="h-8 shrink-0 px-2 text-xs"
-                             title={`${group.captures.length} defecto(s) registrados`}
-                             onClick={(event) => {
-                               event.stopPropagation();
-                               toggleUnit(key);
-                             }}
-                           >
-                             Número de defectos: {group.captures.length}
-                           </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 shrink-0 px-2 text-xs"
+                            title={`${bucket.captures.length} defecto(s) registrados`}
+                            onClick={() => toggleUnit(unitKey)}
+                          >
+                            Número de defectos: {bucket.captures.length}
+                          </Button>
                           {!editable && (
                             <Badge variant="secondary" className="gap-1 text-muted-foreground">
                               <Lock className="h-3 w-3" />
                               Solo lectura
                             </Badge>
                           )}
-
-                          {panel && editable && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              title="Ver cuadrícula"
-                              onClick={() => setGridDialog(group)}
-                            >
-                              <Grid3X3 className="h-4 w-4" />
-                            </Button>
-                          )}
-
-                           {panel && panel.is_active !== false && editable && (
-                           <Button
-                             type="button"
-                             variant="outline"
-                             size="icon"
-                             className="h-8 w-8 shrink-0"
-                             title="Agregar defectos"
-                             aria-label="Agregar defectos"
-                             onClick={() => setAddDialog(group)}
-                           >
-                             <Plus className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {editable && group.zone_id != null && (
+                          {editable && bucket.panels[0] && (
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               className="h-8 shrink-0 gap-1 px-2 text-xs"
                               title="Capturar otro panel en esta unidad"
-                              aria-label={`Capturar otro panel en la unidad ${group.unit_number}`}
-                              onClick={() => openNewPanelForGroup(group)}
+                              aria-label={`Capturar otro panel en la unidad ${bucket.unit_number}`}
+                              onClick={() => openNewPanelForGroup(bucket.panels[0])}
                             >
                               <Grid3X3 className="h-3.5 w-3.5" />
                               <span className="hidden lg:inline">Nuevo panel</span>
@@ -1750,43 +1758,106 @@ export default function AnalisisZonasAuditadas() {
                         </div>
                       </div>
 
-                      {/* Defects list */}
                       {isExpanded && (
                         <div className="divide-y">
-                          {group.captures.map((cap) => (
-                            <div key={cap.id} className="flex items-center gap-3 px-6 py-2 text-sm hover:bg-muted/20">
-                              <span className="font-mono font-medium w-10 shrink-0">
-                                {cap.grid_row}{cap.grid_col_label ?? cap.grid_col}
-                              </span>
-                              <span className="flex-1 text-muted-foreground">{getDefectLabel(cap)}</span>
-                              <Badge variant="secondary" className="shrink-0">
-                                Cant: {cap.quantity}
-                              </Badge>
-                              {canDeleteGroup && <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive shrink-0"
-                                onClick={() => {
-                                  if (confirm("¿Eliminar este defecto?"))
-                                    deleteCapture.mutate({ id: cap.id });
-                                }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>}
-                               {editable && (
-                                 <Button
-                                   variant="ghost"
-                                   size="icon"
-                                   className="h-7 w-7 shrink-0"
-                                   title="Editar registro"
-                                   aria-label={`Editar registro ${cap.id}`}
-                                   onClick={() => setEditDialog(cap)}
-                                 >
-                                   <Pencil className="h-3.5 w-3.5" />
-                                 </Button>
-                               )}
-                            </div>
-                          ))}
+                          {bucket.panels.map((panelGroup) => {
+                            const panel = getPanel(panelGroup.panel_id);
+                            const panelPositions = Array.from(
+                              new Set(panelGroup.captures.map((capture) => capture.side_position).filter(Boolean)),
+                            ) as AuditCapture["side_position"][];
+                            const canDeletePanel =
+                              canDeleteCaptures &&
+                              (isCurrentDay(panelGroup.date) || canDeleteHistoricalCaptures);
+
+                            return (
+                              <div key={`${unitKey}__panel_${panelGroup.panel_id ?? "none"}`} className="bg-background">
+                                <div className="flex flex-wrap items-center gap-2 border-b bg-muted/20 px-4 py-2.5 sm:px-6">
+                                  <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                                    <Grid3X3 className="h-4 w-4 shrink-0 text-primary" />
+                                    <span className="text-sm font-semibold">
+                                      {panel?.name ?? "Panel sin asignar"}
+                                    </span>
+                                    {panel?.is_active === false && (
+                                      <Badge variant="outline" className="text-muted-foreground">
+                                        Panel inactivo
+                                      </Badge>
+                                    )}
+                                    {panelPositions.map((position) => (
+                                      <PositionBadge key={position} position={position} />
+                                    ))}
+                                    <Badge variant="outline" className="text-xs">
+                                      {panelGroup.captures.length} defecto(s)
+                                    </Badge>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {panel && editable && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        title="Ver cuadrícula"
+                                        onClick={() => setGridDialog(panelGroup)}
+                                      >
+                                        <Grid3X3 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    {panel && panel.is_active !== false && editable && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-8 w-8 shrink-0"
+                                        title="Agregar defectos"
+                                        aria-label="Agregar defectos"
+                                        onClick={() => setAddDialog(panelGroup)}
+                                      >
+                                        <Plus className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="divide-y">
+                                  {panelGroup.captures.map((cap) => (
+                                    <div key={cap.id} className="flex items-center gap-3 px-6 py-2 text-sm hover:bg-muted/20">
+                                      <span className="w-10 shrink-0 font-mono font-medium">
+                                        {cap.grid_row}{cap.grid_col_label ?? cap.grid_col}
+                                      </span>
+                                      <span className="flex-1 text-muted-foreground">{getDefectLabel(cap)}</span>
+                                      <Badge variant="secondary" className="shrink-0">
+                                        Cant: {cap.quantity}
+                                      </Badge>
+                                      {canDeletePanel && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 shrink-0 text-destructive"
+                                          onClick={() => {
+                                            if (confirm("¿Eliminar este defecto?")) {
+                                              deleteCapture.mutate({ id: cap.id });
+                                            }
+                                          }}
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                      {editable && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7 shrink-0"
+                                          title="Editar registro"
+                                          aria-label={`Editar registro ${cap.id}`}
+                                          onClick={() => setEditDialog(cap)}
+                                        >
+                                          <Pencil className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
