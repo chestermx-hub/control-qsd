@@ -1029,6 +1029,16 @@ export default function AnalisisZonasAuditadas() {
     window.location.href = `/analisis-defectos/nuevo-registro?${params.toString()}`;
   };
 
+  const openNewPanelForGroup = (group: UnitGroup) => {
+    const params = new URLSearchParams({
+      date: group.date,
+      unitNumber: String(group.unit_number),
+    });
+    if (group.zone_id != null) params.set("zoneId", String(group.zone_id));
+    if (group.skill_number) params.set("skillNumber", group.skill_number);
+    window.location.href = `/analisis-defectos/nuevo-registro?${params.toString()}`;
+  };
+
   const openNewUnitCapture = () => {
     if (!newCaptureStart) return;
     const params = new URLSearchParams({
@@ -1711,6 +1721,20 @@ export default function AnalisisZonasAuditadas() {
                              onClick={() => setAddDialog(group)}
                            >
                              <Plus className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {editable && group.zone_id != null && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 shrink-0 gap-1 px-2 text-xs"
+                              title="Capturar otro panel en esta unidad"
+                              aria-label={`Capturar otro panel en la unidad ${group.unit_number}`}
+                              onClick={() => openNewPanelForGroup(group)}
+                            >
+                              <Grid3X3 className="h-3.5 w-3.5" />
+                              <span className="hidden lg:inline">Nuevo panel</span>
                             </Button>
                           )}
                         </div>
