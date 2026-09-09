@@ -436,6 +436,34 @@ function ZoneAxisTick({
   );
 }
 
+function VerticalAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  fill,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+  fill: string;
+}) {
+  const label = String(payload?.value ?? "");
+  if (!label.trim()) return null;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        transform="rotate(-90)"
+        textAnchor="end"
+        fill={fill}
+        fontSize={10}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
 function PanelAxisTick({
   x = 0,
   y = 0,
@@ -1567,14 +1595,14 @@ export default function AnalisisDashboard() {
                                   >
                                 <BarChart
                                   data={zone.barData}
-                                   margin={{ top: 20, right: 8, left: -16, bottom: 62 }}
+                                    margin={{ top: 20, right: 8, left: -16, bottom: 112 }}
                                 >
                                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} vertical={false} />
                                   <XAxis
                                     dataKey="name"
                                     interval={0}
-                                    height={84}
-                                    tick={<ZoneAxisTick fill={tickColor} />}
+                                    height={124}
+                                    tick={<VerticalAxisTick fill={tickColor} />}
                                     stroke={tickColor}
                                   />
                                   <YAxis
