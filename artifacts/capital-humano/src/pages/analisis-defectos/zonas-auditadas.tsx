@@ -110,6 +110,16 @@ type UnitGroup = {
   captures: AuditCapture[];
 };
 
+type UnitBucket = {
+  unit_number: number;
+  date: string;
+  week_number: number;
+  zone_id: number | null;
+  skill_number: string | null;
+  captures: AuditCapture[];
+  panels: UnitGroup[];
+};
+
 type NewCaptureStart = {
   zoneId: number;
   latestUnitNumber: number;
@@ -1084,7 +1094,7 @@ export default function AnalisisZonasAuditadas() {
     if (!captures) return [];
     const map = new Map<string, UnitGroup>();
     for (const c of captures as AuditCapture[]) {
-       const key = `${c.zone_id ?? "none"}__${c.unit_number}__${c.date}__${c.panel_id ?? "none"}__${c.side_position ?? "none"}`;
+       const key = `${c.zone_id ?? "none"}__${c.unit_number}__${c.date}__${c.panel_id ?? "none"}`;
       if (!map.has(key)) {
         map.set(key, {
           unit_number: c.unit_number,
