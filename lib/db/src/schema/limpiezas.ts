@@ -18,6 +18,7 @@ export const cleaningClientLinesTable = pgTable("cleaning_client_lines", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull().references(() => cleaningClientsTable.id, { onDelete: "cascade" }),
   lineNumber: text("line_number").notNull(),
+  lineName: text("line_name"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (table) => ({
   clientLineUnique: uniqueIndex("cleaning_client_lines_client_line_idx").on(table.clientId, table.lineNumber),
@@ -61,6 +62,7 @@ export const cleaningAreaClientLinesTable = pgTable("cleaning_area_client_lines"
 export const cleaningAreaClientActivitiesTable = pgTable("cleaning_area_client_activities", {
   id: serial("id").primaryKey(),
   areaClientId: integer("area_client_id").notNull().references(() => cleaningAreaClientsTable.id, { onDelete: "cascade" }),
+  clientLineId: integer("client_line_id").references(() => cleaningClientLinesTable.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   requiresPhoto: boolean("requires_photo").notNull().default(false),

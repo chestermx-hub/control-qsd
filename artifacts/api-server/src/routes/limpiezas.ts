@@ -19,13 +19,37 @@ async function clientWithLines(id: number) {
       .where(eq(cleaningClientLinesTable.clientId, id))
       .orderBy(asc(cleaningClientLinesTable.id));
   }
-  return { ...json(client), lines: lines.map((line) => ({ id: line.id, line_number: line.lineNumber })) };
+  return {
+    ...json(client),
+    lines: lines.map((line) => ({
+      id: line.id,
+      line_number: line.lineNumber,
+      line_name: line.lineName || "",
+    })),
+  };
 }
 
-async function replaceClientLines(clientId: number, lineNumbers: string[]) {
+async function replaceClientLines(
+  clientId: number,
+  requestedLines: Array<{ line_number?: unknown; line_name?: unknown }>,
+) {
+  const lines = Array.from(
+    new Map(
+      requestedLines
+        .map((line) => ({
+          lineNumber: String(line?.line_number ?? "").trim(),
+          lineName: String(line?.line_name ?? "").trim(),
+        }))
+        .filter((line) => line.lineNumber)
+        .map((line) => [line.lineNumber, line]),
+    ).values(),
+  );
   await db.delete(cleaningClientLinesTable).where(eq(cleaningClientLinesTable.clientId, clientId));
-  for (const lineNumber of lineNumbers) {
-    await db.insert(cleaningClientLinesTable).values({ clientId, lineNumber }).onConflictDoNothing();
+  for (const line of lines) {
+    await db
+      .insert(cleaningClientLinesTable)
+      .values({ clientId, lineNumber: line.lineNumber, lineName: line.lineName || null })
+      .onConflictDoNothing();
   }
 }
 
@@ -47,7 +71,23 @@ async function areaWithActivities(id: number) {
     return {
       client_id: assignment.clientId,
       line_ids: selectedLines.map((line) => line.clientLineId),
-      activities: clientActivities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto })),
+      activities: clientActivities
+        .filter((activity) => activity.clientLineId == null)
+        .map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto })),
+      line_activities: Array.from(
+        clientActivities.reduce((groups, activity) => {
+          if (activity.clientLineId == null) return groups;
+          const activities = groups.get(activity.clientLineId) ?? [];
+          activities.push({
+            id: activity.id,
+            description: activity.description,
+            sort_order: activity.sortOrder,
+            requires_photo: activity.requiresPhoto,
+          });
+          groups.set(activity.clientLineId, activities);
+          return groups;
+        }, new Map<number, Array<{ id: number; description: string; sort_order: number; requires_photo: boolean }>>()),
+      ).map(([line_id, lineActivities]) => ({ line_id, activities: lineActivities })),
     };
   }));
   const legacyActivities = activities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto }));
@@ -77,16 +117,37 @@ async function replaceAreaClientAssignments(areaId: number, assignments: any[]) 
       }
     }
     const clientActivities = Array.isArray(assignment?.activities) ? assignment.activities : [];
-    for (const [index, activity] of clientActivities.entries()) {
-      const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
-      const description = String(value?.description || "").trim();
-      if (!description) continue;
-      await db.insert(cleaningAreaClientActivitiesTable).values({
-        areaClientId: areaClient.id,
-        description,
-        sortOrder: index,
-        requiresPhoto: Boolean(value?.requires_photo),
-      });
+    const lineActivities = Array.isArray(assignment?.line_activities) ? assignment.line_activities : [];
+    if (lineActivities.length) {
+      for (const lineAssignment of lineActivities) {
+        const lineId = Number(lineAssignment?.line_id);
+        if (!selectedLineIds.has(lineId)) continue;
+        const activities = Array.isArray(lineAssignment?.activities) ? lineAssignment.activities : [];
+        for (const [index, activity] of activities.entries()) {
+          const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
+          const description = String(value?.description || "").trim();
+          if (!description) continue;
+          await db.insert(cleaningAreaClientActivitiesTable).values({
+            areaClientId: areaClient.id,
+            clientLineId: lineId,
+            description,
+            sortOrder: index,
+            requiresPhoto: Boolean(value?.requires_photo),
+          });
+        }
+      }
+    } else {
+      for (const [index, activity] of clientActivities.entries()) {
+        const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
+        const description = String(value?.description || "").trim();
+        if (!description) continue;
+        await db.insert(cleaningAreaClientActivitiesTable).values({
+          areaClientId: areaClient.id,
+          description,
+          sortOrder: index,
+          requiresPhoto: Boolean(value?.requires_photo),
+        });
+      }
     }
   }
   return Array.from(seenClients);
@@ -112,19 +173,27 @@ router.get("/limpiezas/catalogs", async (_req, res) => {
 router.get("/limpiezas/clientes", async (_req, res) => res.json(await Promise.all((await db.select().from(cleaningClientsTable).orderBy(asc(cleaningClientsTable.name))).map((client) => clientWithLines(client.id)))));
 router.post("/limpiezas/clientes", async (req, res) => {
   const { name, plant_number, lines, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
-  const requestedLines = Array.isArray(lines) ? lines : (req.body.line_number ? [{ line_number: req.body.line_number }] : []);
-  const lineNumbers = Array.from(new Set(requestedLines.map((line: any) => String(line?.line_number || "").trim()).filter(Boolean)));
-  const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, lineNumber: lineNumbers[0] || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).returning();
-  await replaceClientLines(row.id, lineNumbers);
+  const requestedLines = Array.isArray(lines)
+    ? lines
+    : req.body.line_number
+      ? [{ line_number: req.body.line_number, line_name: req.body.line_name }]
+      : [];
+  const firstLineNumber = String(requestedLines[0]?.line_number ?? "").trim();
+  const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, lineNumber: firstLineNumber || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).returning();
+  await replaceClientLines(row.id, requestedLines);
   res.status(201).json(await clientWithLines(row.id));
 });
 router.patch("/limpiezas/clientes/:id", async (req, res) => {
   const id = Number(req.params.id); const { name, plant_number, lines, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
-  const requestedLines = Array.isArray(lines) ? lines : (req.body.line_number ? [{ line_number: req.body.line_number }] : []);
-  const lineNumbers = Array.from(new Set(requestedLines.map((line: any) => String(line?.line_number || "").trim()).filter(Boolean)));
-  const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, lineNumber: lineNumbers[0] || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
+  const requestedLines = Array.isArray(lines)
+    ? lines
+    : req.body.line_number
+      ? [{ line_number: req.body.line_number, line_name: req.body.line_name }]
+      : [];
+  const firstLineNumber = String(requestedLines[0]?.line_number ?? "").trim();
+  const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, lineNumber: firstLineNumber || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
   if (!row) { res.status(404).json({ error: "Cliente no encontrado" }); return; }
-  await replaceClientLines(id, lineNumbers);
+  await replaceClientLines(id, requestedLines);
   res.json(await clientWithLines(id)); return;
 });
 router.delete("/limpiezas/clientes/:id", async (req, res) => {

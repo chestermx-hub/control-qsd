@@ -15,7 +15,7 @@ import { useAuth } from "@/lib/auth";
 import { CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
-type ClientLine = { id?: number; line_number: string };
+type ClientLine = { id?: number; line_number: string; line_name?: string };
 type Client = { id: number; name: string; plant_number: string; line_number?: string; lines?: ClientLine[]; periodicity: string; udn_id?: number };
 type AreaActivity = { id?: number; description: string; requires_photo?: boolean };
 type AreaClient = { client_id: number; line_ids?: number[]; activities: AreaActivity[] };
@@ -47,7 +47,7 @@ function useCatalogs() {
 }
 
 function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "client" | "area" | "flow"; initial?: any; catalogs: Catalogs; onSaved: () => void; onClose: () => void }) {
-  const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", lines: [{ line_number: "" }], periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
+  const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", lines: [{ line_number: "", line_name: "" }], periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
   const [activity, setActivity] = useState("");
   const [areaClients, setAreaClients] = useState<AreaClient[]>(() => {
     if (kind !== "area") return [];
@@ -70,7 +70,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   const { toast } = useToast();
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
   const clientLines: ClientLine[] = kind === "client"
-    ? (Array.isArray(form.lines) && form.lines.length ? form.lines : form.line_number ? [{ line_number: form.line_number }] : [{ line_number: "" }])
+    ? (Array.isArray(form.lines) && form.lines.length ? form.lines : form.line_number ? [{ line_number: form.line_number, line_name: form.line_name || "" }] : [{ line_number: "", line_name: "" }])
     : [];
   const activitiesForClient = (area: Area, clientId: number) => {
     const assigned = area.clients?.find((item) => item.client_id === clientId);
@@ -128,7 +128,17 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
       const payload = kind === "area"
         ? { ...form, client_id: normalizedAreaClients[0]?.client_id || null, activities: normalizedAreaClients[0]?.activities || [], clients: normalizedAreaClients }
         : kind === "client"
-          ? { ...form, line_number: clientLines[0]?.line_number?.trim() || null, lines: clientLines.filter((line) => line.line_number.trim()) }
+          ? {
+              ...form,
+              line_number: clientLines[0]?.line_number?.trim() || null,
+              lines: clientLines
+                .filter((line) => line.line_number.trim())
+                .map((line) => ({
+                  ...line,
+                  line_number: line.line_number.trim(),
+                  line_name: line.line_name?.trim() || null,
+                })),
+            }
           : form;
       await api(initial?.id ? `${path}/${initial.id}` : path, { method: initial?.id ? "PATCH" : "POST", body: JSON.stringify(payload) });
       toast({ title: "Guardado correctamente" }); onSaved(); onClose();
@@ -140,10 +150,10 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     update("activities", [...activities, kind === "area" ? { description: activity.trim(), requires_photo: false } : activity.trim()]);
     setActivity("");
   };
-  const updateClientLine = (index: number, lineNumber: string) => {
-    update("lines", clientLines.map((line, lineIndex) => lineIndex === index ? { ...line, line_number: lineNumber } : line));
+  const updateClientLine = (index: number, patch: Partial<ClientLine>) => {
+    update("lines", clientLines.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
   };
-  const addClientLine = () => update("lines", [...clientLines, { line_number: "" }]);
+  const addClientLine = () => update("lines", [...clientLines, { line_number: "", line_name: "" }]);
   const removeClientLine = (index: number) => {
     if (clientLines.length <= 1) return;
     update("lines", clientLines.filter((_, lineIndex) => lineIndex !== index));
@@ -172,7 +182,8 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
         <div className="space-y-2 text-sm font-medium sm:col-span-2"><span>No. de líneas</span>
           <div className="space-y-2">
             {clientLines.map((line, index) => <div key={line.id ?? index} className="flex items-center gap-2">
-              <Input type="number" min="1" required value={line.line_number} onChange={e => updateClientLine(index, e.target.value)} aria-label={`Número de línea ${index + 1}`} />
+              <Input type="number" min="1" required value={line.line_number} onChange={e => updateClientLine(index, { line_number: e.target.value })} aria-label={`Número de línea ${index + 1}`} />
+              <Input value={line.line_name || ""} onChange={e => updateClientLine(index, { line_name: e.target.value })} placeholder="Nombre de línea" aria-label={`Nombre de línea ${index + 1}`} />
               <Button type="button" variant="ghost" size="icon" aria-label={`Eliminar línea ${index + 1}`} disabled={clientLines.length <= 1} onClick={() => removeClientLine(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
             </div>)}
           </div>
@@ -208,7 +219,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
                <p className="text-sm font-medium">Líneas aplicables a esta área</p>
                <p className="mb-2 text-xs text-muted-foreground">Selecciona las líneas del cliente donde se realizará esta área.</p>
                 {activeClientLinesForArea(activeAreaClient).length
-                  ? <div className="grid gap-2 sm:grid-cols-2">{activeClientLinesForArea(activeAreaClient).map((line) => <label key={line.id} className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm"><input type="checkbox" className="h-5 w-5 accent-primary" checked={Boolean(line.id && selectedLineIds.includes(line.id))} onChange={(event) => updateAreaClientLines(activeAreaClient.client_id, event.target.checked ? [...selectedLineIds, line.id as number] : selectedLineIds.filter((lineId) => lineId !== line.id))} />Línea {line.line_number}</label>)}</div>
+                  ? <div className="grid gap-2 sm:grid-cols-2">{activeClientLinesForArea(activeAreaClient).map((line) => <label key={line.id} className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm"><input type="checkbox" className="h-5 w-5 accent-primary" checked={Boolean(line.id && selectedLineIds.includes(line.id))} onChange={(event) => updateAreaClientLines(activeAreaClient.client_id, event.target.checked ? [...selectedLineIds, line.id as number] : selectedLineIds.filter((lineId) => lineId !== line.id))} />{line.line_name ? `${line.line_number} · ${line.line_name}` : `Línea ${line.line_number}`}</label>)}</div>
                  : <p className="text-sm text-muted-foreground">Este cliente aún no tiene líneas registradas. Agrégalas en el catálogo de clientes.</p>}
              </div>;
            })()}
@@ -248,7 +259,12 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
 }
 
 function catalogItemSummary(kind: "client" | "area" | "flow", item: any, catalogs: Catalogs) {
-  if (kind === "client") return `Planta ${item.plant_number} · Línea ${item.line_number || "—"} · ${item.periodicity}`;
+  if (kind === "client") {
+    const lines = Array.isArray(item.lines) && item.lines.length
+      ? item.lines.map((line: ClientLine) => line.line_name ? `${line.line_number} · ${line.line_name}` : line.line_number).join(", ")
+      : item.line_number || "—";
+    return `Planta ${item.plant_number} · Líneas ${lines} · ${item.periodicity}`;
+  }
   if (kind === "area") {
     const clientNames = (item.clients || []).map((assignment: AreaClient) => catalogs.clients.find((client) => client.id === assignment.client_id)?.name).filter(Boolean);
     const clientLabel = clientNames.length ? clientNames.join(", ") : catalogs.clients.find((client) => client.id === item.client_id)?.name || "Sin cliente";
