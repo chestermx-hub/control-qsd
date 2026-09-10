@@ -1640,10 +1640,12 @@ export default function AnalisisDashboard() {
                                         key={`${entry.name}-${index}`}
                                         fill={
                                           entry.isRemainder
-                                            ? "transparent"
+                                            ? isDark
+                                              ? "#475569"
+                                              : "#d1d5db"
                                             : ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]
                                         }
-                                        stroke={entry.isRemainder ? "transparent" : undefined}
+                                        stroke={entry.isRemainder ? (isDark ? "#1f2937" : "#ffffff") : undefined}
                                       />
                                     ))}
                                   </Pie>
@@ -1678,7 +1680,7 @@ export default function AnalisisDashboard() {
                                 <div id={`chart-zone-${zone.id}-bar`}>
                                   <ResponsiveContainer
                                     width="100%"
-                                    height={Math.max(250, 210 + zone.barData.length * 8)}
+                                    height={Math.max(360, 240 + zone.barData.length * 12)}
                                   >
                                 <BarChart
                                   data={zone.barData}
@@ -1696,19 +1698,15 @@ export default function AnalisisDashboard() {
                                     tick={{ fontSize: 10, fill: tickColor }}
                                     stroke={tickColor}
                                     allowDecimals={false}
-                                    domain={
-                                      selectedDefects.length
-                                        ? [
-                                            0,
-                                            Math.max(
-                                              1,
-                                              Math.ceil(
-                                                Math.max(...zone.barData.map((entry) => entry.value), 0) * 1.25,
-                                              ),
-                                            ),
-                                          ]
-                                        : undefined
-                                    }
+                                    domain={[
+                                      0,
+                                      Math.max(
+                                        5,
+                                        Math.ceil(
+                                          Math.max(...zone.barData.map((entry) => entry.value), 0) * 1.25,
+                                        ),
+                                      ),
+                                    ]}
                                   />
                                   <Tooltip content={<ChartTooltip />} cursor={false} />
                                   <Bar
