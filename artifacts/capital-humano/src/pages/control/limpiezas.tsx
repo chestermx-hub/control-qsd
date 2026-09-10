@@ -18,7 +18,8 @@ import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 type ClientLine = { id?: number; line_number: string; line_name?: string };
 type Client = { id: number; name: string; plant_number: string; line_number?: string; lines?: ClientLine[]; periodicity: string; udn_id?: number };
 type AreaActivity = { id?: number; description: string; requires_photo?: boolean };
-type AreaClient = { client_id: number; line_ids?: number[]; activities: AreaActivity[] };
+type LineActivities = { line_id: number; activities: AreaActivity[] };
+type AreaClient = { client_id: number; line_ids?: number[]; activities: AreaActivity[]; line_activities?: LineActivities[] };
 type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; clients?: AreaClient[]; activities: AreaActivity[] };
 type FlowActivity = { id?: number; description: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
@@ -59,6 +60,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     const first = Array.isArray(initial?.clients) && initial.clients.length ? initial.clients[0]?.client_id : initial?.client_id;
     return first ? String(first) : "";
   });
+  const [activeAreaLineId, setActiveAreaLineId] = useState("");
   const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>(() => {
     if (kind !== "flow") return [];
     return Array.from(new Set((initial?.activities || []).map((item: FlowActivity) => {
@@ -123,7 +125,14 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
           : availableLines.length === 1 && availableLines[0].id
             ? [availableLines[0].id]
             : [];
-        return { ...assignment, line_ids: lineIds };
+        return {
+          ...assignment,
+          line_ids: lineIds,
+          line_activities: lineIds.map((lineId) => ({
+            line_id: lineId,
+            activities: activitiesForLine(assignment, lineId),
+          })),
+        };
       });
       const payload = kind === "area"
         ? { ...form, client_id: normalizedAreaClients[0]?.client_id || null, activities: normalizedAreaClients[0]?.activities || [], clients: normalizedAreaClients }
@@ -163,14 +172,38 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     if (!clientId || areaClients.some((item) => item.client_id === clientId)) return;
     const client = catalogs.clients.find((candidate) => candidate.id === clientId);
     const defaultLineIds = client?.lines?.length === 1 && client.lines[0].id ? [client.lines[0].id] : [];
-    setAreaClients((current) => [...current, { client_id: clientId, line_ids: defaultLineIds, activities: [] }]);
+    setAreaClients((current) => [...current, { client_id: clientId, line_ids: defaultLineIds, activities: [], line_activities: [] }]);
     setActiveAreaClientId(String(clientId));
+    setActiveAreaLineId(String(defaultLineIds[0] ?? ""));
   };
   const updateAreaClientLines = (clientId: number, lineIds: number[]) => {
     setAreaClients((current) => current.map((item) => item.client_id === clientId ? { ...item, line_ids: lineIds } : item));
+    if (!lineIds.includes(Number(activeAreaLineId))) setActiveAreaLineId(String(lineIds[0] ?? ""));
   };
-  const updateAreaClientActivities = (clientId: number, nextActivities: AreaActivity[]) => {
-    setAreaClients((current) => current.map((item) => item.client_id === clientId ? { ...item, activities: nextActivities } : item));
+  const updateAreaClientLineActivities = (clientId: number, lineId: number, nextActivities: AreaActivity[]) => {
+    setAreaClients((current) => current.map((item) => {
+      if (item.client_id !== clientId) return item;
+      const lineActivities = item.line_activities || [];
+      const existing = lineActivities.some((entry) => entry.line_id === lineId);
+      return {
+        ...item,
+        line_activities: existing
+          ? lineActivities.map((entry) => entry.line_id === lineId ? { ...entry, activities: nextActivities } : entry)
+          : [...lineActivities, { line_id: lineId, activities: nextActivities }],
+      };
+    }));
+  };
+  const activitiesForLine = (assignment: AreaClient, lineId: number) =>
+    assignment.line_activities?.find((entry) => entry.line_id === lineId)?.activities
+      ?? assignment.activities
+      ?? [];
+  const removeAreaClient = (clientId: number) => {
+    const clientName = catalogs.clients.find((client) => client.id === clientId)?.name || "este cliente";
+    if (!window.confirm(`¿Quitar ${clientName} de esta área? Sus actividades configuradas para esta área se eliminarán.`)) return;
+    const remaining = areaClients.filter((item) => item.client_id !== clientId);
+    setAreaClients(remaining);
+    setActiveAreaClientId(String(remaining[0]?.client_id ?? ""));
+    setActiveAreaLineId("");
   };
   const activeClientLinesForArea = (assignment: AreaClient) =>
     catalogs.clients.find((client) => client.id === assignment.client_id)?.lines || [];
