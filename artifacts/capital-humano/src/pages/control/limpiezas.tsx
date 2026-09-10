@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, ClipboardCheck, Download, FileText, History, ImagePlus, Loader2, Pencil, Plus, Sparkles, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, ClipboardCheck, Download, FileText, History, ImagePlus, Loader2, Pencil, Plus, Search, Sparkles, Trash2, Upload } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -384,6 +384,23 @@ function catalogItemSummary(kind: "client" | "area" | "flow", item: any, catalog
   return `${catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`;
 }
 
+function catalogItemSearchText(kind: "client" | "area" | "flow", item: any, catalogs: Catalogs) {
+  if (kind === "client") {
+    const lines = Array.isArray(item.lines) ? item.lines.flatMap((line: ClientLine) => [line.line_number, line.line_name]) : [item.line_number, item.line_name];
+    return [item.name, item.plant_number, item.periodicity, ...lines].filter(Boolean).join(" ").toLocaleLowerCase();
+  }
+  if (kind === "area") {
+    const clientNames = (item.clients || []).map((assignment: AreaClient) => catalogs.clients.find((client) => client.id === assignment.client_id)?.name);
+    return [item.name, item.code, item.description, item.area_type, ...clientNames].filter(Boolean).join(" ").toLocaleLowerCase();
+  }
+  return [
+    item.name,
+    item.description,
+    catalogs.clients.find((client) => client.id === item.client_id)?.name,
+    ...(item.activities || []).map((activity: FlowActivity) => activity.description),
+  ].filter(Boolean).join(" ").toLocaleLowerCase();
+}
+
 /*
 function CatalogTabLegacy({ kind, title, catalogs, reload }: { kind: "client" | "area" | "flow"; title: string; catalogs: Catalogs; reload: () => void }) {
   const [open, setOpen] = useState(false); const [editing, setEditing] = useState<any>(); const { toast } = useToast();
@@ -401,9 +418,14 @@ function CatalogTabLegacy({ kind, title, catalogs, reload }: { kind: "client" | 
 function CatalogTab({ kind, title, catalogs, reload }: { kind: "client" | "area" | "flow"; title: string; catalogs: Catalogs; reload: () => void }) {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>();
+  const [search, setSearch] = useState("");
   const { toast } = useToast();
   const items: any[] = kind === "client" ? catalogs.clients : kind === "area" ? catalogs.areas : catalogs.types;
   const path = kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos";
+  const normalizedSearch = search.trim().toLocaleLowerCase();
+  const filteredItems = normalizedSearch
+    ? items.filter((item) => catalogItemSearchText(kind, item, catalogs).includes(normalizedSearch))
+    : items;
   const remove = async (id: number) => {
     if (!confirm("¿Eliminar este registro?")) return;
     try {
@@ -425,8 +447,18 @@ function CatalogTab({ kind, title, catalogs, reload }: { kind: "client" | "area"
           <Plus className="mr-2 h-4 w-4" />Nuevo
         </Button>
       </div>
+       <div className="relative max-w-xl">
+         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+         <Input
+           value={search}
+           onChange={(event) => setSearch(event.target.value)}
+           placeholder={`Buscar ${title.toLocaleLowerCase()}...`}
+           aria-label={`Buscar ${title.toLocaleLowerCase()}`}
+           className="pl-9"
+         />
+       </div>
       <div className="grid gap-3">
-        {items.map((item) => (
+         {filteredItems.map((item) => (
           <Card key={item.id}>
             <CardContent className="flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1">
@@ -448,7 +480,8 @@ function CatalogTab({ kind, title, catalogs, reload }: { kind: "client" | "area"
             </CardContent>
           </Card>
         ))}
-        {!items.length && <Card><CardContent className="p-10 text-center text-muted-foreground">Aún no hay registros. Crea el primero.</CardContent></Card>}
+         {!items.length && <Card><CardContent className="p-10 text-center text-muted-foreground">Aún no hay registros. Crea el primero.</CardContent></Card>}
+         {!!items.length && !filteredItems.length && <Card><CardContent className="p-10 text-center text-muted-foreground">No se encontraron registros con “{search}”.</CardContent></Card>}
       </div>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="w-[calc(100%-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto p-4 sm:max-w-xl sm:p-6">
