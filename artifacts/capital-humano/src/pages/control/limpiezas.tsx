@@ -186,7 +186,17 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
         ?.map((line) => line.id)
         .filter((availableLineId): availableLineId is number => Boolean(availableLineId)) || [];
       const selectedLineIds = item.line_ids !== undefined ? item.line_ids : availableLineIds;
-      if (!lineActivities.length && selectedLineIds.length > 1) {
+      const activitiesForStateLine = (selectedLineId: number) =>
+        lineActivities.find((entry) => entry.line_id === selectedLineId)?.activities
+          ?? lineActivities[0]?.activities
+          ?? item.activities
+          ?? [];
+      const activitySignature = (activities: AreaActivity[]) =>
+        activities.map((entry) => `${entry.description}\u0000${Boolean(entry.requires_photo)}`).join("\u0001");
+      const baseActivities = selectedLineIds[0] ? activitiesForStateLine(selectedLineIds[0]) : [];
+      const allLinesShareBase = selectedLineIds.length > 1
+        && selectedLineIds.every((selectedLineId) => activitySignature(activitiesForStateLine(selectedLineId)) === activitySignature(baseActivities));
+      if (selectedLineIds.length > 1 && lineId === selectedLineIds[0] && allLinesShareBase) {
         return {
           ...item,
           line_activities: selectedLineIds.map((selectedLineId) => ({
