@@ -153,7 +153,12 @@ type ZoneDefectChart = {
     defects: number;
     units: number;
   }>;
-  pieData: Array<{ name: string; value: number; percentage: number }>;
+  pieData: Array<{
+    name: string;
+    value: number;
+    percentage: number;
+    isRemainder?: boolean;
+  }>;
   barData: Array<{ name: string; value: number }>;
 };
 
@@ -298,11 +303,12 @@ function ZonePieTooltip({
   total,
 }: {
   active?: boolean;
-  payload?: Array<{ name?: string; value?: number; color?: string }>;
+  payload?: Array<{ name?: string; value?: number; color?: string; isRemainder?: boolean }>;
   total: number;
 }) {
   if (!active || !payload?.length) return null;
   const item = payload[0];
+  if (item?.isRemainder || item?.name === "No seleccionado") return null;
   const percentage = total > 0 ? ((item?.value ?? 0) / total) * 100 : 0;
   return (
     <div className="rounded-md border bg-white px-3 py-2 text-xs text-slate-900 shadow-sm">
@@ -327,6 +333,7 @@ function ZonePieLabel({
   percentage,
   percent,
   total,
+  isRemainder,
   fill,
 }: {
   cx?: number;
@@ -338,10 +345,11 @@ function ZonePieLabel({
   percentage?: number;
   percent?: number;
   total?: number;
+  isRemainder?: boolean;
   fill: string;
 }) {
   const numericValue = Number(value ?? 0);
-  if (!numericValue || !total) return null;
+  if (!numericValue || !total || isRemainder || name === "No seleccionado") return null;
   const angle = (-midAngle * Math.PI) / 180;
   const startRadius = outerRadius + 2;
   const elbowRadius = outerRadius + 22;
@@ -933,6 +941,19 @@ export default function AnalisisDashboard() {
       selectedWeeks,
     ],
   );
+  const zonePieBaseCaptures = useMemo(
+    () => applyFilters(captures, { zone: false, defect: false }),
+    [
+      activeZoneId,
+      auditedZoneIds,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedPanels,
+      selectedSides,
+      selectedWeeks,
+    ],
+  );
   const panelChartCaptures = useMemo(
     () => applyFilters(captures, { panel: false }),
     [
@@ -1102,24 +1123,73 @@ export default function AnalisisDashboard() {
     () =>
       (zones ?? []).map((zone) => {
         const zoneCaptures = zoneBaseCaptures.filter((capture) => capture.zone_id === zone.id);
-        const defectTotals = new Map<string, number>();
-        for (const capture of zoneCaptures) {
-          const key = defectNameForCapture(capture);
-          defectTotals.set(key, (defectTotals.get(key) ?? 0) + (capture.quantity ?? 1));
+        const pieCaptures = (selectedDefects.length ? zonePieBaseCaptures : zoneBaseCaptures).filter(
+          (capture) => capture.zone_id === zone.id,
+        );
+        const pieDefectTotals = new Map<string, { name: string; value: number }>();
+        for (const capture of pieCaptures) {
+          const key = defectKey(capture);
+          const previous = pieDefectTotals.get(key);
+          pieDefectTotals.set(key, {
+            name: previous?.name ?? defectNameForCapture(capture),
+            value: (previous?.value ?? 0) + (capture.quantity ?? 1),
+          });
         }
 
-        const sortedDefects = Array.from(defectTotals.entries())
+        const sortedDefects = Array.from(pieDefectTotals.entries())
+          .map(([key, item]) => ({ key, ...item }))
+          .sort((a, b) => b.value - a.value);
+        const topForPie = selectedDefects.length
+          ? sortedDefects.filter((item) => selectedDefects.includes(item.key))
+          : sortedDefects.slice(0, 8);
+        const otherValue = sortedDefects.slice(8).reduce((sum, item) => sum + item.value, 0);
+        const pieTotal = sortedDefects.reduce((sum, item) => sum + item.value, 0);
+        const selectedPieValue = topForPie.reduce((sum, item) => sum + item.value, 0);
+        const remainderValue = pieTotal - selectedPieValue;
+        const pieData = selectedDefects.length
+          ? [
+              ...topForPie.map(({ name, value }) => ({
+                name,
+                value,
+                percentage: pieTotal > 0 ? (value / pieTotal) * 100 : 0,
+              })),
+              ...(remainderValue > 0
+                ? [
+                    {
+                      name: "No seleccionado",
+                      value: remainderValue,
+                      percentage:
+                        pieTotal > 0 ? (remainderValue / pieTotal) * 100 : 0,
+                      isRemainder: true,
+                    },
+                  ]
+                : []),
+            ]
+          : [
+              ...topForPie.map(({ name, value }) => ({
+                name,
+                value,
+                percentage: pieTotal > 0 ? (value / pieTotal) * 100 : 0,
+              })),
+              ...(otherValue > 0
+                ? [
+                    {
+                      name: "Otros",
+                      value: otherValue,
+                      percentage: pieTotal > 0 ? (otherValue / pieTotal) * 100 : 0,
+                    },
+                  ]
+                : []),
+            ];
+        const topDefects = Array.from(
+          zoneCaptures.reduce((totals, capture) => {
+            const name = defectNameForCapture(capture);
+            totals.set(name, (totals.get(name) ?? 0) + (capture.quantity ?? 1));
+            return totals;
+          }, new Map<string, number>()),
+        )
           .map(([name, value]) => ({ name, value }))
           .sort((a, b) => b.value - a.value);
-        const topDefects = sortedDefects;
-        const topForPie = sortedDefects.slice(0, 8);
-        const otherValue = sortedDefects.slice(8).reduce((sum, item) => sum + item.value, 0);
-        if (otherValue > 0) topForPie.push({ name: "Otros", value: otherValue });
-        const pieTotal = topForPie.reduce((sum, item) => sum + item.value, 0);
-        const pieData = topForPie.map((item) => ({
-          ...item,
-          percentage: pieTotal > 0 ? (item.value / pieTotal) * 100 : 0,
-        }));
 
         const daily = new Map<string, { total: number; units: Set<string> }>();
         for (const capture of zoneCaptures) {
@@ -1152,7 +1222,13 @@ export default function AnalisisDashboard() {
           barData: topDefects,
         };
       }).sort((a, b) => zoneProcessOrder(a.name, a.id) - zoneProcessOrder(b.name, b.id)),
-    [defectNameForCapture, zoneBaseCaptures, zones],
+    [
+      defectNameForCapture,
+      zoneBaseCaptures,
+      zonePieBaseCaptures,
+      selectedDefects,
+      zones,
+    ],
   );
   const overallAverageDpu = useMemo(() => {
     const visibleZones =
@@ -1562,7 +1638,12 @@ export default function AnalisisDashboard() {
                                     {zone.pieData.map((entry, index) => (
                                       <Cell
                                         key={`${entry.name}-${index}`}
-                                        fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
+                                        fill={
+                                          entry.isRemainder
+                                            ? "transparent"
+                                            : ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]
+                                        }
+                                        stroke={entry.isRemainder ? "transparent" : undefined}
                                       />
                                     ))}
                                   </Pie>
@@ -1615,6 +1696,19 @@ export default function AnalisisDashboard() {
                                     tick={{ fontSize: 10, fill: tickColor }}
                                     stroke={tickColor}
                                     allowDecimals={false}
+                                    domain={
+                                      selectedDefects.length
+                                        ? [
+                                            0,
+                                            Math.max(
+                                              1,
+                                              Math.ceil(
+                                                Math.max(...zone.barData.map((entry) => entry.value), 0) * 1.25,
+                                              ),
+                                            ),
+                                          ]
+                                        : undefined
+                                    }
                                   />
                                   <Tooltip content={<ChartTooltip />} cursor={false} />
                                   <Bar
