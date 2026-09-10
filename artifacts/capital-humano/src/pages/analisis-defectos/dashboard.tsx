@@ -80,18 +80,24 @@ const ZONE_CHART_COLORS = [
   "#65a30d",
 ];
 
-const ZONE_PROCESS_ORDER = [
-  "transferencia",
-  "zona u",
-  "entrada a lijado",
-  "salida de lijado",
-  "salida de 3 wet",
-];
+const ZONE_PROCESS_ORDER: Record<string, number> = {
+  transferencia: 0,
+  tranferencia: 0,
+  zonau: 1,
+  entradaalijado: 2,
+  salidadelijado: 3,
+  salidade3wet: 4,
+};
 
 function zoneProcessOrder(name: string, fallback = Number.MAX_SAFE_INTEGER) {
-  const normalized = name.trim().toLocaleLowerCase();
-  const index = ZONE_PROCESS_ORDER.indexOf(normalized);
-  return index === -1 ? fallback : index;
+  const normalized = name
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9]/g, "");
+  const index = ZONE_PROCESS_ORDER[normalized];
+  return index === undefined ? fallback : index;
 }
 
 const SIDE_OPTIONS = [
@@ -1145,7 +1151,7 @@ export default function AnalisisDashboard() {
           pieData,
           barData: topDefects,
         };
-      }),
+      }).sort((a, b) => zoneProcessOrder(a.name, a.id) - zoneProcessOrder(b.name, b.id)),
     [defectNameForCapture, zoneBaseCaptures, zones],
   );
   const overallAverageDpu = useMemo(() => {
