@@ -1,10 +1,33 @@
 import { Router } from "express";
 import { and, asc, eq } from "drizzle-orm";
-import { db, udnsTable, usersTable, cleaningClientsTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningAreaClientsTable, cleaningAreaClientActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
+import { db, udnsTable, usersTable, cleaningClientsTable, cleaningClientLinesTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningAreaClientsTable, cleaningAreaClientLinesTable, cleaningAreaClientActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
 import type { Request, Response } from "express";
 
 const router = Router();
 const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
+
+async function clientWithLines(id: number) {
+  const [client] = await db.select().from(cleaningClientsTable).where(eq(cleaningClientsTable.id, id));
+  if (!client) return null;
+  let lines = await db.select().from(cleaningClientLinesTable)
+    .where(eq(cleaningClientLinesTable.clientId, id))
+    .orderBy(asc(cleaningClientLinesTable.id));
+  // Backfill the original single-line field the first time this client is read.
+  if (!lines.length && client.lineNumber) {
+    await db.insert(cleaningClientLinesTable).values({ clientId: id, lineNumber: client.lineNumber }).onConflictDoNothing();
+    lines = await db.select().from(cleaningClientLinesTable)
+      .where(eq(cleaningClientLinesTable.clientId, id))
+      .orderBy(asc(cleaningClientLinesTable.id));
+  }
+  return { ...json(client), lines: lines.map((line) => ({ id: line.id, line_number: line.lineNumber })) };
+}
+
+async function replaceClientLines(clientId: number, lineNumbers: string[]) {
+  await db.delete(cleaningClientLinesTable).where(eq(cleaningClientLinesTable.clientId, clientId));
+  for (const lineNumber of lineNumbers) {
+    await db.insert(cleaningClientLinesTable).values({ clientId, lineNumber }).onConflictDoNothing();
+  }
+}
 
 async function areaWithActivities(id: number) {
   const [area] = await db.select().from(cleaningAreasTable).where(eq(cleaningAreasTable.id, id));
@@ -14,17 +37,22 @@ async function areaWithActivities(id: number) {
     db.select().from(cleaningAreaClientsTable).where(eq(cleaningAreaClientsTable.areaId, id)),
   ]);
   const clients = await Promise.all(assignments.map(async (assignment) => {
-    const clientActivities = await db.select().from(cleaningAreaClientActivitiesTable)
-      .where(eq(cleaningAreaClientActivitiesTable.areaClientId, assignment.id))
-      .orderBy(asc(cleaningAreaClientActivitiesTable.sortOrder));
+    const [clientActivities, selectedLines] = await Promise.all([
+      db.select().from(cleaningAreaClientActivitiesTable)
+        .where(eq(cleaningAreaClientActivitiesTable.areaClientId, assignment.id))
+        .orderBy(asc(cleaningAreaClientActivitiesTable.sortOrder)),
+      db.select().from(cleaningAreaClientLinesTable)
+        .where(eq(cleaningAreaClientLinesTable.areaClientId, assignment.id)),
+    ]);
     return {
       client_id: assignment.clientId,
+      line_ids: selectedLines.map((line) => line.clientLineId),
       activities: clientActivities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto })),
     };
   }));
   const legacyActivities = activities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto }));
   if (!clients.length && area.clientId) {
-    clients.push({ client_id: area.clientId, activities: legacyActivities });
+    clients.push({ client_id: area.clientId, line_ids: [], activities: legacyActivities });
   }
   return { ...json(area), activities: legacyActivities, clients };
 }
@@ -37,6 +65,17 @@ async function replaceAreaClientAssignments(areaId: number, assignments: any[]) 
     if (!Number.isInteger(clientId) || clientId <= 0 || seenClients.has(clientId)) continue;
     seenClients.add(clientId);
     const [areaClient] = await db.insert(cleaningAreaClientsTable).values({ areaId, clientId }).returning();
+    const clientLines = await db.select().from(cleaningClientLinesTable).where(eq(cleaningClientLinesTable.clientId, clientId));
+    const selectedLineIds = new Set(
+      (Array.isArray(assignment?.line_ids) ? assignment.line_ids : [])
+        .map((lineId: unknown) => Number(lineId))
+        .filter((lineId: number) => clientLines.some((line) => line.id === lineId)),
+    );
+    for (const line of clientLines) {
+      if (selectedLineIds.has(line.id)) {
+        await db.insert(cleaningAreaClientLinesTable).values({ areaClientId: areaClient.id, clientLineId: line.id });
+      }
+    }
     const clientActivities = Array.isArray(assignment?.activities) ? assignment.activities : [];
     for (const [index, activity] of clientActivities.entries()) {
       const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
@@ -61,25 +100,32 @@ async function typeWithActivities(id: number) {
 }
 
 router.get("/limpiezas/catalogs", async (_req, res) => {
-  const [clients, udns, areas, types] = await Promise.all([
+  const [clientRows, udns, areas, types] = await Promise.all([
     db.select().from(cleaningClientsTable).orderBy(asc(cleaningClientsTable.name)),
     db.select().from(udnsTable).orderBy(asc(udnsTable.name)),
     db.select().from(cleaningAreasTable).orderBy(asc(cleaningAreasTable.name)),
     db.select().from(cleaningTypesTable).orderBy(asc(cleaningTypesTable.name)),
   ]);
-  res.json({ clients: clients.map(json), udns: udns.map((u) => ({ id: u.id, name: u.name, code: u.code })), areas: await Promise.all(areas.map((a) => areaWithActivities(a.id))), types: await Promise.all(types.map((t) => typeWithActivities(t.id))) });
+  res.json({ clients: await Promise.all(clientRows.map((client) => clientWithLines(client.id))), udns: udns.map((u) => ({ id: u.id, name: u.name, code: u.code })), areas: await Promise.all(areas.map((a) => areaWithActivities(a.id))), types: await Promise.all(types.map((t) => typeWithActivities(t.id))) });
 });
 
-router.get("/limpiezas/clientes", async (_req, res) => res.json((await db.select().from(cleaningClientsTable).orderBy(asc(cleaningClientsTable.name))).map(json)));
+router.get("/limpiezas/clientes", async (_req, res) => res.json(await Promise.all((await db.select().from(cleaningClientsTable).orderBy(asc(cleaningClientsTable.name))).map((client) => clientWithLines(client.id)))));
 router.post("/limpiezas/clientes", async (req, res) => {
-  const { name, plant_number, line_number, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
-  const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, lineNumber: line_number || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).returning();
-  res.status(201).json(json(row));
+  const { name, plant_number, lines, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
+  const requestedLines = Array.isArray(lines) ? lines : (plant_number ? [{ line_number: req.body.line_number }] : []);
+  const lineNumbers = Array.from(new Set(requestedLines.map((line: any) => String(line?.line_number || "").trim()).filter(Boolean)));
+  const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, lineNumber: lineNumbers[0] || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).returning();
+  await replaceClientLines(row.id, lineNumbers);
+  res.status(201).json(await clientWithLines(row.id));
 });
 router.patch("/limpiezas/clientes/:id", async (req, res) => {
-  const id = Number(req.params.id); const { name, plant_number, line_number, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
-  const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, lineNumber: line_number || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
-  if (!row) { res.status(404).json({ error: "Cliente no encontrado" }); return; } res.json(json(row)); return;
+  const id = Number(req.params.id); const { name, plant_number, lines, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
+  const requestedLines = Array.isArray(lines) ? lines : (plant_number ? [{ line_number: req.body.line_number }] : []);
+  const lineNumbers = Array.from(new Set(requestedLines.map((line: any) => String(line?.line_number || "").trim()).filter(Boolean)));
+  const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, lineNumber: lineNumbers[0] || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
+  if (!row) { res.status(404).json({ error: "Cliente no encontrado" }); return; }
+  await replaceClientLines(id, lineNumbers);
+  res.json(await clientWithLines(id)); return;
 });
 router.delete("/limpiezas/clientes/:id", async (req, res) => {
   try { await db.delete(cleaningClientsTable).where(eq(cleaningClientsTable.id, Number(req.params.id))); res.status(204).send(); }
