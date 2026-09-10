@@ -1,4 +1,4 @@
-import { pgTable, serial, text, integer, timestamp, date, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, integer, timestamp, date, boolean, uniqueIndex } from "drizzle-orm/pg-core";
 import { udnsTable } from "./udns";
 
 export const cleaningClientsTable = pgTable("cleaning_clients", {
@@ -27,6 +27,23 @@ export const cleaningAreasTable = pgTable("cleaning_areas", {
 export const cleaningAreaActivitiesTable = pgTable("cleaning_area_activities", {
   id: serial("id").primaryKey(),
   areaId: integer("area_id").notNull().references(() => cleaningAreasTable.id, { onDelete: "cascade" }),
+  description: text("description").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  requiresPhoto: boolean("requires_photo").notNull().default(false),
+});
+
+export const cleaningAreaClientsTable = pgTable("cleaning_area_clients", {
+  id: serial("id").primaryKey(),
+  areaId: integer("area_id").notNull().references(() => cleaningAreasTable.id, { onDelete: "cascade" }),
+  clientId: integer("client_id").notNull().references(() => cleaningClientsTable.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  areaClientUnique: uniqueIndex("cleaning_area_clients_area_client_idx").on(table.areaId, table.clientId),
+}));
+
+export const cleaningAreaClientActivitiesTable = pgTable("cleaning_area_client_activities", {
+  id: serial("id").primaryKey(),
+  areaClientId: integer("area_client_id").notNull().references(() => cleaningAreaClientsTable.id, { onDelete: "cascade" }),
   description: text("description").notNull(),
   sortOrder: integer("sort_order").notNull().default(0),
   requiresPhoto: boolean("requires_photo").notNull().default(false),

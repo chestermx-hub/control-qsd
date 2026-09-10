@@ -16,8 +16,9 @@ import { CleaningReport, SignatureDialog, type CleaningReportSignature } from "@
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 type Client = { id: number; name: string; plant_number: string; line_number?: string; periodicity: string; udn_id?: number };
-type AreaActivity = { id: number; description: string; requires_photo?: boolean };
-type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; activities: AreaActivity[] };
+type AreaActivity = { id?: number; description: string; requires_photo?: boolean };
+type AreaClient = { client_id: number; activities: AreaActivity[] };
+type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; clients?: AreaClient[]; activities: AreaActivity[] };
 type FlowActivity = { id?: number; description: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
 type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
@@ -47,6 +48,16 @@ function useCatalogs() {
 function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "client" | "area" | "flow"; initial?: any; catalogs: Catalogs; onSaved: () => void; onClose: () => void }) {
   const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", line_number: "", periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
   const [activity, setActivity] = useState("");
+  const [areaClients, setAreaClients] = useState<AreaClient[]>(() => {
+    if (kind !== "area") return [];
+    if (Array.isArray(initial?.clients) && initial.clients.length) return initial.clients;
+    if (initial?.client_id) return [{ client_id: Number(initial.client_id), activities: initial.activities || [] }];
+    return [];
+  });
+  const [activeAreaClientId, setActiveAreaClientId] = useState(() => {
+    const first = Array.isArray(initial?.clients) && initial.clients.length ? initial.clients[0]?.client_id : initial?.client_id;
+    return first ? String(first) : "";
+  });
   const [selectedAreaIds, setSelectedAreaIds] = useState<number[]>(() => {
     if (kind !== "flow") return [];
     return Array.from(new Set((initial?.activities || []).map((item: FlowActivity) => {
@@ -57,10 +68,21 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
+  const activitiesForClient = (area: Area, clientId: number) => {
+    const assigned = area.clients?.find((item) => item.client_id === clientId);
+    if (assigned) return assigned.activities || [];
+    if (!area.clients?.length && (!area.client_id || area.client_id === clientId)) return area.activities || [];
+    return [];
+  };
+  const areaAppliesToClient = (area: Area, clientId: number) => {
+    if (!clientId) return false;
+    if (area.clients?.length) return area.clients.some((item) => item.client_id === clientId);
+    return !area.client_id || area.client_id === clientId;
+  };
   const flowActivitiesFor = (areaIds: number[]) => areaIds.flatMap((areaId) => {
     const area = catalogs.areas.find((candidate) => candidate.id === areaId);
     if (!area) return [];
-    return area.activities.map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
+    return activitiesForClient(area, Number(form.client_id)).map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
   });
   const updateFlowAreas = (areaIds: number[]) => {
     setSelectedAreaIds(areaIds);
@@ -72,11 +94,28 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     if (!window.confirm(`¿Quitar "${area.name}" de este flujo? Las demás áreas se conservarán.`)) return;
     updateFlowAreas(selectedAreaIds.filter((id) => id !== areaId));
   };
+  const changeFlowClient = (value: string) => {
+    const clientId = Number(value);
+    update("client_id", clientId);
+    const compatibleAreaIds = selectedAreaIds.filter((areaId) => {
+      const area = catalogs.areas.find((candidate) => candidate.id === areaId);
+      return area ? areaAppliesToClient(area, clientId) : false;
+    });
+    setSelectedAreaIds(compatibleAreaIds);
+    setForm((current: any) => ({ ...current, client_id: clientId, activities: compatibleAreaIds.flatMap((areaId) => {
+      const area = catalogs.areas.find((candidate) => candidate.id === areaId);
+      if (!area) return [];
+      return activitiesForClient(area, clientId).map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
+    }) }));
+  };
   const save = async (e: React.FormEvent) => {
     e.preventDefault(); setSaving(true);
     try {
       const path = kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos";
-      await api(initial?.id ? `${path}/${initial.id}` : path, { method: initial?.id ? "PATCH" : "POST", body: JSON.stringify(form) });
+      const payload = kind === "area"
+        ? { ...form, client_id: areaClients[0]?.client_id || null, activities: areaClients[0]?.activities || [], clients: areaClients }
+        : form;
+      await api(initial?.id ? `${path}/${initial.id}` : path, { method: initial?.id ? "PATCH" : "POST", body: JSON.stringify(payload) });
       toast({ title: "Guardado correctamente" }); onSaved(); onClose();
     } catch (error) { toast({ title: error instanceof Error ? error.message : "Error al guardar", variant: "destructive" }); } finally { setSaving(false); }
   };
@@ -86,6 +125,16 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     update("activities", [...activities, kind === "area" ? { description: activity.trim(), requires_photo: false } : activity.trim()]);
     setActivity("");
   };
+  const addAreaClient = (value: string) => {
+    const clientId = Number(value);
+    if (!clientId || areaClients.some((item) => item.client_id === clientId)) return;
+    setAreaClients((current) => [...current, { client_id: clientId, activities: [] }]);
+    setActiveAreaClientId(String(clientId));
+  };
+  const updateAreaClientActivities = (clientId: number, nextActivities: AreaActivity[]) => {
+    setAreaClients((current) => current.map((item) => item.client_id === clientId ? { ...item, activities: nextActivities } : item));
+  };
+  const activeAreaClient = areaClients.find((item) => String(item.client_id) === activeAreaClientId);
   return <form onSubmit={save} className="space-y-4">
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label className="space-y-1 text-sm font-medium">Nombre<Input required value={form.name} onChange={e => update("name", e.target.value)} /></label>
@@ -93,11 +142,29 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
         <label className="space-y-1 text-sm font-medium sm:col-start-2">No. de línea<Input type="number" min="1" required value={form.line_number || ""} onChange={e => update("line_number", e.target.value)} /></label>
         <label className="space-y-1 text-sm font-medium sm:col-start-1">Periodicidad<Select value={form.periodicity} onValueChange={v => update("periodicity", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Diaria", "Semanal", "Quincenal", "Mensual", "Bajo demanda"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></label>
         <label className="space-y-1 text-sm font-medium sm:col-start-2">UDN prestadora<Select value={String(form.udn_id || "")} onValueChange={v => update("udn_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona una UDN" /></SelectTrigger><SelectContent>{catalogs.udns.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}</SelectContent></Select></label></>}
-      {kind === "area" && <><label className="space-y-1 text-sm font-medium">Tipo<Select value={form.area_type} onValueChange={v => update("area_type", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="critica">Crítica</SelectItem></SelectContent></Select></label><label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={v => update("client_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label></>}
-      {kind === "flow" && <label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={v => update("client_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label>}
+      {kind === "area" && <label className="space-y-1 text-sm font-medium">Tipo<Select value={form.area_type} onValueChange={v => update("area_type", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="critica">Crítica</SelectItem></SelectContent></Select></label>}
+      {kind === "flow" && <label className="space-y-1 text-sm font-medium">Cliente<Select value={String(form.client_id || "")} onValueChange={changeFlowClient}><SelectTrigger><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger><SelectContent>{catalogs.clients.map(c => <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>)}</SelectContent></Select></label>}
     </div>
     {kind !== "client" && <label className="space-y-1 block text-sm font-medium">Descripción<Textarea value={form.description || ""} onChange={e => update("description", e.target.value)} /></label>}
-    {kind === "flow" ? <div className="space-y-3">
+     {kind === "area" ? <div className="space-y-3">
+       <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+         <div className="min-w-0"><p className="text-sm font-medium">Clientes y actividades</p><p className="text-xs text-muted-foreground">Cada pestaña contiene las actividades específicas de ese cliente.</p></div>
+         <Select value="" onValueChange={addAreaClient}>
+           <SelectTrigger className="w-full sm:w-auto sm:min-w-[180px]"><Plus className="mr-1 h-4 w-4" /><SelectValue placeholder="Agregar cliente" /></SelectTrigger>
+           <SelectContent>{catalogs.clients.filter((client) => !areaClients.some((item) => item.client_id === client.id)).map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
+         </Select>
+       </div>
+       {!areaClients.length && <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">Usa el botón + para agregar el primer cliente al área.</div>}
+       {!!areaClients.length && <Tabs value={activeAreaClientId} onValueChange={setActiveAreaClientId} className="w-full">
+         <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+           {areaClients.map((item) => <TabsTrigger key={item.client_id} value={String(item.client_id)} className="shrink-0">{catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"}</TabsTrigger>)}
+         </TabsList>
+         {activeAreaClient && <TabsContent value={activeAreaClientId} className="mt-3 space-y-2">
+           <div className="flex gap-2"><Input placeholder="Nueva actividad del área" value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const value = activity.trim(); if (value) { updateAreaClientActivities(activeAreaClient.client_id, [...activeAreaClient.activities, { description: value, requires_photo: false }]); setActivity(""); } } }} /><Button type="button" variant="outline" aria-label="Agregar actividad" onClick={() => { const value = activity.trim(); if (value) { updateAreaClientActivities(activeAreaClient.client_id, [...activeAreaClient.activities, { description: value, requires_photo: false }]); setActivity(""); } }}><Plus className="h-4 w-4" /></Button></div>
+           <div className="space-y-2">{activeAreaClient.activities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="text-muted-foreground w-6">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span><label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => updateAreaClientActivities(activeAreaClient.client_id, activeAreaClient.activities.map((current, i) => i === index ? { ...current, requires_photo: e.target.checked } : current))} />Foto requerida</label><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => updateAreaClientActivities(activeAreaClient.client_id, activeAreaClient.activities.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
+         </TabsContent>}
+       </Tabs>}
+     </div> : kind === "flow" ? <div className="space-y-3">
        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
          <div className="min-w-0"><p className="text-sm font-medium">Áreas del flujo</p><p className="text-xs text-muted-foreground">Cada área carga automáticamente sus actividades preestablecidas.</p></div>
         <Select value="" onValueChange={(value) => {
@@ -107,16 +174,17 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
           }
         }}>
            <SelectTrigger className="w-full sm:w-auto sm:min-w-[150px]"><Plus className="mr-1 h-4 w-4" /><SelectValue placeholder="Agregar área" /></SelectTrigger>
-          <SelectContent>{catalogs.areas.filter((area) => !selectedAreaIds.includes(area.id)).map((area) => <SelectItem key={area.id} value={String(area.id)}>{area.name}</SelectItem>)}</SelectContent>
+           <SelectContent>{catalogs.areas.filter((area) => !selectedAreaIds.includes(area.id) && areaAppliesToClient(area, Number(form.client_id))).map((area) => <SelectItem key={area.id} value={String(area.id)}>{area.name}</SelectItem>)}</SelectContent>
         </Select>
       </div>
       {!selectedAreaIds.length && <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">Usa el botón + para agregar la primera área al flujo.</div>}
       {selectedAreaIds.map((areaId, areaIndex) => {
         const area = catalogs.areas.find((candidate) => candidate.id === areaId);
         if (!area) return null;
-        return <div key={area.id} className="rounded-lg border bg-muted/20 overflow-hidden">
-            <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2"><div className="min-w-0 flex-1"><p className="font-medium break-words">{area.name}</p><p className="text-xs text-muted-foreground">{area.code} · {area.activities.length} actividades</p></div><Button type="button" variant="ghost" size="sm" className="shrink-0 text-destructive hover:text-destructive" aria-label={`Quitar ${area.name} del flujo`} onClick={() => removeFlowArea(area.id)}><Trash2 className="mr-1 h-4 w-4" />Quitar</Button></div>
-           <div className="divide-y">{area.activities.map((item, index) => <div key={item.id} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm"><span className="w-5 text-muted-foreground">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span>{item.requires_photo && <Badge variant="secondary" className="shrink-0">Foto requerida</Badge>}</div>)}{!area.activities.length && <p className="p-3 text-sm text-muted-foreground">Esta área no tiene actividades preestablecidas.</p>}</div>
+         const clientActivities = activitiesForClient(area, Number(form.client_id));
+         return <div key={area.id} className="rounded-lg border bg-muted/20 overflow-hidden">
+             <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2"><div className="min-w-0 flex-1"><p className="font-medium break-words">{area.name}</p><p className="text-xs text-muted-foreground">{area.code} · {clientActivities.length} actividades</p></div><Button type="button" variant="ghost" size="sm" className="shrink-0 text-destructive hover:text-destructive" aria-label={`Quitar ${area.name} del flujo`} onClick={() => removeFlowArea(area.id)}><Trash2 className="mr-1 h-4 w-4" />Quitar</Button></div>
+             <div className="divide-y">{clientActivities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm"><span className="w-5">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span>{item.requires_photo && <Badge variant="secondary" className="shrink-0">Foto requerida</Badge>}</div>)}{!clientActivities.length && <p className="p-3 text-sm text-muted-foreground">Esta área no tiene actividades preestablecidas para este cliente.</p>}</div>
         </div>;
       })}
     </div> : kind !== "client" && <div className="space-y-2">
@@ -129,7 +197,12 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
 
 function catalogItemSummary(kind: "client" | "area" | "flow", item: any, catalogs: Catalogs) {
   if (kind === "client") return `Planta ${item.plant_number} · Línea ${item.line_number || "—"} · ${item.periodicity}`;
-  if (kind === "area") return `${catalogs.clients.find((client) => client.id === item.client_id)?.name || "Sin cliente"} · ${item.description || "Sin descripción"} · ${item.activities?.length || 0} actividades`;
+  if (kind === "area") {
+    const clientNames = (item.clients || []).map((assignment: AreaClient) => catalogs.clients.find((client) => client.id === assignment.client_id)?.name).filter(Boolean);
+    const clientLabel = clientNames.length ? clientNames.join(", ") : catalogs.clients.find((client) => client.id === item.client_id)?.name || "Sin cliente";
+    const activityCount = item.clients?.length ? item.clients.reduce((total: number, assignment: AreaClient) => total + assignment.activities.length, 0) : item.activities?.length || 0;
+    return `${clientLabel} · ${item.description || "Sin descripción"} · ${activityCount} actividades`;
+  }
   return `${catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`;
 }
 
