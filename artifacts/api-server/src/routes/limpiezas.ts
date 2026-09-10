@@ -92,7 +92,7 @@ async function areaWithActivities(id: number) {
   }));
   const legacyActivities = activities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto }));
   if (!clients.length && area.clientId) {
-    clients.push({ client_id: area.clientId, line_ids: [], activities: legacyActivities });
+    clients.push({ client_id: area.clientId, line_ids: [], activities: legacyActivities, line_activities: [] });
   }
   return { ...json(area), activities: legacyActivities, clients };
 }
@@ -350,32 +350,65 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
     db.select().from(cleaningAreaClientsTable).where(eq(cleaningAreaClientsTable.areaId, areaId)),
   ]);
   const openExecutions = executions.filter((execution) => execution.status !== "completed" && !execution.signature);
-  if (!openExecutions.length || (!areaActivities.length && !assignments.length)) return;
+  if (!openExecutions.length) return;
 
   for (const execution of openExecutions) {
     const executionAreas = await db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, execution.id));
     if (!executionAreas.some((area) => area.areaName === areaName)) continue;
     const assignment = assignments.find((item) => item.clientId === execution.clientId);
-    const activities = assignment
-      ? await db.select().from(cleaningAreaClientActivitiesTable)
-        .where(eq(cleaningAreaClientActivitiesTable.areaClientId, assignment.id))
-        .orderBy(asc(cleaningAreaClientActivitiesTable.sortOrder))
-      : areaActivities;
-    if (!activities.length) continue;
+    let activities: Array<{ description: string; sortOrder: number; requiresPhoto: boolean }> = areaActivities.map((activity) => ({
+      description: activity.description,
+      sortOrder: activity.sortOrder,
+      requiresPhoto: activity.requiresPhoto,
+    }));
+    if (assignment) {
+      const [configuredActivities, selectedLines, clientLines] = await Promise.all([
+        db.select().from(cleaningAreaClientActivitiesTable)
+          .where(eq(cleaningAreaClientActivitiesTable.areaClientId, assignment.id))
+          .orderBy(asc(cleaningAreaClientActivitiesTable.sortOrder)),
+        db.select().from(cleaningAreaClientLinesTable)
+          .where(eq(cleaningAreaClientLinesTable.areaClientId, assignment.id)),
+        db.select().from(cleaningClientLinesTable)
+          .where(eq(cleaningClientLinesTable.clientId, execution.clientId)),
+      ]);
+      const selectedLineIds = new Set(
+        selectedLines
+          .filter((selectedLine) => clientLines.some((line) => line.id === selectedLine.clientLineId && line.lineNumber === execution.lineNumber))
+          .map((selectedLine) => selectedLine.clientLineId),
+      );
+      const lineActivities = configuredActivities
+        .filter((activity) => activity.clientLineId != null && selectedLineIds.has(activity.clientLineId))
+        .map((activity) => ({ description: activity.description, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
+      const genericActivities = configuredActivities
+        .filter((activity) => activity.clientLineId == null)
+        .map((activity) => ({ description: activity.description, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
+      activities = lineActivities.length ? lineActivities : genericActivities;
+    }
     const existingActivities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id));
-    const existingKeys = new Set(existingActivities.map((activity) => `${activity.areaName || "Área general"}\u0000${activity.description}`));
-    let nextSort = existingActivities.reduce((max, activity) => Math.max(max, activity.sortOrder), -1) + 1;
-    for (const activity of activities) {
-      const key = `${areaName}\u0000${activity.description}`;
-      if (existingKeys.has(key)) continue;
-      await db.insert(cleaningExecutionActivitiesTable).values({
-        executionId: execution.id,
-        description: activity.description,
-        areaName,
-        sortOrder: nextSort++,
-        requiresPhoto: activity.requiresPhoto,
-      });
-      existingKeys.add(key);
+    const existingAreaActivities = existingActivities.filter((activity) => activity.areaName === areaName);
+    const usedExistingIds = new Set<number>();
+    const areaBaseSort = existingAreaActivities[0]?.sortOrder ?? (existingActivities.reduce((max, activity) => Math.max(max, activity.sortOrder), -1) + 1);
+    for (const [index, activity] of activities.entries()) {
+      const existingActivity = existingAreaActivities.find((candidate) => !usedExistingIds.has(candidate.id) && candidate.description === activity.description);
+      if (existingActivity) {
+        usedExistingIds.add(existingActivity.id);
+        await db.update(cleaningExecutionActivitiesTable)
+          .set({ sortOrder: areaBaseSort + index, requiresPhoto: activity.requiresPhoto })
+          .where(eq(cleaningExecutionActivitiesTable.id, existingActivity.id));
+      } else {
+        await db.insert(cleaningExecutionActivitiesTable).values({
+          executionId: execution.id,
+          description: activity.description,
+          areaName,
+          sortOrder: areaBaseSort + index,
+          requiresPhoto: activity.requiresPhoto,
+        });
+      }
+    }
+    for (const existingActivity of existingAreaActivities) {
+      if (!usedExistingIds.has(existingActivity.id)) {
+        await db.delete(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.id, existingActivity.id));
+      }
     }
   }
 }

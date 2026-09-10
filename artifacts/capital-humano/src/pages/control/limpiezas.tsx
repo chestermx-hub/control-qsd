@@ -120,11 +120,9 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
       const path = kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos";
       const normalizedAreaClients = areaClients.map((assignment) => {
         const availableLines = catalogs.clients.find((client) => client.id === assignment.client_id)?.lines || [];
-        const lineIds = assignment.line_ids?.length
+        const lineIds = assignment.line_ids !== undefined
           ? assignment.line_ids
-          : availableLines.length === 1 && availableLines[0].id
-            ? [availableLines[0].id]
-            : [];
+          : availableLines.map((line) => line.id).filter((lineId): lineId is number => Boolean(lineId));
         return {
           ...assignment,
           line_ids: lineIds,
@@ -171,7 +169,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     const clientId = Number(value);
     if (!clientId || areaClients.some((item) => item.client_id === clientId)) return;
     const client = catalogs.clients.find((candidate) => candidate.id === clientId);
-    const defaultLineIds = client?.lines?.length === 1 && client.lines[0].id ? [client.lines[0].id] : [];
+    const defaultLineIds = client?.lines?.map((line) => line.id).filter((lineId): lineId is number => Boolean(lineId)) || [];
     setAreaClients((current) => [...current, { client_id: clientId, line_ids: defaultLineIds, activities: [], line_activities: [] }]);
     setActiveAreaClientId(String(clientId));
     setActiveAreaLineId(String(defaultLineIds[0] ?? ""));
@@ -184,6 +182,19 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     setAreaClients((current) => current.map((item) => {
       if (item.client_id !== clientId) return item;
       const lineActivities = item.line_activities || [];
+      const availableLineIds = catalogs.clients.find((client) => client.id === clientId)?.lines
+        ?.map((line) => line.id)
+        .filter((availableLineId): availableLineId is number => Boolean(availableLineId)) || [];
+      const selectedLineIds = item.line_ids !== undefined ? item.line_ids : availableLineIds;
+      if (!lineActivities.length && selectedLineIds.length > 1) {
+        return {
+          ...item,
+          line_activities: selectedLineIds.map((selectedLineId) => ({
+            line_id: selectedLineId,
+            activities: nextActivities,
+          })),
+        };
+      }
       const existing = lineActivities.some((entry) => entry.line_id === lineId);
       return {
         ...item,
@@ -195,6 +206,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   };
   const activitiesForLine = (assignment: AreaClient, lineId: number) =>
     assignment.line_activities?.find((entry) => entry.line_id === lineId)?.activities
+      ?? assignment.line_activities?.[0]?.activities
       ?? assignment.activities
       ?? [];
   const removeAreaClient = (clientId: number) => {
@@ -203,11 +215,23 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     const remaining = areaClients.filter((item) => item.client_id !== clientId);
     setAreaClients(remaining);
     setActiveAreaClientId(String(remaining[0]?.client_id ?? ""));
-    setActiveAreaLineId("");
+    const nextLines = remaining[0] ? activeClientLinesForArea(remaining[0]) : [];
+    setActiveAreaLineId(String(nextLines[0]?.id ?? ""));
   };
   const activeClientLinesForArea = (assignment: AreaClient) =>
     catalogs.clients.find((client) => client.id === assignment.client_id)?.lines || [];
   const activeAreaClient = areaClients.find((item) => String(item.client_id) === activeAreaClientId);
+  const changeAreaClient = (clientId: string) => {
+    setActiveAreaClientId(clientId);
+    const assignment = areaClients.find((item) => String(item.client_id) === clientId);
+    const lines = assignment ? activeClientLinesForArea(assignment) : [];
+    const selectedLineIds = assignment?.line_ids?.length
+      ? assignment.line_ids
+      : lines.length === 1 && lines[0].id
+        ? [lines[0].id]
+        : [];
+    setActiveAreaLineId(String(selectedLineIds[0] ?? ""));
+  };
   return <form onSubmit={save} className="space-y-4">
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label className="space-y-1 text-sm font-medium">Nombre<Input required value={form.name} onChange={e => update("name", e.target.value)} /></label>
@@ -237,27 +261,68 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
          </Select>
        </div>
        {!areaClients.length && <div className="rounded-lg border border-dashed p-5 text-center text-sm text-muted-foreground">Usa el botón + para agregar el primer cliente al área.</div>}
-       {!!areaClients.length && <Tabs value={activeAreaClientId} onValueChange={setActiveAreaClientId} className="w-full">
+        {!!areaClients.length && <Tabs value={activeAreaClientId} onValueChange={changeAreaClient} className="w-full">
          <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
            {areaClients.map((item) => <TabsTrigger key={item.client_id} value={String(item.client_id)} className="shrink-0">{catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"}</TabsTrigger>)}
          </TabsList>
          {activeAreaClient && <TabsContent value={activeAreaClientId} className="mt-3 space-y-3">
-           {(() => {
-             const selectedLineIds = activeAreaClient.line_ids?.length
-               ? activeAreaClient.line_ids
-                : activeClientLinesForArea(activeAreaClient).length === 1 && activeClientLinesForArea(activeAreaClient)[0].id
-                  ? [activeClientLinesForArea(activeAreaClient)[0].id as number]
-                 : [];
-             return <div className="rounded-md border bg-muted/20 p-3">
-               <p className="text-sm font-medium">Líneas aplicables a esta área</p>
-               <p className="mb-2 text-xs text-muted-foreground">Selecciona las líneas del cliente donde se realizará esta área.</p>
-                {activeClientLinesForArea(activeAreaClient).length
-                  ? <div className="grid gap-2 sm:grid-cols-2">{activeClientLinesForArea(activeAreaClient).map((line) => <label key={line.id} className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm"><input type="checkbox" className="h-5 w-5 accent-primary" checked={Boolean(line.id && selectedLineIds.includes(line.id))} onChange={(event) => updateAreaClientLines(activeAreaClient.client_id, event.target.checked ? [...selectedLineIds, line.id as number] : selectedLineIds.filter((lineId) => lineId !== line.id))} />{line.line_name ? `${line.line_number} · ${line.line_name}` : `Línea ${line.line_number}`}</label>)}</div>
-                 : <p className="text-sm text-muted-foreground">Este cliente aún no tiene líneas registradas. Agrégalas en el catálogo de clientes.</p>}
-             </div>;
-           })()}
-           <div className="flex gap-2"><Input placeholder="Nueva actividad del área" value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const value = activity.trim(); if (value) { updateAreaClientActivities(activeAreaClient.client_id, [...activeAreaClient.activities, { description: value, requires_photo: false }]); setActivity(""); } } }} /><Button type="button" variant="outline" aria-label="Agregar actividad" onClick={() => { const value = activity.trim(); if (value) { updateAreaClientActivities(activeAreaClient.client_id, [...activeAreaClient.activities, { description: value, requires_photo: false }]); setActivity(""); } }}><Plus className="h-4 w-4" /></Button></div>
-           <div className="space-y-2">{activeAreaClient.activities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="text-muted-foreground w-6">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span><label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => updateAreaClientActivities(activeAreaClient.client_id, activeAreaClient.activities.map((current, i) => i === index ? { ...current, requires_photo: e.target.checked } : current))} />Foto requerida</label><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => updateAreaClientActivities(activeAreaClient.client_id, activeAreaClient.activities.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">Configura las líneas y las actividades que aplican a cada una.</p>
+              <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={() => removeAreaClient(activeAreaClient.client_id)}>
+                <Trash2 className="mr-1 h-4 w-4" />Eliminar cliente de esta área
+              </Button>
+            </div>
+            {(() => {
+              const availableLines = activeClientLinesForArea(activeAreaClient);
+              const selectedLineIds = activeAreaClient.line_ids !== undefined
+                ? activeAreaClient.line_ids
+                : availableLines.map((line) => line.id).filter((lineId): lineId is number => Boolean(lineId));
+              const activeLineId = selectedLineIds.includes(Number(activeAreaLineId))
+                ? Number(activeAreaLineId)
+                : selectedLineIds[0];
+              const activeActivities = activeLineId
+                ? activitiesForLine(activeAreaClient, activeLineId)
+                : activeAreaClient.activities || [];
+              const updateActivities = (nextActivities: AreaActivity[]) => {
+                if (activeLineId) {
+                  updateAreaClientLineActivities(activeAreaClient.client_id, activeLineId, nextActivities);
+                } else {
+                  setAreaClients((current) => current.map((item) => item.client_id === activeAreaClient.client_id ? { ...item, activities: nextActivities } : item));
+                }
+              };
+              const addCurrentActivity = () => {
+                const value = activity.trim();
+                if (!value) return;
+                updateActivities([...activeActivities, { description: value, requires_photo: false }]);
+                setActivity("");
+              };
+              return <div className="space-y-3">
+                <div className="rounded-md border bg-muted/20 p-3">
+                  <p className="text-sm font-medium">Líneas aplicables a esta área</p>
+                  <p className="mb-2 text-xs text-muted-foreground">Selecciona las líneas del cliente donde se realizará esta área.</p>
+                  {availableLines.length
+                    ? <div className="grid gap-2 sm:grid-cols-2">{availableLines.map((line) => <div key={line.id} className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm"><label className="flex min-w-0 flex-1 items-center gap-2"><input type="checkbox" className="h-5 w-5 shrink-0 accent-primary" checked={Boolean(line.id && selectedLineIds.includes(line.id))} onChange={(event) => { const nextLineIds = event.target.checked ? [...selectedLineIds, line.id as number] : selectedLineIds.filter((lineId) => lineId !== line.id); updateAreaClientLines(activeAreaClient.client_id, nextLineIds); if (event.target.checked) setActiveAreaLineId(String(line.id)); }} />{line.line_name ? `${line.line_number} · ${line.line_name}` : `Línea ${line.line_number}`}</label><Button type="button" variant="ghost" size="sm" className="shrink-0" onClick={() => { if (line.id && !selectedLineIds.includes(line.id)) updateAreaClientLines(activeAreaClient.client_id, [...selectedLineIds, line.id]); setActiveAreaLineId(String(line.id)); }}><Pencil className="mr-1 h-4 w-4" />Editar</Button></div>)}</div>
+                    : <p className="text-sm text-muted-foreground">Este cliente aún no tiene líneas registradas. Agrégalas en el catálogo de clientes.</p>}
+                </div>
+                <Tabs value={activeLineId ? String(activeLineId) : "general"} onValueChange={(value) => setActiveAreaLineId(value === "general" ? "" : value)} className="w-full">
+                  <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+                    {selectedLineIds.map((lineId) => {
+                      const line = availableLines.find((candidate) => candidate.id === lineId);
+                      return <TabsTrigger key={lineId} value={String(lineId)} className="shrink-0">{line?.line_name ? `${line.line_number} · ${line.line_name}` : `Línea ${line?.line_number || lineId}`}</TabsTrigger>;
+                    })}
+                    {!selectedLineIds.length && <TabsTrigger value="general" className="shrink-0">Actividades generales</TabsTrigger>}
+                  </TabsList>
+                  <TabsContent value={activeLineId ? String(activeLineId) : "general"} className="mt-3 space-y-3">
+                    <div className="flex gap-2">
+                      <Input placeholder={activeLineId ? "Nueva actividad para esta línea" : "Nueva actividad del área"} value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCurrentActivity(); } }} />
+                      <Button type="button" variant="outline" aria-label="Agregar actividad" onClick={addCurrentActivity}><Plus className="h-4 w-4" /></Button>
+                    </div>
+                    <div className="space-y-2">{activeActivities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="w-6 text-muted-foreground">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span><label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => updateActivities(activeActivities.map((current, i) => i === index ? { ...current, requires_photo: e.target.checked } : current))} />Foto requerida</label><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => updateActivities(activeActivities.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
+                    {!activeActivities.length && <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">Aún no hay actividades configuradas para esta línea.</p>}
+                  </TabsContent>
+                </Tabs>
+              </div>;
+            })()}
          </TabsContent>}
        </Tabs>}
      </div> : kind === "flow" ? <div className="space-y-3">
@@ -301,7 +366,9 @@ function catalogItemSummary(kind: "client" | "area" | "flow", item: any, catalog
   if (kind === "area") {
     const clientNames = (item.clients || []).map((assignment: AreaClient) => catalogs.clients.find((client) => client.id === assignment.client_id)?.name).filter(Boolean);
     const clientLabel = clientNames.length ? clientNames.join(", ") : catalogs.clients.find((client) => client.id === item.client_id)?.name || "Sin cliente";
-    const activityCount = item.clients?.length ? item.clients.reduce((total: number, assignment: AreaClient) => total + assignment.activities.length, 0) : item.activities?.length || 0;
+    const activityCount = item.clients?.length
+      ? item.clients.reduce((total: number, assignment: AreaClient) => total + (assignment.line_activities?.reduce((lineTotal, line) => lineTotal + line.activities.length, 0) || assignment.activities?.length || 0), 0)
+      : item.activities?.length || 0;
     return `${clientLabel} · ${item.description || "Sin descripción"} · ${activityCount} actividades`;
   }
   return `${catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"} · ${item.activities?.length || 0} actividades`;
