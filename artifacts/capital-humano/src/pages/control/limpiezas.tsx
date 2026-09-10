@@ -15,9 +15,10 @@ import { useAuth } from "@/lib/auth";
 import { CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
-type Client = { id: number; name: string; plant_number: string; line_number?: string; periodicity: string; udn_id?: number };
+type ClientLine = { id?: number; line_number: string };
+type Client = { id: number; name: string; plant_number: string; line_number?: string; lines?: ClientLine[]; periodicity: string; udn_id?: number };
 type AreaActivity = { id?: number; description: string; requires_photo?: boolean };
-type AreaClient = { client_id: number; activities: AreaActivity[] };
+type AreaClient = { client_id: number; line_ids?: number[]; activities: AreaActivity[] };
 type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; clients?: AreaClient[]; activities: AreaActivity[] };
 type FlowActivity = { id?: number; description: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
@@ -46,7 +47,7 @@ function useCatalogs() {
 }
 
 function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "client" | "area" | "flow"; initial?: any; catalogs: Catalogs; onSaved: () => void; onClose: () => void }) {
-  const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", line_number: "", periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
+  const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", lines: [{ line_number: "" }], periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
   const [activity, setActivity] = useState("");
   const [areaClients, setAreaClients] = useState<AreaClient[]>(() => {
     if (kind !== "area") return [];
@@ -68,6 +69,9 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const update = (key: string, value: any) => setForm((f: any) => ({ ...f, [key]: value }));
+  const clientLines: ClientLine[] = kind === "client"
+    ? (Array.isArray(form.lines) && form.lines.length ? form.lines : form.line_number ? [{ line_number: form.line_number }] : [{ line_number: "" }])
+    : [];
   const activitiesForClient = (area: Area, clientId: number) => {
     const assigned = area.clients?.find((item) => item.client_id === clientId);
     if (assigned) return assigned.activities || [];
@@ -112,9 +116,20 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     e.preventDefault(); setSaving(true);
     try {
       const path = kind === "client" ? "/limpiezas/clientes" : kind === "area" ? "/limpiezas/areas" : "/limpiezas/tipos";
+      const normalizedAreaClients = areaClients.map((assignment) => {
+        const availableLines = catalogs.clients.find((client) => client.id === assignment.client_id)?.lines || [];
+        const lineIds = assignment.line_ids?.length
+          ? assignment.line_ids
+          : availableLines.length === 1 && availableLines[0].id
+            ? [availableLines[0].id]
+            : [];
+        return { ...assignment, line_ids: lineIds };
+      });
       const payload = kind === "area"
-        ? { ...form, client_id: areaClients[0]?.client_id || null, activities: areaClients[0]?.activities || [], clients: areaClients }
-        : form;
+        ? { ...form, client_id: normalizedAreaClients[0]?.client_id || null, activities: normalizedAreaClients[0]?.activities || [], clients: normalizedAreaClients }
+        : kind === "client"
+          ? { ...form, line_number: clientLines[0]?.line_number?.trim() || null, lines: clientLines.filter((line) => line.line_number.trim()) }
+          : form;
       await api(initial?.id ? `${path}/${initial.id}` : path, { method: initial?.id ? "PATCH" : "POST", body: JSON.stringify(payload) });
       toast({ title: "Guardado correctamente" }); onSaved(); onClose();
     } catch (error) { toast({ title: error instanceof Error ? error.message : "Error al guardar", variant: "destructive" }); } finally { setSaving(false); }
@@ -125,21 +140,44 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     update("activities", [...activities, kind === "area" ? { description: activity.trim(), requires_photo: false } : activity.trim()]);
     setActivity("");
   };
+  const updateClientLine = (index: number, lineNumber: string) => {
+    update("lines", clientLines.map((line, lineIndex) => lineIndex === index ? { ...line, line_number: lineNumber } : line));
+  };
+  const addClientLine = () => update("lines", [...clientLines, { line_number: "" }]);
+  const removeClientLine = (index: number) => {
+    if (clientLines.length <= 1) return;
+    update("lines", clientLines.filter((_, lineIndex) => lineIndex !== index));
+  };
   const addAreaClient = (value: string) => {
     const clientId = Number(value);
     if (!clientId || areaClients.some((item) => item.client_id === clientId)) return;
-    setAreaClients((current) => [...current, { client_id: clientId, activities: [] }]);
+    const client = catalogs.clients.find((candidate) => candidate.id === clientId);
+    const defaultLineIds = client?.lines?.length === 1 && client.lines[0].id ? [client.lines[0].id] : [];
+    setAreaClients((current) => [...current, { client_id: clientId, line_ids: defaultLineIds, activities: [] }]);
     setActiveAreaClientId(String(clientId));
+  };
+  const updateAreaClientLines = (clientId: number, lineIds: number[]) => {
+    setAreaClients((current) => current.map((item) => item.client_id === clientId ? { ...item, line_ids: lineIds } : item));
   };
   const updateAreaClientActivities = (clientId: number, nextActivities: AreaActivity[]) => {
     setAreaClients((current) => current.map((item) => item.client_id === clientId ? { ...item, activities: nextActivities } : item));
   };
+  const activeClientLinesForArea = (assignment: AreaClient) =>
+    catalogs.clients.find((client) => client.id === assignment.client_id)?.lines || [];
   const activeAreaClient = areaClients.find((item) => String(item.client_id) === activeAreaClientId);
   return <form onSubmit={save} className="space-y-4">
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
       <label className="space-y-1 text-sm font-medium">Nombre<Input required value={form.name} onChange={e => update("name", e.target.value)} /></label>
       {kind === "client" && <><label className="space-y-1 text-sm font-medium">No. de planta<Input required value={form.plant_number} onChange={e => update("plant_number", e.target.value)} /></label>
-        <label className="space-y-1 text-sm font-medium sm:col-start-2">No. de línea<Input type="number" min="1" required value={form.line_number || ""} onChange={e => update("line_number", e.target.value)} /></label>
+        <div className="space-y-2 text-sm font-medium sm:col-span-2"><span>No. de líneas</span>
+          <div className="space-y-2">
+            {clientLines.map((line, index) => <div key={line.id ?? index} className="flex items-center gap-2">
+              <Input type="number" min="1" required value={line.line_number} onChange={e => updateClientLine(index, e.target.value)} aria-label={`Número de línea ${index + 1}`} />
+              <Button type="button" variant="ghost" size="icon" aria-label={`Eliminar línea ${index + 1}`} disabled={clientLines.length <= 1} onClick={() => removeClientLine(index)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+            </div>)}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={addClientLine}><Plus className="mr-1 h-4 w-4" />Agregar línea</Button>
+        </div>
         <label className="space-y-1 text-sm font-medium sm:col-start-1">Periodicidad<Select value={form.periodicity} onValueChange={v => update("periodicity", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{["Diaria", "Semanal", "Quincenal", "Mensual", "Bajo demanda"].map(v => <SelectItem key={v} value={v}>{v}</SelectItem>)}</SelectContent></Select></label>
         <label className="space-y-1 text-sm font-medium sm:col-start-2">UDN prestadora<Select value={String(form.udn_id || "")} onValueChange={v => update("udn_id", Number(v))}><SelectTrigger><SelectValue placeholder="Selecciona una UDN" /></SelectTrigger><SelectContent>{catalogs.udns.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>)}</SelectContent></Select></label></>}
       {kind === "area" && <label className="space-y-1 text-sm font-medium">Tipo<Select value={form.area_type} onValueChange={v => update("area_type", v)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="normal">Normal</SelectItem><SelectItem value="critica">Crítica</SelectItem></SelectContent></Select></label>}
@@ -159,7 +197,21 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
          <TabsList className="h-auto w-full justify-start gap-1 overflow-x-auto p-1">
            {areaClients.map((item) => <TabsTrigger key={item.client_id} value={String(item.client_id)} className="shrink-0">{catalogs.clients.find((client) => client.id === item.client_id)?.name || "Cliente"}</TabsTrigger>)}
          </TabsList>
-         {activeAreaClient && <TabsContent value={activeAreaClientId} className="mt-3 space-y-2">
+         {activeAreaClient && <TabsContent value={activeAreaClientId} className="mt-3 space-y-3">
+           {(() => {
+             const selectedLineIds = activeAreaClient.line_ids?.length
+               ? activeAreaClient.line_ids
+                : activeClientLinesForArea(activeAreaClient).length === 1 && activeClientLinesForArea(activeAreaClient)[0].id
+                  ? [activeClientLinesForArea(activeAreaClient)[0].id as number]
+                 : [];
+             return <div className="rounded-md border bg-muted/20 p-3">
+               <p className="text-sm font-medium">Líneas aplicables a esta área</p>
+               <p className="mb-2 text-xs text-muted-foreground">Selecciona las líneas del cliente donde se realizará esta área.</p>
+                {activeClientLinesForArea(activeAreaClient).length
+                  ? <div className="grid gap-2 sm:grid-cols-2">{activeClientLinesForArea(activeAreaClient).map((line) => <label key={line.id} className="flex min-h-10 items-center gap-2 rounded-md border bg-background px-3 text-sm"><input type="checkbox" className="h-5 w-5 accent-primary" checked={Boolean(line.id && selectedLineIds.includes(line.id))} onChange={(event) => updateAreaClientLines(activeAreaClient.client_id, event.target.checked ? [...selectedLineIds, line.id as number] : selectedLineIds.filter((lineId) => lineId !== line.id))} />Línea {line.line_number}</label>)}</div>
+                 : <p className="text-sm text-muted-foreground">Este cliente aún no tiene líneas registradas. Agrégalas en el catálogo de clientes.</p>}
+             </div>;
+           })()}
            <div className="flex gap-2"><Input placeholder="Nueva actividad del área" value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const value = activity.trim(); if (value) { updateAreaClientActivities(activeAreaClient.client_id, [...activeAreaClient.activities, { description: value, requires_photo: false }]); setActivity(""); } } }} /><Button type="button" variant="outline" aria-label="Agregar actividad" onClick={() => { const value = activity.trim(); if (value) { updateAreaClientActivities(activeAreaClient.client_id, [...activeAreaClient.activities, { description: value, requires_photo: false }]); setActivity(""); } }}><Plus className="h-4 w-4" /></Button></div>
            <div className="space-y-2">{activeAreaClient.activities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="text-muted-foreground w-6">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span><label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => updateAreaClientActivities(activeAreaClient.client_id, activeAreaClient.activities.map((current, i) => i === index ? { ...current, requires_photo: e.target.checked } : current))} />Foto requerida</label><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => updateAreaClientActivities(activeAreaClient.client_id, activeAreaClient.activities.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
          </TabsContent>}

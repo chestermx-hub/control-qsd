@@ -112,7 +112,7 @@ router.get("/limpiezas/catalogs", async (_req, res) => {
 router.get("/limpiezas/clientes", async (_req, res) => res.json(await Promise.all((await db.select().from(cleaningClientsTable).orderBy(asc(cleaningClientsTable.name))).map((client) => clientWithLines(client.id)))));
 router.post("/limpiezas/clientes", async (req, res) => {
   const { name, plant_number, lines, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
-  const requestedLines = Array.isArray(lines) ? lines : (plant_number ? [{ line_number: req.body.line_number }] : []);
+  const requestedLines = Array.isArray(lines) ? lines : (req.body.line_number ? [{ line_number: req.body.line_number }] : []);
   const lineNumbers = Array.from(new Set(requestedLines.map((line: any) => String(line?.line_number || "").trim()).filter(Boolean)));
   const [row] = await db.insert(cleaningClientsTable).values({ name, plantNumber: plant_number, lineNumber: lineNumbers[0] || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).returning();
   await replaceClientLines(row.id, lineNumbers);
@@ -120,7 +120,7 @@ router.post("/limpiezas/clientes", async (req, res) => {
 });
 router.patch("/limpiezas/clientes/:id", async (req, res) => {
   const id = Number(req.params.id); const { name, plant_number, lines, periodicity, contact_name, contact_email, contact_phone, udn_id } = req.body;
-  const requestedLines = Array.isArray(lines) ? lines : (plant_number ? [{ line_number: req.body.line_number }] : []);
+  const requestedLines = Array.isArray(lines) ? lines : (req.body.line_number ? [{ line_number: req.body.line_number }] : []);
   const lineNumbers = Array.from(new Set(requestedLines.map((line: any) => String(line?.line_number || "").trim()).filter(Boolean)));
   const [row] = await db.update(cleaningClientsTable).set({ name, plantNumber: plant_number, lineNumber: lineNumbers[0] || null, periodicity, contactName: contact_name || null, contactEmail: contact_email || null, contactPhone: contact_phone || null, udnId: udn_id || null }).where(eq(cleaningClientsTable.id, id)).returning();
   if (!row) { res.status(404).json({ error: "Cliente no encontrado" }); return; }
@@ -314,13 +314,13 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
 async function executionJson(id: number) {
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, id));
   if (!execution) return null;
-  const [client] = await db.select().from(cleaningClientsTable).where(eq(cleaningClientsTable.id, execution.clientId));
+  const client = await clientWithLines(execution.clientId);
   const [type] = await db.select().from(cleaningTypesTable).where(eq(cleaningTypesTable.id, execution.cleaningTypeId));
   const [activities, areas] = await Promise.all([
     db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, id)).orderBy(asc(cleaningExecutionActivitiesTable.sortOrder)),
     db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, id)).orderBy(asc(cleaningExecutionAreasTable.sortOrder)),
   ]);
-  return { ...json(execution), client: client ? json(client) : null, cleaning_type: type ? json(type) : null, areas: areas.map(json), activities: activities.map(json) };
+  return { ...json(execution), client, cleaning_type: type ? json(type) : null, areas: areas.map(json), activities: activities.map(json) };
 }
 
 async function maybeCompleteExecution(executionId: number) {
