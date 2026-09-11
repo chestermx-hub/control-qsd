@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Check, ClipboardCheck, Download, FileText, History, ImagePlus, Loader2, Pencil, Plus, Search, Sparkles, Trash2, Upload } from "lucide-react";
+import { ArrowLeft, Check, ChevronRight, ClipboardCheck, Download, FileText, History, ImagePlus, Loader2, Menu, Pencil, Plus, Search, Sparkles, Trash2, Upload, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
@@ -539,9 +539,9 @@ function Configuration({ catalogs, reload, initialTab }: { catalogs: Catalogs; r
 }
 
 function PhotoButton({ label, value, onUploaded, disabled = false }: { label: string; value?: string; onUploaded: (path: string) => void; disabled?: boolean }) {
-  const ref = useRef<HTMLInputElement>(null); const [busy, setBusy] = useState(false); const { toast } = useToast();
+  const ref = useRef<HTMLInputElement>(null); const [busy, setBusy] = useState(false); const [previewOpen, setPreviewOpen] = useState(false); const { toast } = useToast();
   const upload = async (file?: File) => { if (!file) return; setBusy(true); try { const response = await api("/storage/uploads/request-url", { method: "POST", body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const put = await fetch(response.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); if (!put.ok) throw new Error("No se pudo subir la foto"); onUploaded(`/api/storage${response.objectPath}`); } catch (e) { toast({ title: e instanceof Error ? e.message : "Error al subir foto", variant: "destructive" }); } finally { setBusy(false); } };
-  return <div><input ref={ref} type="file" accept="image/*" capture="environment" className="hidden" disabled={disabled} onChange={e => upload(e.target.files?.[0])} />{value ? <div className="space-y-2"><img src={value} className="aspect-square w-full max-w-[220px] rounded-md border object-cover" /><Button type="button" variant="outline" size="sm" className="min-h-10" disabled={disabled} onClick={() => ref.current?.click()}><Upload className="mr-2 h-4 w-4" />Cambiar</Button></div> : <Button type="button" variant="outline" className="min-h-11 w-full" disabled={busy || disabled} onClick={() => ref.current?.click()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}{busy ? "Subiendo..." : disabled ? "Disponible al completar" : label}</Button>}</div>;
+  return <div className="space-y-2"><input ref={ref} type="file" accept="image/*" capture="environment" className="hidden" disabled={disabled} onChange={e => upload(e.target.files?.[0])} />{value ? <><button type="button" className="group relative block w-full max-w-[220px] overflow-hidden rounded-lg border bg-muted text-left" onClick={() => setPreviewOpen(true)} aria-label={`Ver ${label.toLocaleLowerCase()} ampliada`}><img src={value} alt={label} className="h-24 w-full object-cover transition-transform group-hover:scale-[1.03] sm:h-28" /><span className="absolute inset-x-0 bottom-0 bg-slate-950/70 px-2 py-1 text-center text-[11px] font-medium text-white">Ver ampliada</span></button><Button type="button" variant="outline" size="sm" className="min-h-10" disabled={disabled} onClick={() => ref.current?.click()}><Upload className="mr-2 h-4 w-4" />Cambiar</Button><Dialog open={previewOpen} onOpenChange={setPreviewOpen}><DialogContent className="w-[calc(100%-1rem)] max-w-4xl p-3 sm:p-5"><DialogHeader><DialogTitle>{label}</DialogTitle></DialogHeader><div className="flex max-h-[78vh] items-center justify-center overflow-hidden rounded-lg bg-slate-950/5 p-1 sm:p-3"><img src={value} alt={label} className="max-h-[72vh] max-w-full object-contain" /></div></DialogContent></Dialog></> : <Button type="button" variant="outline" className="min-h-11 w-full" disabled={busy || disabled} onClick={() => ref.current?.click()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}{busy ? "Subiendo..." : disabled ? "Disponible al completar" : label}</Button>}</div>;
 }
 
 function ActivityPhoto({ activity, areaInitialPhoto, onUploaded }: { activity: FlowActivity & { completed?: boolean }; areaInitialPhoto?: string; onUploaded: (path: string) => void }) {
@@ -698,6 +698,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const selectedClient = catalogs.clients.find((client) => client.id === Number(clientId));
 
   const start = async () => {
     setLoading(true);
@@ -745,7 +746,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
         <div className="grid gap-5 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">
           <label className="space-y-2 text-sm font-medium">
             <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">1</span>Cliente</span>
-            <Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); setLineNumber(catalogs.clients.find((client) => client.id === Number(value))?.line_number || ""); }}>
+            <Select value={clientId} onValueChange={(value) => { setClientId(value); setFlowId(""); setLineNumber(""); }}>
               <SelectTrigger className="h-12"><SelectValue placeholder="Selecciona un cliente" /></SelectTrigger>
               <SelectContent>{catalogs.clients.map((client) => <SelectItem key={client.id} value={String(client.id)}>{client.name}</SelectItem>)}</SelectContent>
             </Select>
@@ -763,7 +764,14 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
           </label>
           <label className="space-y-2 text-sm font-medium">
             <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">4</span>Número de línea</span>
-            <Input type="number" min="1" value={lineNumber} onChange={(event) => setLineNumber(event.target.value)} className="h-12" required />
+            <Select value={lineNumber} onValueChange={setLineNumber} disabled={!clientId}>
+              <SelectTrigger className="h-12"><SelectValue placeholder={clientId ? "Selecciona una línea" : "Selecciona primero un cliente"} /></SelectTrigger>
+              <SelectContent>
+                {selectedClient?.lines?.length
+                  ? selectedClient.lines.map((line) => <SelectItem key={line.id || line.line_number} value={line.line_number}>{line.line_name ? `${line.line_number} · ${line.line_name}` : `Línea ${line.line_number}`}</SelectItem>)
+                  : <SelectItem value="__no-lines" disabled>Sin líneas configuradas</SelectItem>}
+              </SelectContent>
+            </Select>
           </label>
           <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || !lineNumber.trim() || loading} onClick={start}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}
@@ -811,6 +819,8 @@ function ExecutionPageModern({
   const [savingSignature, setSavingSignature] = useState(false);
   const [savingDate, setSavingDate] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [areasMenuOpen, setAreasMenuOpen] = useState(false);
+  const areaRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -890,6 +900,11 @@ function ExecutionPageModern({
     }
   };
 
+  const scrollToArea = (areaId: number) => {
+    setAreasMenuOpen(false);
+    window.requestAnimationFrame(() => areaRefs.current[areaId]?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  };
+
   const saveSignature = async (signatureDataUrl: string, signerName: string) => {
     if (!execution) return;
     setSavingSignature(true);
@@ -957,7 +972,7 @@ function ExecutionPageModern({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-20 lg:pr-16">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -997,12 +1012,58 @@ function ExecutionPageModern({
           <Button type="button" variant="outline" size="sm" onClick={() => setShowReport(true)}>Ver documento</Button>
         </div>
       )}
+      <div className="fixed right-3 top-1/2 z-40 -translate-y-1/2 sm:right-5">
+        <Button
+          type="button"
+          size="icon"
+          variant="default"
+          className="h-12 w-12 rounded-full shadow-lg shadow-slate-900/20"
+          aria-label={areasMenuOpen ? "Cerrar lista de áreas" : "Abrir lista de áreas"}
+          aria-expanded={areasMenuOpen}
+          onClick={() => setAreasMenuOpen((open) => !open)}
+        >
+          {areasMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+        </Button>
+        {areasMenuOpen && (
+          <div className="absolute right-0 top-14 w-[min(19rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border bg-background shadow-2xl">
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold">Áreas a limpiar</p>
+                <p className="text-xs text-muted-foreground">{execution.areas.filter((area) => !area.excluded).length} incluidas</p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="Cerrar lista de áreas" onClick={() => setAreasMenuOpen(false)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="max-h-[65vh] overflow-y-auto p-2">
+              {execution.areas.map((area, index) => (
+                <button
+                  key={area.id}
+                  type="button"
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-3 text-left transition-colors hover:bg-muted ${area.excluded ? "opacity-50" : ""}`}
+                  onClick={() => scrollToArea(area.id)}
+                >
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${area.ready ? "bg-emerald-100 text-emerald-700" : "bg-primary/10 text-primary"}`}>
+                    {area.ready ? <Check className="h-4 w-4" /> : index + 1}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{area.area_name}</span>
+                    <span className="block text-xs text-muted-foreground">{area.excluded ? "Excluida" : area.ready ? "Lista" : "Pendiente"}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       {execution.areas.map((area) => {
         const areaActivities = execution.activities.filter((activity) => (activity.area_name || "Área general") === area.area_name);
         return (
-          <Card key={area.id} className={area.ready ? "border-emerald-500/60" : ""}>
+          <div key={area.id} ref={(element) => { areaRefs.current[area.id] = element; }} className="scroll-mt-6">
+          <Card className={area.ready ? "border-emerald-500/60" : ""}>
             <CardContent className="space-y-4 p-4 sm:p-5">
-                <div className="flex items-start gap-3">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
                 <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${area.ready ? "bg-emerald-500 text-white" : "bg-muted"}`}>
                   {area.ready ? <Check className="h-4 w-4" /> : <span className="text-sm font-semibold">{areaActivities[0] ? execution.activities.indexOf(areaActivities[0]) + 1 : "·"}</span>}
                 </div>
@@ -1010,7 +1071,7 @@ function ExecutionPageModern({
                   <p className="font-semibold break-words">{area.area_name}</p>
                   <p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p>
                 </div>
-                  <div className="flex shrink-0 items-start gap-3">
+                  <div className="flex w-full shrink-0 items-start justify-end gap-3 sm:w-auto sm:justify-start">
                     <div className="space-y-1 text-center">
                       <span className="block text-[10px] text-muted-foreground">Incluir</span>
                       <AreaExecutionToggle area={area} onChange={(excluded) => updateArea(area, { excluded })} />
@@ -1032,7 +1093,7 @@ function ExecutionPageModern({
                 {areaActivities.map((activity, index) => (
                   <div key={activity.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${activity.not_applicable ? "bg-muted/50" : ""}`}>
                     <span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span>
-                    <div className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}><p>{activity.description}</p>{activity.activity_description && <p className="mt-1 text-xs text-muted-foreground">{activity.activity_description}</p>}</div>
+                    <div className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}><p>{activity.description}</p>{activity.completed && activity.activity_description && <p className="mt-1 text-xs text-muted-foreground">Información: {activity.activity_description}</p>}</div>
                     <ActivityPhoto activity={activity} areaInitialPhoto={area.initial_photo} onUploaded={(path) => updateActivity(activity, { initial_photo: path })} />
                     <div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents">
                        <label className={`flex min-h-11 items-center gap-2 text-xs ${!area.initial_photo || (activity.requires_photo && !activity.initial_photo) ? "cursor-not-allowed text-amber-700" : "text-muted-foreground"}`} title={!area.initial_photo ? "Toma primero la foto inicial del área" : activity.requires_photo && !activity.initial_photo ? "Toma primero la foto inicial" : undefined}>
@@ -1046,6 +1107,7 @@ function ExecutionPageModern({
               </div>
             </CardContent>
           </Card>
+          </div>
         );
       })}
       {evidenceReadyForSignature(execution) && !execution.signature && (
