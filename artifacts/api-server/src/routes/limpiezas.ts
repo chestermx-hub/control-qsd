@@ -4,7 +4,7 @@ import { db, udnsTable, usersTable, cleaningClientsTable, cleaningClientLinesTab
 import type { Request, Response } from "express";
 
 const router = Router();
-const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
+const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, intermediate_photo: row.intermediatePhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
 async function clientWithLines(id: number) {
   const [client] = await db.select().from(cleaningClientsTable).where(eq(cleaningClientsTable.id, id));
@@ -493,9 +493,9 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
     (activity.completed || activity.notApplicable) &&
     (!activity.requiresPhoto || (activity.initialPhoto && activity.finalPhoto)),
   );
-  const evidenceComplete = areas.filter((area) => !area.excluded).every((area) => area.initialPhoto && area.finalPhoto);
+  const evidenceComplete = areas.filter((area) => !area.excluded).every((area) => area.initialPhoto && area.intermediatePhoto && area.finalPhoto);
   if (!activitiesComplete || !evidenceComplete) {
-    res.status(400).json({ error: "Completa todas las actividades y evidencias finales antes de firmar el reporte" });
+    res.status(400).json({ error: "Completa todas las actividades y las evidencias inicial, de demostración y final antes de firmar el reporte" });
     return;
   }
 
@@ -524,16 +524,19 @@ router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
   const [current] = await db.select().from(cleaningExecutionAreasTable).where(and(eq(cleaningExecutionAreasTable.id, areaId), eq(cleaningExecutionAreasTable.executionId, executionId)));
   if (!current) { res.status(404).json({ error: "Área de ejecución no encontrada" }); return; }
   const initialPhoto = req.body.initial_photo ?? current.initialPhoto;
+  const intermediatePhoto = req.body.intermediate_photo ?? current.intermediatePhoto;
   const finalPhoto = req.body.final_photo ?? current.finalPhoto;
   const ready = req.body.ready ?? current.ready;
   const excluded = req.body.excluded ?? current.excluded;
-  if (!excluded && ready && (!initialPhoto || !finalPhoto)) { res.status(400).json({ error: "El área requiere foto inicial y final antes de marcarla como lista" }); return; }
+  if (!excluded && req.body.intermediate_photo && !initialPhoto) { res.status(400).json({ error: "Toma primero la foto inicial del área antes de registrar la demostración del proceso" }); return; }
+  if (!excluded && ready && (!initialPhoto || !intermediatePhoto || !finalPhoto)) { res.status(400).json({ error: "El área requiere fotos inicial, de demostración y final antes de marcarla como lista" }); return; }
   if (!excluded && req.body.final_photo && !current.excluded) {
     const activities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId));
     const areaActivities = activities.filter((activity) => (activity.areaName || "Área general") === current.areaName);
     if (areaActivities.some((activity) => !activity.completed && !activity.notApplicable)) { res.status(400).json({ error: "La foto final se habilita después de completar las actividades del área" }); return; }
+    if (!intermediatePhoto) { res.status(400).json({ error: "Toma primero la foto de demostración del proceso antes de la foto final" }); return; }
   }
-  const [updated] = await db.update(cleaningExecutionAreasTable).set({ initialPhoto, finalPhoto, ready: excluded ? false : ready, excluded }).where(eq(cleaningExecutionAreasTable.id, areaId)).returning();
+  const [updated] = await db.update(cleaningExecutionAreasTable).set({ initialPhoto, intermediatePhoto, finalPhoto, ready: excluded ? false : ready, excluded }).where(eq(cleaningExecutionAreasTable.id, areaId)).returning();
   await maybeCompleteExecution(executionId);
   res.json(json(updated));
 });

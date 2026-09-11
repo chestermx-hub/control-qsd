@@ -24,7 +24,7 @@ type Area = { id: number; code: string; name: string; description?: string; area
 type FlowActivity = { id?: number; description: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
 type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
-type ExecutionArea = { id: number; area_name: string; initial_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
+type ExecutionArea = { id: number; area_name: string; initial_photo?: string; intermediate_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
 type Execution = { id: number; execution_date: string; line_number?: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string };
 
 function currentDateInputValue() {
@@ -511,8 +511,9 @@ function ActivityPhoto({ activity, areaInitialPhoto, onUploaded }: { activity: F
 function AreaFinalPhoto({ area, activities, onUploaded }: { area: ExecutionArea; activities: Execution["activities"]; onUploaded: (path: string) => void }) {
   if (area.excluded) return <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">Esta área está excluida de la ejecución.</div>;
   const complete = activities.every((activity) => (activity.completed || activity.not_applicable) && (!activity.requires_photo || (activity.initial_photo && activity.final_photo)));
-  if (!complete && !area.final_photo) return <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">La foto final se habilitará al completar las actividades del área.</div>;
-  return <PhotoButton label="Tomar foto final del área" value={area.final_photo} onUploaded={onUploaded} />;
+  const available = complete && Boolean(area.intermediate_photo);
+  if (!available && !area.final_photo) return <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">{!area.intermediate_photo ? "La foto final se habilitará después de tomar la demostración del proceso." : "La foto final se habilitará al completar las actividades del área."}</div>;
+  return <PhotoButton label="Tomar foto final del área" value={area.final_photo} disabled={!available} onUploaded={onUploaded} />;
 }
 
 function AreaExecutionToggle({ area, onChange }: { area: ExecutionArea; onChange: (excluded: boolean) => void }) {
@@ -613,7 +614,7 @@ function evidenceReadyForSignature(execution: Execution) {
     (activity.completed || activity.not_applicable) &&
     (!activity.requires_photo || Boolean(activity.initial_photo && activity.final_photo)),
   );
-  const areasReady = execution.areas.filter((area) => !area.excluded).every((area) => area.initial_photo && area.final_photo);
+   const areasReady = execution.areas.filter((area) => !area.excluded).every((area) => area.initial_photo && area.intermediate_photo && area.final_photo);
   return Boolean(relevantActivities.length && areasReady && activitiesReady);
 }
 
@@ -948,7 +949,7 @@ function ExecutionPageModern({
         return (
           <Card key={area.id} className={area.ready ? "border-emerald-500/60" : ""}>
             <CardContent className="space-y-4 p-4 sm:p-5">
-              <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3">
                 <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${area.ready ? "bg-emerald-500 text-white" : "bg-muted"}`}>
                   {area.ready ? <Check className="h-4 w-4" /> : <span className="text-sm font-semibold">{areaActivities[0] ? execution.activities.indexOf(areaActivities[0]) + 1 : "·"}</span>}
                 </div>
@@ -956,13 +957,20 @@ function ExecutionPageModern({
                   <p className="font-semibold break-words">{area.area_name}</p>
                   <p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p>
                 </div>
-                <button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={!area.initial_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}>
-                  <span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} />
-                </button>
+                  <div className="flex shrink-0 items-start gap-3">
+                    <div className="space-y-1 text-center">
+                      <span className="block text-[10px] text-muted-foreground">Incluir</span>
+                      <AreaExecutionToggle area={area} onChange={(excluded) => updateArea(area, { excluded })} />
+                    </div>
+                    <button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={area.excluded || !area.initial_photo || !area.intermediate_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-4 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}>
+                      <span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} />
+                    </button>
+                  </div>
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} onUploaded={(path) => updateArea(area, { initial_photo: path })} /></div>
-                <div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={(path) => updateArea(area, { final_photo: path })} /></div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} disabled={Boolean(area.excluded)} onUploaded={(path) => updateArea(area, { initial_photo: path })} /></div>
+                  <div><p className="mb-2 text-xs font-medium">Demostración del proceso</p><PhotoButton label="Tomar foto de demostración" value={area.intermediate_photo} disabled={Boolean(area.excluded || !area.initial_photo)} onUploaded={(path) => updateArea(area, { intermediate_photo: path })} /></div>
+                  <div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={(path) => updateArea(area, { final_photo: path })} /></div>
               </div>
               <div className="divide-y rounded-md border">
                 {areaActivities.map((activity, index) => (

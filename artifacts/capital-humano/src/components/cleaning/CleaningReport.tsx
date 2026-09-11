@@ -27,6 +27,7 @@ export type CleaningReportArea = {
   id: number | string;
   area_name: string;
   initial_photo?: string;
+  intermediate_photo?: string;
   final_photo?: string;
   ready?: boolean;
   excluded?: boolean;
@@ -309,16 +310,26 @@ export function CleaningReport({
   className,
 }: CleaningReportProps) {
   const activitiesByArea = useMemo(() => {
+    const includedAreaNames = new Set(
+      execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
+    );
     const grouped = new Map<string, CleaningReportActivity[]>();
     execution.activities.forEach((activity) => {
       const key = activity.area_name || "Área general";
+      if (activity.area_name && !includedAreaNames.has(key)) return;
       grouped.set(key, [...(grouped.get(key) || []), activity]);
     });
     return grouped;
-  }, [execution.activities]);
+  }, [execution.activities, execution.areas]);
 
-  const totalActivities = execution.activities.length;
-  const completedActivities = execution.activities.filter(
+  const includedAreaNames = new Set(
+    execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
+  );
+  const reportActivities = execution.activities.filter(
+    (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
+  );
+  const totalActivities = reportActivities.length;
+  const completedActivities = reportActivities.filter(
     (activity) => activity.completed || activity.not_applicable,
   ).length;
   const completion = totalActivities ? Math.round((completedActivities / totalActivities) * 100) : 0;
@@ -470,7 +481,7 @@ export function CleaningReport({
           <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
         <div className="space-y-5">
-          {execution.areas.map((area, index) => {
+          {execution.areas.filter((area) => !area.excluded).map((area, index) => {
             const areaActivities = activitiesByArea.get(area.area_name) || [];
             const areaCompleted = areaActivities.filter(
               (activity) => activity.completed || activity.not_applicable,
@@ -478,8 +489,9 @@ export function CleaningReport({
             return (
               <section key={area.id} className="avoid-break overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
                 <AreaHeader area={area} number={index + 1} completed={areaCompleted} total={areaActivities.length} />
-                <div className="grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-2">
+                <div className="grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-3">
                   <PhotoFrame src={area.initial_photo} alt={`Evidencia inicial del área ${area.area_name}`} label="Registro inicial del área" />
+                  <PhotoFrame src={area.intermediate_photo} alt={`Demostración del proceso del área ${area.area_name}`} label="Demostración del proceso" />
                   <PhotoFrame src={area.final_photo} alt={`Evidencia final del área ${area.area_name}`} label="Registro final del área" />
                 </div>
                 <div>
