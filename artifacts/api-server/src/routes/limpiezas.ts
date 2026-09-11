@@ -476,6 +476,14 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   const executionId = Number(req.params.id);
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
   if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  const hasChecklistPhotos = req.body.checklist_photos !== undefined;
+  const checklistPhotos = hasChecklistPhotos
+    ? (Array.isArray(req.body.checklist_photos) ? req.body.checklist_photos.filter((photo: unknown): photo is string => typeof photo === "string" && photo.trim().length > 0) : [])
+    : (execution.checklistPhotos || []);
+  if (hasChecklistPhotos && checklistPhotos.length < 5) {
+    res.status(400).json({ error: "Agrega mínimo 5 fotos de checklist antes de guardar la evidencia" });
+    return;
+  }
   const requestedDate = typeof req.body.execution_date === "string" ? req.body.execution_date.trim() : undefined;
   if (requestedDate !== undefined) {
     if (execution.signature || execution.status === "completed") {
@@ -490,11 +498,16 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   }
   const signature = typeof req.body.signature === "string" ? req.body.signature.trim() : "";
   if (!signature) {
-    if (requestedDate === undefined) {
+    if (requestedDate === undefined && !hasChecklistPhotos) {
       res.status(400).json({ error: "Indica una fecha o una firma para actualizar el reporte" });
       return;
     }
+    if (hasChecklistPhotos) await db.update(cleaningExecutionsTable).set({ checklistPhotos }).where(eq(cleaningExecutionsTable.id, executionId));
     res.json(await executionJson(executionId));
+    return;
+  }
+  if (checklistPhotos.length < 5) {
+    res.status(400).json({ error: "Agrega mínimo 5 fotos de checklist antes de firmar el reporte" });
     return;
   }
   const [activities, areas] = await Promise.all([
@@ -523,6 +536,7 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
     signedAt: new Date(),
     status: "completed",
     completedAt: new Date(),
+    checklistPhotos,
   }).where(eq(cleaningExecutionsTable.id, executionId));
   res.json(await executionJson(executionId));
 });

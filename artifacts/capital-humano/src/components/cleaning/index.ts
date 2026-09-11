@@ -8,3 +8,4 @@ export {
 } from "./CleaningReport";
 export { SignatureCapture, type SignatureCaptureProps } from "./SignatureCapture";
 export { SignatureDialog, type SignatureDialogProps } from "./SignatureDialog";
+export { ChecklistPhotosDialog } from "./ChecklistPhotosDialog";

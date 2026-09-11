@@ -12,7 +12,7 @@ import { ArrowLeft, Check, ChevronRight, ClipboardCheck, Download, FileText, His
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
+import { ChecklistPhotosDialog, CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 type ClientLine = { id?: number; line_number: string; line_name?: string };
@@ -25,7 +25,7 @@ type FlowActivity = { id?: number; description: string; activity_description?: s
 type Flow = { id: number; client_id: number; line_number?: string; name: string; description?: string; activities: FlowActivity[] };
 type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
 type ExecutionArea = { id: number; area_name: string; initial_photo?: string; intermediate_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
-type Execution = { id: number; execution_date: string; line_number?: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string };
+type Execution = { id: number; execution_date: string; line_number?: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string; checklist_photos?: string[] };
 
 function currentDateInputValue() {
   const now = new Date();
@@ -817,6 +817,10 @@ function ExecutionPageModern({
   const [executionDate, setExecutionDate] = useState(initialExecution?.execution_date || currentDateInputValue());
   const [signatureOpen, setSignatureOpen] = useState(false);
   const [savingSignature, setSavingSignature] = useState(false);
+  const [savingChecklist, setSavingChecklist] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
+  const [checklistPhotos, setChecklistPhotos] = useState<string[]>(initialExecution?.checklist_photos || []);
+  const [pendingSignature, setPendingSignature] = useState<{ path: string; signerName: string } | null>(null);
   const [savingDate, setSavingDate] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [areasMenuOpen, setAreasMenuOpen] = useState(false);
@@ -910,19 +914,55 @@ function ExecutionPageModern({
     setSavingSignature(true);
     try {
       const signaturePath = await uploadSignatureImage(signatureDataUrl);
-      const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ signature: signaturePath, signature_user_name: signerName }),
-      });
-      setExecution(updated);
+      setPendingSignature({ path: signaturePath, signerName });
+      setChecklistPhotos(execution.checklist_photos || []);
       setSignatureOpen(false);
-      toast({ title: "Reporte firmado y cerrado", description: "La firma quedó guardada junto con las evidencias." });
+      setChecklistOpen(true);
+      toast({ title: "Firma capturada", description: "Ahora agrega las fotos del checklist para cerrar el reporte." });
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : "No se pudo guardar la firma", variant: "destructive" });
     } finally {
       setSavingSignature(false);
     }
   };
+
+  const saveChecklist = async (photos: string[]) => {
+    if (!execution || !pendingSignature) return;
+    setSavingChecklist(true);
+    try {
+      const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          signature: pendingSignature.path,
+          signature_user_name: pendingSignature.signerName,
+          checklist_photos: photos,
+        }),
+      });
+      setExecution(updated);
+      setChecklistPhotos(updated.checklist_photos || photos);
+      setPendingSignature(null);
+      setChecklistOpen(false);
+      toast({ title: "Reporte firmado y cerrado", description: "La firma y las fotos del checklist quedaron guardadas." });
+    } catch (error) {
+      toast({ title: error instanceof Error ? error.message : "No se pudo guardar el checklist", variant: "destructive" });
+    } finally {
+      setSavingChecklist(false);
+    }
+  };
+
+  const checklistDialog = (
+    <ChecklistPhotosDialog
+      open={checklistOpen}
+      onOpenChange={(open) => {
+        setChecklistOpen(open);
+        if (!open && !savingChecklist) setPendingSignature(null);
+      }}
+      photos={checklistPhotos}
+      onPhotosChange={setChecklistPhotos}
+      onConfirm={saveChecklist}
+      saving={savingChecklist}
+    />
+  );
 
   if (!execution) {
     return (
@@ -967,6 +1007,7 @@ function ExecutionPageModern({
           initialSignerName={signature?.signerName || user?.name || ""}
           saving={savingSignature}
         />
+        {checklistDialog}
       </div>
     );
   }
@@ -1129,6 +1170,7 @@ function ExecutionPageModern({
         initialSignerName={signature?.signerName || user?.name || ""}
         saving={savingSignature}
       />
+      {checklistDialog}
     </div>
   );
 }

@@ -49,6 +49,7 @@ export type CleaningReportExecution = {
   };
   areas: CleaningReportArea[];
   activities: CleaningReportActivity[];
+  checklist_photos?: string[];
 };
 
 export type CleaningReportSignature = {
@@ -376,6 +377,9 @@ export function CleaningReport({
           .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
           .cleaning-report .report-footer { padding: 8px 20px !important; }
           .cleaning-report .report-action-bar { display: none; }
+          .cleaning-report .checklist-sheet { min-height: calc(100vh - 16mm); break-after: page; page-break-after: always; }
+          .cleaning-report .checklist-sheet:last-child { break-after: auto; page-break-after: auto; }
+          .cleaning-report .checklist-sheet img { max-height: calc(100vh - 48mm); }
         }
       `}</style>
 
@@ -512,6 +516,29 @@ export function CleaningReport({
       </section>
 
       <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
+
+      {execution.checklist_photos?.length ? (
+        <section className="border-t border-[#d8d9d3] bg-[#f1f1eb] px-5 py-7 sm:px-8 sm:py-8">
+          <div className="mb-5">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Evidencia posterior a la firma</p>
+            <h2 className="mt-2 font-serif text-3xl text-[#123b66]">Captura de checklist</h2>
+            <p className="mt-2 text-sm text-[#69736d]">Cada imagen corresponde a una hoja de evidencia del checklist.</p>
+          </div>
+          <div className="space-y-5">
+            {execution.checklist_photos.map((photo, index) => (
+              <div key={`${photo}-${index}`} className="checklist-sheet flex min-h-[28rem] flex-col overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6] p-3 sm:p-5">
+                <div className="mb-3 flex items-center justify-between border-b border-[#e1e1db] pb-3">
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#758079]">Captura de checklist</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#758079]">Hoja {String(index + 1).padStart(2, "0")}</span>
+                </div>
+                <div className="flex min-h-0 flex-1 items-center justify-center bg-white p-2 sm:p-4">
+                  <img src={photo} alt={`Captura de checklist, hoja ${index + 1}`} className="max-h-[34rem] w-full object-contain" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
     <footer className="report-footer flex flex-col gap-2 border-t border-[#d8d9d3] bg-[#eeeDE5] px-5 py-4 font-mono text-[9px] uppercase tracking-[0.13em] text-[#7d8780] sm:flex-row sm:items-center sm:justify-between sm:px-8">
         <span>Reporte generado desde Limpiezas industriales</span>
