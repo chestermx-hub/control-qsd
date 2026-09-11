@@ -1015,9 +1015,12 @@ function ExecutionPageModern({
                       <span className="block text-[10px] text-muted-foreground">Incluir</span>
                       <AreaExecutionToggle area={area} onChange={(excluded) => updateArea(area, { excluded })} />
                     </div>
-                    <button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={area.excluded || !area.initial_photo || !area.intermediate_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-4 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}>
-                      <span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} />
-                    </button>
+                    <div className="space-y-1 text-center">
+                      <span className="block text-[10px] text-muted-foreground">Lista</span>
+                      <button type="button" aria-label={`${area.ready ? "Desmarcar" : "Marcar"} ${area.area_name} como lista`} disabled={area.excluded || !area.initial_photo || !area.intermediate_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}>
+                        <span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} />
+                      </button>
+                    </div>
                   </div>
               </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
