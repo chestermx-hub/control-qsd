@@ -73,6 +73,7 @@ export const cleaningAreaClientActivitiesTable = pgTable("cleaning_area_client_a
 export const cleaningTypesTable = pgTable("cleaning_types", {
   id: serial("id").primaryKey(),
   clientId: integer("client_id").notNull().references(() => cleaningClientsTable.id, { onDelete: "cascade" }),
+  lineNumber: text("line_number"),
   name: text("name").notNull(),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

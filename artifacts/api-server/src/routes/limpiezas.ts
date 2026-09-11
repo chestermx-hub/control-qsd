@@ -261,8 +261,12 @@ router.delete("/limpiezas/areas/:id", async (req, res) => { await db.delete(clea
 
 router.get("/limpiezas/tipos", async (_req, res) => { const rows = await db.select().from(cleaningTypesTable).orderBy(asc(cleaningTypesTable.name)); res.json(await Promise.all(rows.map((t) => typeWithActivities(t.id)))); });
 router.post("/limpiezas/tipos", async (req, res) => {
-  const { client_id, name, description, activities = [] } = req.body;
-  const [type] = await db.insert(cleaningTypesTable).values({ clientId: Number(client_id), name, description }).returning();
+  const { client_id, line_number, name, description, activities = [] } = req.body;
+  const clientId = Number(client_id);
+  const lineNumber = String(line_number ?? "").trim();
+  const clientLines = await db.select().from(cleaningClientLinesTable).where(eq(cleaningClientLinesTable.clientId, clientId));
+  if (!lineNumber || !clientLines.some((line) => line.lineNumber === lineNumber)) { res.status(400).json({ error: "Selecciona una línea válida para este cliente" }); return; }
+  const [type] = await db.insert(cleaningTypesTable).values({ clientId, lineNumber, name, description }).returning();
   for (const [index, activity] of activities.entries()) {
     const value = typeof activity === "string" ? { description: activity } : activity;
     await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: type.id, description: String(value.description || value), activityDescription: String(value.activity_description || "").trim() || null, areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
@@ -270,8 +274,12 @@ router.post("/limpiezas/tipos", async (req, res) => {
   res.status(201).json(await typeWithActivities(type.id));
 });
 router.patch("/limpiezas/tipos/:id", async (req, res) => {
-  const id = Number(req.params.id); const { client_id, name, description, activities = [] } = req.body;
-  const [type] = await db.update(cleaningTypesTable).set({ clientId: Number(client_id), name, description }).where(eq(cleaningTypesTable.id, id)).returning();
+  const id = Number(req.params.id); const { client_id, line_number, name, description, activities = [] } = req.body;
+  const clientId = Number(client_id);
+  const lineNumber = String(line_number ?? "").trim();
+  const clientLines = await db.select().from(cleaningClientLinesTable).where(eq(cleaningClientLinesTable.clientId, clientId));
+  if (!lineNumber || !clientLines.some((line) => line.lineNumber === lineNumber)) { res.status(400).json({ error: "Selecciona una línea válida para este cliente" }); return; }
+  const [type] = await db.update(cleaningTypesTable).set({ clientId, lineNumber, name, description }).where(eq(cleaningTypesTable.id, id)).returning();
   if (!type) { res.status(404).json({ error: "Tipo no encontrado" }); return; }
   await db.delete(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, id));
   for (const [index, activity] of activities.entries()) {
