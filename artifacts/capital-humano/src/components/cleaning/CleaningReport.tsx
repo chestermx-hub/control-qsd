@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 export type CleaningReportActivity = {
   id: number | string;
   description: string;
+  activity_description?: string;
   area_name?: string;
   completed?: boolean;
   not_applicable?: boolean;
@@ -212,7 +213,8 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
             activity.not_applicable && "text-[#8b938d] line-through",
           )}
         >
-          {activity.description}
+          <span>{activity.description}</span>
+          {activity.activity_description && <span className="mt-1 block text-xs text-[#69736d]">{activity.activity_description}</span>}
         </p>
         {activity.note && <p className="mt-1 text-xs italic text-[#78827b]">{activity.note}</p>}
         {activity.requires_photo && (

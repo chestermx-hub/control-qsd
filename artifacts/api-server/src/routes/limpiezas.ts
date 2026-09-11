@@ -4,7 +4,7 @@ import { db, udnsTable, usersTable, cleaningClientsTable, cleaningClientLinesTab
 import type { Request, Response } from "express";
 
 const router = Router();
-const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, intermediate_photo: row.intermediatePhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
+const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, activity_description: row.activityDescription, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, intermediate_photo: row.intermediatePhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
 async function clientWithLines(id: number) {
   const [client] = await db.select().from(cleaningClientsTable).where(eq(cleaningClientsTable.id, id));
@@ -73,7 +73,7 @@ async function areaWithActivities(id: number) {
       line_ids: selectedLines.map((line) => line.clientLineId),
       activities: clientActivities
         .filter((activity) => activity.clientLineId == null)
-        .map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto })),
+        .map((a) => ({ id: a.id, description: a.description, activity_description: a.activityDescription || "", sort_order: a.sortOrder, requires_photo: a.requiresPhoto })),
       line_activities: Array.from(
         clientActivities.reduce((groups, activity) => {
           if (activity.clientLineId == null) return groups;
@@ -81,16 +81,17 @@ async function areaWithActivities(id: number) {
           activities.push({
             id: activity.id,
             description: activity.description,
+            activity_description: activity.activityDescription || "",
             sort_order: activity.sortOrder,
             requires_photo: activity.requiresPhoto,
           });
           groups.set(activity.clientLineId, activities);
           return groups;
-        }, new Map<number, Array<{ id: number; description: string; sort_order: number; requires_photo: boolean }>>()),
+        }, new Map<number, Array<{ id: number; description: string; activity_description: string; sort_order: number; requires_photo: boolean }>>()),
       ).map(([line_id, lineActivities]) => ({ line_id, activities: lineActivities })),
     };
   }));
-  const legacyActivities = activities.map((a) => ({ id: a.id, description: a.description, sort_order: a.sortOrder, requires_photo: a.requiresPhoto }));
+  const legacyActivities = activities.map((a) => ({ id: a.id, description: a.description, activity_description: a.activityDescription || "", sort_order: a.sortOrder, requires_photo: a.requiresPhoto }));
   if (!clients.length && area.clientId) {
     clients.push({ client_id: area.clientId, line_ids: [], activities: legacyActivities, line_activities: [] });
   }
@@ -131,6 +132,7 @@ async function replaceAreaClientAssignments(areaId: number, assignments: any[]) 
             areaClientId: areaClient.id,
             clientLineId: lineId,
             description,
+            activityDescription: String(value?.activity_description || "").trim() || null,
             sortOrder: index,
             requiresPhoto: Boolean(value?.requires_photo),
           });
@@ -144,6 +146,7 @@ async function replaceAreaClientAssignments(areaId: number, assignments: any[]) 
         await db.insert(cleaningAreaClientActivitiesTable).values({
           areaClientId: areaClient.id,
           description,
+          activityDescription: String(value?.activity_description || "").trim() || null,
           sortOrder: index,
           requiresPhoto: Boolean(value?.requires_photo),
         });
@@ -214,7 +217,7 @@ router.post("/limpiezas/areas", async (req, res) => {
   } else {
     for (const [index, activity] of activities.entries()) {
       const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
-      await db.insert(cleaningAreaActivitiesTable).values({ areaId: area.id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+      await db.insert(cleaningAreaActivitiesTable).values({ areaId: area.id, description: String(value.description), activityDescription: String(value.activity_description || "").trim() || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
     }
   }
   res.status(201).json(await areaWithActivities(area.id));
@@ -234,7 +237,7 @@ router.patch("/limpiezas/areas/:id", async (req, res) => {
     await db.delete(cleaningAreaActivitiesTable).where(eq(cleaningAreaActivitiesTable.areaId, id));
     for (const [index, activity] of activities.entries()) {
       const value = typeof activity === "string" ? { description: activity, requires_photo: false } : activity;
-      await db.insert(cleaningAreaActivitiesTable).values({ areaId: id, description: String(value.description), sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+      await db.insert(cleaningAreaActivitiesTable).values({ areaId: id, description: String(value.description), activityDescription: String(value.activity_description || "").trim() || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
     }
   }
   if (previousArea.name !== area.name) {
@@ -262,7 +265,7 @@ router.post("/limpiezas/tipos", async (req, res) => {
   const [type] = await db.insert(cleaningTypesTable).values({ clientId: Number(client_id), name, description }).returning();
   for (const [index, activity] of activities.entries()) {
     const value = typeof activity === "string" ? { description: activity } : activity;
-    await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: type.id, description: String(value.description || value), areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+    await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: type.id, description: String(value.description || value), activityDescription: String(value.activity_description || "").trim() || null, areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
   }
   res.status(201).json(await typeWithActivities(type.id));
 });
@@ -273,7 +276,7 @@ router.patch("/limpiezas/tipos/:id", async (req, res) => {
   await db.delete(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, id));
   for (const [index, activity] of activities.entries()) {
     const value = typeof activity === "string" ? { description: activity } : activity;
-    await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: id, description: String(value.description || value), areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
+    await db.insert(cleaningTypeActivitiesTable).values({ cleaningTypeId: id, description: String(value.description || value), activityDescription: String(value.activity_description || "").trim() || null, areaName: value.area_name || null, sortOrder: index, requiresPhoto: Boolean(value.requires_photo) });
   }
   await syncNewAreasToOpenExecutions(id);
   res.json(await typeWithActivities(id));
@@ -324,7 +327,7 @@ async function syncNewAreasToOpenExecutions(typeId: number) {
       const existingActivity = refreshedActivities.find((item) => `${item.areaName || "Área general"}\u0000${item.description}` === activityKey);
       if (existingActivity) {
         await db.update(cleaningExecutionActivitiesTable)
-          .set({ sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto })
+          .set({ sortOrder: activity.sortOrder, activityDescription: activity.activityDescription, requiresPhoto: activity.requiresPhoto })
           .where(eq(cleaningExecutionActivitiesTable.id, existingActivity.id));
         continue;
       }
@@ -332,6 +335,7 @@ async function syncNewAreasToOpenExecutions(typeId: number) {
       await db.insert(cleaningExecutionActivitiesTable).values({
         executionId: execution.id,
         description: activity.description,
+        activityDescription: activity.activityDescription,
         areaName: activity.areaName,
         sortOrder: activity.sortOrder,
         requiresPhoto: activity.requiresPhoto,
@@ -356,8 +360,9 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
     const executionAreas = await db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, execution.id));
     if (!executionAreas.some((area) => area.areaName === areaName)) continue;
     const assignment = assignments.find((item) => item.clientId === execution.clientId);
-    let activities: Array<{ description: string; sortOrder: number; requiresPhoto: boolean }> = areaActivities.map((activity) => ({
+    let activities: Array<{ description: string; activityDescription: string | null; sortOrder: number; requiresPhoto: boolean }> = areaActivities.map((activity) => ({
       description: activity.description,
+      activityDescription: activity.activityDescription,
       sortOrder: activity.sortOrder,
       requiresPhoto: activity.requiresPhoto,
     }));
@@ -378,10 +383,10 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
       );
       const lineActivities = configuredActivities
         .filter((activity) => activity.clientLineId != null && selectedLineIds.has(activity.clientLineId))
-        .map((activity) => ({ description: activity.description, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
+        .map((activity) => ({ description: activity.description, activityDescription: activity.activityDescription, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
       const genericActivities = configuredActivities
         .filter((activity) => activity.clientLineId == null)
-        .map((activity) => ({ description: activity.description, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
+        .map((activity) => ({ description: activity.description, activityDescription: activity.activityDescription, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
       activities = lineActivities.length ? lineActivities : genericActivities;
     }
     const existingActivities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id));
@@ -393,12 +398,13 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
       if (existingActivity) {
         usedExistingIds.add(existingActivity.id);
         await db.update(cleaningExecutionActivitiesTable)
-          .set({ sortOrder: areaBaseSort + index, requiresPhoto: activity.requiresPhoto })
+          .set({ sortOrder: areaBaseSort + index, activityDescription: activity.activityDescription, requiresPhoto: activity.requiresPhoto })
           .where(eq(cleaningExecutionActivitiesTable.id, existingActivity.id));
       } else {
         await db.insert(cleaningExecutionActivitiesTable).values({
           executionId: execution.id,
           description: activity.description,
+          activityDescription: activity.activityDescription,
           areaName,
           sortOrder: areaBaseSort + index,
           requiresPhoto: activity.requiresPhoto,
@@ -446,7 +452,7 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   const activities = await db.select().from(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, type.id)).orderBy(asc(cleaningTypeActivitiesTable.sortOrder));
   if (!activities.length) { res.status(400).json({ error: "El flujo no tiene actividades" }); return; }
   const [execution] = await db.insert(cleaningExecutionsTable).values({ clientId: Number(client_id), cleaningTypeId: type.id, lineNumber, executionDate: execution_date || new Date().toISOString().slice(0, 10) }).returning();
-  for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, areaName: activity.areaName, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto });
+  for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, activityDescription: activity.activityDescription, areaName: activity.areaName, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto });
   const areaNames = Array.from(new Set(activities.map((activity) => activity.areaName || "Área general")));
   for (const [index, areaName] of areaNames.entries()) await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: index });
   res.status(201).json(await executionJson(execution.id));

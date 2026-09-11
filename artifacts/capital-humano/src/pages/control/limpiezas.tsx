@@ -17,11 +17,11 @@ import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 type ClientLine = { id?: number; line_number: string; line_name?: string };
 type Client = { id: number; name: string; plant_number: string; line_number?: string; lines?: ClientLine[]; periodicity: string; udn_id?: number };
-type AreaActivity = { id?: number; description: string; requires_photo?: boolean };
+type AreaActivity = { id?: number; description: string; activity_description?: string; requires_photo?: boolean };
 type LineActivities = { line_id: number; activities: AreaActivity[] };
 type AreaClient = { client_id: number; line_ids?: number[]; activities: AreaActivity[]; line_activities?: LineActivities[] };
 type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; clients?: AreaClient[]; activities: AreaActivity[] };
-type FlowActivity = { id?: number; description: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
+type FlowActivity = { id?: number; description: string; activity_description?: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; name: string; description?: string; activities: FlowActivity[] };
 type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
 type ExecutionArea = { id: number; area_name: string; initial_photo?: string; intermediate_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
@@ -50,6 +50,7 @@ function useCatalogs() {
 function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "client" | "area" | "flow"; initial?: any; catalogs: Catalogs; onSaved: () => void; onClose: () => void }) {
   const [form, setForm] = useState<any>(initial || (kind === "client" ? { name: "", plant_number: "", lines: [{ line_number: "", line_name: "" }], periodicity: "Diaria", udn_id: "" } : kind === "area" ? { name: "", description: "", area_type: "normal", activities: [] } : { name: "", description: "", client_id: "", activities: [] }));
   const [activity, setActivity] = useState("");
+  const [activityDetail, setActivityDetail] = useState("");
   const [areaClients, setAreaClients] = useState<AreaClient[]>(() => {
     if (kind !== "area") return [];
     if (Array.isArray(initial?.clients) && initial.clients.length) return initial.clients;
@@ -88,7 +89,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   const flowActivitiesFor = (areaIds: number[]) => areaIds.flatMap((areaId) => {
     const area = catalogs.areas.find((candidate) => candidate.id === areaId);
     if (!area) return [];
-    return activitiesForClient(area, Number(form.client_id)).map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
+    return activitiesForClient(area, Number(form.client_id)).map((item) => ({ description: item.description, activity_description: item.activity_description || "", area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
   });
   const updateFlowAreas = (areaIds: number[]) => {
     setSelectedAreaIds(areaIds);
@@ -111,7 +112,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
     setForm((current: any) => ({ ...current, client_id: clientId, activities: compatibleAreaIds.flatMap((areaId) => {
       const area = catalogs.areas.find((candidate) => candidate.id === areaId);
       if (!area) return [];
-      return activitiesForClient(area, clientId).map((item) => ({ description: item.description, area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
+      return activitiesForClient(area, clientId).map((item) => ({ description: item.description, activity_description: item.activity_description || "", area_name: area.name, requires_photo: Boolean(item.requires_photo) }));
     }) }));
   };
   const save = async (e: React.FormEvent) => {
@@ -154,8 +155,9 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
   const activities = form.activities || [];
   const addActivity = () => {
     if (!activity.trim()) return;
-    update("activities", [...activities, kind === "area" ? { description: activity.trim(), requires_photo: false } : activity.trim()]);
+    update("activities", [...activities, kind === "area" ? { description: activity.trim(), activity_description: activityDetail.trim(), requires_photo: false } : activity.trim()]);
     setActivity("");
+    setActivityDetail("");
   };
   const updateClientLine = (index: number, patch: Partial<ClientLine>) => {
     update("lines", clientLines.map((line, lineIndex) => lineIndex === index ? { ...line, ...patch } : line));
@@ -192,7 +194,7 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
           ?? item.activities
           ?? [];
       const activitySignature = (activities: AreaActivity[]) =>
-        activities.map((entry) => `${entry.description}\u0000${Boolean(entry.requires_photo)}`).join("\u0001");
+        activities.map((entry) => `${entry.description}\u0000${entry.activity_description || ""}\u0000${Boolean(entry.requires_photo)}`).join("\u0001");
       const baseActivities = selectedLineIds[0] ? activitiesForStateLine(selectedLineIds[0]) : [];
       const allLinesShareBase = selectedLineIds.length > 1
         && selectedLineIds.every((selectedLineId) => activitySignature(activitiesForStateLine(selectedLineId)) === activitySignature(baseActivities));
@@ -303,8 +305,9 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
               const addCurrentActivity = () => {
                 const value = activity.trim();
                 if (!value) return;
-                updateActivities([...activeActivities, { description: value, requires_photo: false }]);
+                 updateActivities([...activeActivities, { description: value, activity_description: activityDetail.trim(), requires_photo: false }]);
                 setActivity("");
+                 setActivityDetail("");
               };
               return <div className="space-y-3">
                 <div className="rounded-md border bg-muted/20 p-3">
@@ -323,11 +326,12 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
                     {!selectedLineIds.length && <TabsTrigger value="general" className="shrink-0">Actividades generales</TabsTrigger>}
                   </TabsList>
                   <TabsContent value={activeLineId ? String(activeLineId) : "general"} className="mt-3 space-y-3">
-                    <div className="flex gap-2">
-                      <Input placeholder={activeLineId ? "Nueva actividad para esta línea" : "Nueva actividad del área"} value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCurrentActivity(); } }} />
+                     <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                       <Input placeholder={activeLineId ? "Nueva actividad para esta línea" : "Nueva actividad del área"} value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCurrentActivity(); } }} />
+                       <Input placeholder="Descripción de la actividad" value={activityDetail} onChange={e => setActivityDetail(e.target.value)} />
                       <Button type="button" variant="outline" aria-label="Agregar actividad" onClick={addCurrentActivity}><Plus className="h-4 w-4" /></Button>
                     </div>
-                    <div className="space-y-2">{activeActivities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="w-6 text-muted-foreground">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span><label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => updateActivities(activeActivities.map((current, i) => i === index ? { ...current, requires_photo: e.target.checked } : current))} />Foto requerida</label><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => updateActivities(activeActivities.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
+                     <div className="space-y-2">{activeActivities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="w-6 text-muted-foreground">{index + 1}.</span><div className="min-w-0 flex-1 space-y-1"><p className="break-words">{item.description}</p><Input aria-label={`Descripción de la actividad ${index + 1}`} placeholder="Descripción de la actividad" value={item.activity_description || ""} onChange={e => updateActivities(activeActivities.map((current, i) => i === index ? { ...current, activity_description: e.target.value } : current))} /></div><label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => updateActivities(activeActivities.map((current, i) => i === index ? { ...current, requires_photo: e.target.checked } : current))} />Foto requerida</label><Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => updateActivities(activeActivities.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
                     {!activeActivities.length && <p className="rounded-md border border-dashed p-4 text-center text-sm text-muted-foreground">Aún no hay actividades configuradas para esta línea.</p>}
                   </TabsContent>
                 </Tabs>
@@ -355,12 +359,12 @@ function CatalogForm({ kind, initial, catalogs, onSaved, onClose }: { kind: "cli
          const clientActivities = activitiesForClient(area, Number(form.client_id));
          return <div key={area.id} className="rounded-lg border bg-muted/20 overflow-hidden">
              <div className="flex flex-wrap items-center gap-2 border-b bg-muted/40 px-3 py-2"><div className="min-w-0 flex-1"><p className="font-medium break-words">{area.name}</p><p className="text-xs text-muted-foreground">{area.code} · {clientActivities.length} actividades</p></div><Button type="button" variant="ghost" size="sm" className="shrink-0 text-destructive hover:text-destructive" aria-label={`Quitar ${area.name} del flujo`} onClick={() => removeFlowArea(area.id)}><Trash2 className="mr-1 h-4 w-4" />Quitar</Button></div>
-             <div className="divide-y">{clientActivities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm"><span className="w-5">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description}</span>{item.requires_photo && <Badge variant="secondary" className="shrink-0">Foto requerida</Badge>}</div>)}{!clientActivities.length && <p className="p-3 text-sm text-muted-foreground">Esta área no tiene actividades preestablecidas para este cliente.</p>}</div>
+              <div className="divide-y">{clientActivities.map((item, index) => <div key={item.id ?? index} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm"><span className="w-5">{index + 1}.</span><div className="min-w-0 flex-1"><p className="break-words">{item.description}</p>{item.activity_description && <p className="break-words text-xs text-muted-foreground">{item.activity_description}</p>}</div>{item.requires_photo && <Badge variant="secondary" className="shrink-0">Foto requerida</Badge>}</div>)}{!clientActivities.length && <p className="p-3 text-sm text-muted-foreground">Esta área no tiene actividades preestablecidas para este cliente.</p>}</div>
         </div>;
       })}
     </div> : kind !== "client" && <div className="space-y-2">
-       <div className="flex gap-2"><Input placeholder="Nueva actividad del área" value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addActivity(); } }} /><Button type="button" variant="outline" aria-label="Agregar actividad" onClick={addActivity}><Plus className="h-4 w-4" /></Button></div>
-       <div className="space-y-2">{activities.map((item: any, index: number) => <div key={index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="text-muted-foreground w-6">{index + 1}.</span><span className="min-w-0 flex-1 break-words">{item.description || item}</span>{kind === "area" && <label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => update("activities", activities.map((current: any, i: number) => i === index ? { ...(typeof current === "string" ? { description: current } : current), requires_photo: e.target.checked } : current))} />Foto requerida</label>}<Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => update("activities", activities.filter((_: any, i: number) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
+        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]"><Input placeholder="Nueva actividad del área" value={activity} onChange={e => setActivity(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addActivity(); } }} /><Input placeholder="Descripción de la actividad" value={activityDetail} onChange={e => setActivityDetail(e.target.value)} /><Button type="button" variant="outline" aria-label="Agregar actividad" onClick={addActivity}><Plus className="h-4 w-4" /></Button></div>
+        <div className="space-y-2">{activities.map((item: any, index: number) => <div key={index} className="flex flex-wrap items-center gap-2 rounded-md border px-3 py-2 text-sm"><span className="text-muted-foreground w-6">{index + 1}.</span><div className="min-w-0 flex-1 space-y-1"><p className="break-words">{item.description || item}</p>{kind === "area" && <Input aria-label={`Descripción de la actividad ${index + 1}`} placeholder="Descripción de la actividad" value={typeof item === "string" ? "" : item.activity_description || ""} onChange={e => update("activities", activities.map((current: any, i: number) => i === index ? { ...(typeof current === "string" ? { description: current } : current), activity_description: e.target.value } : current))} />}</div>{kind === "area" && <label className="flex min-h-10 shrink-0 items-center gap-2 text-xs text-muted-foreground"><input className="h-5 w-5 accent-primary" type="checkbox" checked={Boolean(item.requires_photo)} onChange={e => update("activities", activities.map((current: any, i: number) => i === index ? { ...(typeof current === "string" ? { description: current } : current), requires_photo: e.target.checked } : current))} />Foto requerida</label>}<Button type="button" variant="ghost" size="icon" aria-label={`Eliminar actividad ${index + 1}`} onClick={() => update("activities", activities.filter((_: any, i: number) => i !== index))}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>)}</div>
     </div>}
      <DialogFooter className="gap-2 sm:gap-0"><Button type="button" variant="outline" className="w-full sm:w-auto" onClick={onClose}>Cancelar</Button><Button type="submit" className="w-full sm:w-auto" disabled={saving}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar</Button></DialogFooter>
   </form>;
@@ -976,7 +980,7 @@ function ExecutionPageModern({
                 {areaActivities.map((activity, index) => (
                   <div key={activity.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${activity.not_applicable ? "bg-muted/50" : ""}`}>
                     <span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span>
-                    <p className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}>{activity.description}</p>
+                    <div className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}><p>{activity.description}</p>{activity.activity_description && <p className="mt-1 text-xs text-muted-foreground">{activity.activity_description}</p>}</div>
                     <ActivityPhoto activity={activity} areaInitialPhoto={area.initial_photo} onUploaded={(path) => updateActivity(activity, { initial_photo: path })} />
                     <div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents">
                        <label className={`flex min-h-11 items-center gap-2 text-xs ${!area.initial_photo || (activity.requires_photo && !activity.initial_photo) ? "cursor-not-allowed text-amber-700" : "text-muted-foreground"}`} title={!area.initial_photo ? "Toma primero la foto inicial del área" : activity.requires_photo && !activity.initial_photo ? "Toma primero la foto inicial" : undefined}>
