@@ -450,7 +450,13 @@ async function maybeCompleteExecution(executionId: number) {
     await db.update(cleaningExecutionsTable).set({ status: "completed", completedAt: new Date() }).where(eq(cleaningExecutionsTable.id, executionId));
   }
 }
-router.get("/limpiezas/ejecuciones", async (_req, res) => { const rows = await db.select().from(cleaningExecutionsTable).orderBy(asc(cleaningExecutionsTable.executionDate)); res.json(await Promise.all(rows.map((r) => executionJson(r.id)))); });
+router.get("/limpiezas/ejecuciones", async (req, res) => {
+  const rows = await db.select().from(cleaningExecutionsTable).orderBy(asc(cleaningExecutionsTable.executionDate));
+  const filteredRows = req.query.status === "open"
+    ? rows.filter((row) => row.status !== "completed" && !row.signature)
+    : rows;
+  res.json(await Promise.all(filteredRows.map((r) => executionJson(r.id))));
+});
 router.post("/limpiezas/ejecuciones", async (req, res) => {
   const { client_id, cleaning_type_id, execution_date } = req.body;
   const lineNumber = typeof req.body.line_number === "string" ? req.body.line_number.trim() : String(req.body.line_number ?? "").trim();

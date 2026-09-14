@@ -563,7 +563,7 @@ function AreaExecutionToggle({ area, onChange }: { area: ExecutionArea; onChange
   const turnOff = () => {
     if (area.excluded || window.confirm(`¿Deseas apagar ${area.area_name}? Esta área no se ejecutará en esta limpieza.`)) onChange(!area.excluded);
   };
-  return <button type="button" aria-label={`${area.excluded ? "Activar" : "Excluir"} ${area.area_name}`} onClick={turnOff} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.excluded ? "bg-slate-300" : "bg-emerald-500"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}><span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.excluded ? "translate-x-1" : "translate-x-6"}`} /></button>;
+  return <button type="button" aria-label={`${area.excluded ? "Activar" : "Excluir"} ${area.area_name}`} onClick={turnOff} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.excluded ? "bg-slate-200" : "bg-emerald-500"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}><span className={`absolute top-1.5 h-4 w-4 rounded-full transition-transform ${area.excluded ? "translate-x-1 bg-red-500" : "translate-x-6 bg-emerald-700"}`} /></button>;
 }
 
 function CustomFlowDialog({ catalogs, open, onOpenChange, onCreated }: { catalogs: Catalogs; open: boolean; onOpenChange: (open: boolean) => void; onCreated: (flow: Flow) => void }) {
@@ -614,9 +614,9 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const { toast } = useToast();
-  useEffect(() => { api("/limpiezas/ejecuciones").then(setReports).finally(() => setLoading(false)); }, []);
+  useEffect(() => { api("/limpiezas/ejecuciones?status=open").then(setReports).finally(() => setLoading(false)); }, []);
   const remove = async (id: number) => { if (!window.confirm("¿Eliminar este reporte del histórico? Esta acción no se puede deshacer.")) return; try { await api(`/limpiezas/ejecuciones/${id}`, { method: "DELETE" }); setReports((current) => current.filter((report) => report.id !== id)); toast({ title: "Reporte eliminado" }); } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo eliminar el reporte", variant: "destructive" }); } };
-  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Histórico de reportes</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">Aquí aparecerán las capturas guardadas.</p> : <div className="divide-y rounded-md border">{reports.map((report) => <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{report.client?.name || "Cliente"} · {report.cleaning_type?.name || "Reporte de limpieza"}</span><span className="block text-xs text-muted-foreground">{report.execution_date}</span></button><div className="flex items-center justify-between gap-2"><Badge variant={report.status === "completed" ? "default" : "secondary"}>{report.status === "completed" ? "Completado" : "En progreso"}</Badge>{isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>)}</div>}</CardContent></Card>;
+  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Registros abiertos</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">No hay registros abiertos.</p> : <div className="divide-y rounded-md border">{reports.map((report) => <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{report.client?.name || "Cliente"} · {report.cleaning_type?.name || "Reporte de limpieza"}</span><span className="block text-xs text-muted-foreground">{report.execution_date}</span></button><div className="flex items-center justify-between gap-2"><Badge variant="secondary">En progreso</Badge>{isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>)}</div>}</CardContent></Card>;
 }
 
 function LegacyStartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted: (execution: Execution) => void }) {
@@ -699,8 +699,19 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
   const [executionDate, setExecutionDate] = useState(currentDateInputValue);
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [openReports, setOpenReports] = useState<Execution[]>([]);
   const { toast } = useToast();
   const selectedClient = catalogs.clients.find((client) => client.id === Number(clientId));
+  const availableFlows = catalogs.types.filter((flow) =>
+    (!clientId || flow.client_id === Number(clientId)) &&
+    openReports.some((report) => report.client?.id === flow.client_id && report.cleaning_type?.id === flow.id),
+  );
+
+  useEffect(() => {
+    api("/limpiezas/ejecuciones?status=open")
+      .then(setOpenReports)
+      .catch(() => setOpenReports([]));
+  }, []);
 
   const start = async () => {
     setLoading(true);
@@ -757,7 +768,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
             <span className="flex items-center gap-2"><span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs text-primary">2</span>Flujo de limpieza</span>
             <Select value={flowId} onValueChange={setFlowId}>
               <SelectTrigger className="h-12"><SelectValue placeholder="Selecciona un flujo" /></SelectTrigger>
-              <SelectContent>{catalogs.types.filter((flow) => !clientId || flow.client_id === Number(clientId)).map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>)}</SelectContent>
+               <SelectContent>{availableFlows.length ? availableFlows.map((flow) => <SelectItem key={flow.id} value={String(flow.id)}>{flow.name}</SelectItem>) : <SelectItem value="__no-open-records" disabled>{clientId ? "Sin registros abiertos" : "Selecciona primero un cliente"}</SelectItem>}</SelectContent>
             </Select>
           </label>
           <label className="space-y-2 text-sm font-medium">
@@ -775,7 +786,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
               </SelectContent>
             </Select>
           </label>
-          <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || !lineNumber.trim() || loading} onClick={start}>
+           <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || !lineNumber.trim() || loading || !availableFlows.length} onClick={start}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}
             Iniciar reporte
           </Button>
@@ -791,7 +802,7 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
           <div key={number} className="rounded-xl border bg-card p-4">
             <p className="text-xs font-semibold tracking-[0.16em] text-primary">{number}</p>
             <p className="mt-3 font-semibold">{title}</p>
-            <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
+           <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
           </div>
         ))}
       </div>
@@ -1114,16 +1125,10 @@ function ExecutionPageModern({
                   <p className="font-semibold break-words">{area.area_name}</p>
                   <p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p>
                 </div>
-                  <div className="flex w-full shrink-0 items-start justify-end gap-3 sm:w-auto sm:justify-start">
+                  <div className="flex w-full shrink-0 items-start justify-end sm:w-auto sm:justify-start">
                     <div className="space-y-1 text-center">
                       <span className="block text-[10px] text-muted-foreground">Incluir</span>
                       <AreaExecutionToggle area={area} onChange={(excluded) => updateArea(area, { excluded })} />
-                    </div>
-                    <div className="space-y-1 text-center">
-                      <span className="block text-[10px] text-muted-foreground">Lista</span>
-                      <button type="button" aria-label={`${area.ready ? "Desmarcar" : "Marcar"} ${area.area_name} como lista`} disabled={area.excluded || !area.initial_photo || !area.intermediate_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}>
-                        <span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} />
-                      </button>
                     </div>
                   </div>
               </div>
@@ -1188,7 +1193,7 @@ function HistoryPage({ catalogs, reload }: { catalogs: Catalogs; reload: () => v
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Archivo operativo</p>
           <h2 className="mt-1 text-2xl font-bold tracking-tight">Histórico de reportes</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Consulta evidencias, actividades, firmas y documentos cerrados.</p>
+           <p className="mt-1 text-sm text-muted-foreground">Consulta evidencias y actividades de los reportes que siguen en progreso.</p>
         </div>
         <Button type="button" variant="outline" onClick={() => setLocation("/limpiezas-icmx")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
