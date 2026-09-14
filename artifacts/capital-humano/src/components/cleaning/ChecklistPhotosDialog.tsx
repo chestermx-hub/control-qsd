@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, Trash2, Upload, X } from "lucide-react";
+import { ImagePlus, Images, Loader2, Trash2, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +28,8 @@ async function uploadChecklistPhoto(file: File) {
 }
 
 export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChange, onConfirm, saving = false }: ChecklistPhotosDialogProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
   const { toast } = useToast();
@@ -43,7 +44,8 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
       toast({ title: error instanceof Error ? error.message : "No se pudieron subir las fotos", variant: "destructive" });
     } finally {
       setUploading(false);
-      if (inputRef.current) inputRef.current.value = "";
+      if (cameraInputRef.current) cameraInputRef.current.value = "";
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
     }
   };
 
@@ -62,17 +64,23 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
               Después de la firma, agrega mínimo 5 fotos del checklist. Cada foto se colocará en una hoja independiente del reporte.
             </DialogDescription>
           </DialogHeader>
-          <input ref={inputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" disabled={uploading || saving} onChange={(event) => addPhotos(Array.from(event.target.files || []))} />
+          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" disabled={uploading || saving} onChange={(event) => addPhotos(Array.from(event.target.files || []))} />
+          <input ref={galleryInputRef} type="file" accept="image/*" multiple className="hidden" disabled={uploading || saving} onChange={(event) => addPhotos(Array.from(event.target.files || []))} />
           <div className="rounded-lg border border-dashed bg-muted/20 p-4 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold">Evidencia de checklist</p>
                 <p className="text-xs text-muted-foreground">{photos.length} foto{photos.length === 1 ? "" : "s"} agregada{photos.length === 1 ? "" : "s"} · mínimo 5</p>
               </div>
-              <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={uploading || saving} onClick={() => inputRef.current?.click()}>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={uploading || saving} onClick={() => cameraInputRef.current?.click()}>
                 {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ImagePlus className="mr-2 h-4 w-4" />}
-                {uploading ? "Subiendo..." : "Agregar fotos"}
+                {uploading ? "Subiendo..." : "Tomar foto"}
               </Button>
+              <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={uploading || saving} onClick={() => galleryInputRef.current?.click()}>
+                <Images className="mr-2 h-4 w-4" />Elegir de galería
+              </Button>
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
@@ -90,7 +98,7 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
               </div>
             ))}
             {Array.from({ length: Math.max(0, 5 - photos.length) }).map((_, index) => (
-              <button key={`empty-${index}`} type="button" onClick={() => inputRef.current?.click()} disabled={uploading || saving} className="flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-center text-xs text-muted-foreground hover:bg-muted/50">
+              <button key={`empty-${index}`} type="button" onClick={() => galleryInputRef.current?.click()} disabled={uploading || saving} className="flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-center text-xs text-muted-foreground hover:bg-muted/50">
                 <Upload className="h-5 w-5" />
                 <span>Hoja {photos.length + index + 1}</span>
               </button>
