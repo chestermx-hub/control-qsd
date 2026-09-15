@@ -577,7 +577,7 @@ export function CleaningReport({
            }
            .cleaning-report .report-cover-page {
              display: grid !important;
-             grid-template-rows: auto minmax(0, 1fr) 7mm !important;
+              grid-template-rows: auto minmax(0, 1fr) !important;
              width: 100% !important;
               height: 283mm !important;
              overflow: hidden !important;
@@ -908,7 +908,6 @@ export function CleaningReport({
          </div>
       </section>
       </div>
-       <PrintPageFooter companyName={companyName} pageNumber={1} totalPages={totalPrintPages} />
       </div>
 
        <section className="report-area-section px-5 py-7 sm:px-8 sm:py-8">
