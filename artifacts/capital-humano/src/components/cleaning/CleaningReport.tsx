@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export type CleaningReportActivity = {
@@ -101,6 +102,8 @@ function PhotoFrame({
   label: string;
   compact?: boolean;
 }) {
+  const [previewOpen, setPreviewOpen] = useState(false);
+
   if (!src) {
     return (
       <div
@@ -120,19 +123,33 @@ function PhotoFrame({
   }
 
   return (
-    <figure className={cn("report-photo-frame overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]", compact && "report-photo-compact")}>
-      <img
-        src={src}
-        alt={alt}
-        className={cn(
-          "block w-full bg-[#dedfd8] object-contain",
-          compact ? "h-20" : "h-52 sm:h-60",
-        )}
-      />
+    <>
+      <figure className={cn("report-photo-frame overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]", compact && "report-photo-compact")}>
+        <button type="button" className="block w-full cursor-zoom-in bg-white p-2" onClick={() => setPreviewOpen(true)} aria-label={`Ampliar ${label}`}>
+          <img
+            src={src}
+            alt={alt}
+            className={cn(
+              "block w-full bg-white object-contain",
+              compact ? "h-36 sm:h-48" : "h-52 sm:h-60",
+            )}
+          />
+        </button>
       <figcaption className="border-t border-[#d8d9d3] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.13em] text-[#737d77]">
         {label}
       </figcaption>
-    </figure>
+      </figure>
+      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+        <DialogContent className="w-[calc(100%-1rem)] max-w-5xl p-3 sm:p-5">
+          <DialogHeader>
+            <DialogTitle>{label}</DialogTitle>
+          </DialogHeader>
+          <div className="flex max-h-[80vh] items-center justify-center overflow-auto rounded-lg bg-[#f3f3ee] p-2 sm:p-4">
+            <img src={src} alt={alt} className="max-h-[72vh] max-w-full object-contain" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -219,7 +236,7 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
         </p>
         {activity.note && <p className="mt-1 text-xs italic text-[#78827b]">{activity.note}</p>}
         {activity.requires_photo && (
-          <div className="mt-3 grid max-w-sm grid-cols-2 gap-2">
+          <div className="mt-3 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
             <PhotoFrame
               src={activity.initial_photo}
               alt={`Evidencia inicial: ${activity.description}`}
