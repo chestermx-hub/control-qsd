@@ -375,7 +375,6 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-          @page { size: A4; margin: 8mm; }
            @page { size: A4; margin: 16mm 8mm 14mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
