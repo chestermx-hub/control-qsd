@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowUpRight,
   Check,
@@ -324,6 +324,40 @@ function SignatureBlock({
   );
 }
 
+function PrintPageHeader({
+  logoSrc,
+  companyName,
+}: {
+  logoSrc?: string;
+  companyName: string;
+}) {
+  return (
+    <div className="report-print-header hidden items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
+      {logoSrc ? (
+        <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
+      ) : (
+        <span className="font-mono text-[10px] uppercase tracking-[0.2em]">{companyName}</span>
+      )}
+      <span className="font-mono text-[9px] uppercase tracking-[0.16em]">Reporte de limpieza Técnica</span>
+    </div>
+  );
+}
+
+function PrintPageFooter({
+  companyName,
+  reportNumber,
+}: {
+  companyName: string;
+  reportNumber: string;
+}) {
+  return (
+    <div className="report-print-footer hidden items-center justify-between border-t border-[#9fc5dc] bg-white px-6 font-mono text-[9px] uppercase tracking-[0.13em] text-[#52645e]">
+      <span>2026 · {companyName}</span>
+      <span>Folio {reportNumber}</span>
+    </div>
+  );
+}
+
 export function CleaningReport({
   execution,
   signature,
@@ -350,6 +384,8 @@ export function CleaningReport({
   const includedAreaNames = new Set(
     execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
   );
+  const includedAreas = execution.areas.filter((area) => !area.excluded);
+  const completedAreas = includedAreas.filter((area) => area.ready);
   const reportActivities = execution.activities.filter(
     (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
   );
@@ -359,6 +395,62 @@ export function CleaningReport({
   ).length;
   const completion = totalActivities ? Math.round((completedActivities / totalActivities) * 100) : 0;
   const reportNumber = `ICMX-${String(execution.id).padStart(5, "0")}`;
+  const reportRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    const resetPrintScale = () => {
+      reportRef.current?.querySelectorAll<HTMLElement>(".report-fit-content").forEach((content) => {
+        content.style.removeProperty("zoom");
+        content.style.removeProperty("width");
+      });
+    };
+
+    const fitPrintPages = () => {
+      const report = reportRef.current;
+      if (!report) return;
+
+      report.querySelectorAll<HTMLElement>(".report-fit-viewport").forEach((viewport) => {
+        const content = viewport.querySelector<HTMLElement>(":scope > .report-fit-content");
+        if (!content) return;
+
+        content.style.zoom = "1";
+        content.style.width = "100%";
+
+        const availableHeight = viewport.clientHeight;
+        const naturalHeight = content.scrollHeight;
+        if (!availableHeight || naturalHeight <= availableHeight) return;
+
+        let scale = Math.min(1, (availableHeight / naturalHeight) * 0.985);
+        content.style.zoom = String(scale);
+        content.style.width = `${100 / scale}%`;
+
+        for (let attempt = 0; attempt < 4; attempt += 1) {
+          const renderedHeight = content.getBoundingClientRect().height;
+          if (renderedHeight <= availableHeight) break;
+          scale *= (availableHeight / renderedHeight) * 0.985;
+          content.style.zoom = String(scale);
+          content.style.width = `${100 / scale}%`;
+        }
+      });
+    };
+
+    const printMedia = window.matchMedia("print");
+    const onPrintMediaChange = (event: MediaQueryListEvent) => {
+      if (event.matches) fitPrintPages();
+      else resetPrintScale();
+    };
+
+    window.addEventListener("beforeprint", fitPrintPages);
+    window.addEventListener("afterprint", resetPrintScale);
+    printMedia.addEventListener("change", onPrintMediaChange);
+
+    return () => {
+      window.removeEventListener("beforeprint", fitPrintPages);
+      window.removeEventListener("afterprint", resetPrintScale);
+      printMedia.removeEventListener("change", onPrintMediaChange);
+      resetPrintScale();
+    };
+  }, []);
 
   const printReport = () => {
     if (onPrint) {
@@ -370,6 +462,7 @@ export function CleaningReport({
 
   return (
     <article
+      ref={reportRef}
       className={cn(
         "cleaning-report mx-auto max-w-5xl overflow-hidden bg-[#f3f8fb] text-[#30443e] shadow-[0_20px_60px_rgba(18,59,102,0.12)] print:max-w-none print:overflow-visible print:bg-[#f3f8fb] print:shadow-none",
         className,
@@ -414,12 +507,9 @@ export function CleaningReport({
              width: 100% !important;
              max-width: none !important;
              margin: 0 !important;
-             padding-top: 9mm !important;
-             padding-bottom: 7mm !important;
+             padding: 0 !important;
              overflow: visible !important;
              box-shadow: none !important;
-             box-decoration-break: clone;
-             -webkit-box-decoration-break: clone;
            }
            .cleaning-report, .cleaning-report * {
              -webkit-print-color-adjust: exact;
@@ -427,9 +517,9 @@ export function CleaningReport({
            }
            .report-print-header {
              display: flex !important;
-             top: 0 !important;
              height: 9mm !important;
              padding: 0 7mm !important;
+             flex: none !important;
            }
            .report-print-header img {
              height: 6mm !important;
@@ -437,70 +527,186 @@ export function CleaningReport({
            }
            .report-print-footer {
              display: flex !important;
-             bottom: 0 !important;
-             min-height: 7mm !important;
+             height: 7mm !important;
              padding: 1.5mm 7mm !important;
+             flex: none !important;
            }
-           .report-print-page-number::after { content: counter(page); }
-           .cleaning-report > header {
-             position: relative !important;
-             z-index: 60 !important;
-             margin-top: -9mm !important;
+           .cleaning-report .report-cover-page {
+             display: grid !important;
+             grid-template-rows: auto minmax(0, 1fr) 7mm !important;
+             width: 100% !important;
+             height: 285mm !important;
+             overflow: hidden !important;
+             break-after: page;
+             page-break-after: always;
+           }
+           .cleaning-report .report-cover-viewport,
+           .cleaning-report .report-area-viewport {
+             min-height: 0 !important;
+             overflow: hidden !important;
+           }
+           .cleaning-report .report-fit-content {
+             transform-origin: left top !important;
+           }
+           .cleaning-report .report-main-header {
+              margin-top: 0 !important;
+              margin-bottom: 0 !important;
+              transform: none !important;
              overflow: hidden !important;
              break-inside: avoid;
              page-break-inside: avoid;
              break-after: avoid;
              page-break-after: avoid;
            }
-          .cleaning-report > header { padding: 20px 24px !important; }
-          .cleaning-report > header img { height: 52px !important; max-width: 15rem !important; opacity: 1 !important; }
-          .cleaning-report > header .gap-8 { gap: 16px !important; }
-          .cleaning-report > header .mb-7 { margin-bottom: 8px !important; }
-          .cleaning-report > header h1 { font-size: 26px !important; }
-          .cleaning-report > header .mt-4 { margin-top: 8px !important; }
+           .cleaning-report .report-main-header { padding: 20px 24px !important; }
+           .cleaning-report .report-main-header img { height: 52px !important; max-width: 15rem !important; opacity: 1 !important; }
+           .cleaning-report .report-main-header .gap-8 { gap: 16px !important; }
+           .cleaning-report .report-main-header .mb-7 { margin-bottom: 8px !important; }
+           .cleaning-report .report-main-header h1 { font-size: 26px !important; }
+           .cleaning-report .report-main-header .mt-4 { margin-top: 8px !important; }
           .cleaning-report > section { padding: 16px 20px !important; }
           .cleaning-report > section .mt-7 { margin-top: 12px !important; }
           .cleaning-report > section .mb-5 { margin-bottom: 10px !important; }
-           .cleaning-report > section:first-of-type { break-inside: avoid; page-break-inside: avoid; }
-           .cleaning-report .report-area-block { break-inside: auto; page-break-inside: auto; }
+            .cleaning-report .report-cover-summary {
+              break-inside: avoid;
+              page-break-inside: avoid;
+              break-after: avoid;
+              page-break-after: avoid;
+            }
+            .cleaning-report .report-completed-areas {
+              margin-top: 12px !important;
+              padding-top: 10px !important;
+            }
+            .cleaning-report .report-completed-areas-grid {
+              display: grid !important;
+              grid-template-columns: repeat(var(--area-list-columns, 1), minmax(0, 1fr)) !important;
+              gap: 5px 16px !important;
+            }
+            .cleaning-report .report-completed-area {
+              min-height: 22px !important;
+              gap: 7px !important;
+              font-size: 10px !important;
+              line-height: 1.15 !important;
+            }
+            .cleaning-report .report-completed-area-icon {
+              width: 18px !important;
+              height: 18px !important;
+            }
+            .cleaning-report .report-detail-heading { display: none !important; }
+            .cleaning-report .report-area-section {
+              padding: 0 !important;
+            }
+            .cleaning-report .report-area-pages {
+              margin: 0 !important;
+            }
+            .cleaning-report .report-area-page,
+            .cleaning-report .report-signature-page {
+              display: grid !important;
+              grid-template-rows: 9mm minmax(0, 1fr) 7mm !important;
+              width: 100% !important;
+              height: 285mm !important;
+              break-before: page;
+              page-break-before: always;
+              break-inside: avoid;
+              page-break-inside: avoid;
+              overflow: hidden !important;
+            }
+            .cleaning-report .report-area-content,
+            .cleaning-report .report-signature-content {
+              min-height: 0 !important;
+            }
+            .cleaning-report .report-area-page[data-density="compact"] .report-area-content {
+              zoom: 0.9;
+            }
+            .cleaning-report .report-area-page[data-density="dense"] .report-area-content {
+              zoom: 0.78;
+            }
+            .cleaning-report .report-area-page[data-density="ultra"] .report-area-content {
+              zoom: 0.64;
+            }
            .cleaning-report .report-area-header {
-             gap: 10px;
-             padding: 10px 14px !important;
+              gap: 6px;
+              padding: 7px 10px !important;
              break-inside: avoid;
              page-break-inside: avoid;
              break-after: avoid-page;
              page-break-after: avoid;
            }
-          .cleaning-report .report-area-header h3 { font-size: 20px !important; }
+           .cleaning-report .report-area-header h3 { font-size: 18px !important; }
+           .cleaning-report .report-area-header p { font-size: 8px !important; }
            .cleaning-report .report-area-photos { break-inside: avoid; page-break-inside: avoid; }
-           .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 170px !important; }
-           .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 170px; }
-           .cleaning-report .report-activity-row { gap: 6px; padding: 4px 10px !important; break-inside: avoid; page-break-inside: avoid; }
-          .cleaning-report .report-activity-row p { line-height: 1.15; }
-           .cleaning-report .report-activity-row .mt-3 { margin-top: 4px !important; }
-           .cleaning-report .report-photo-frame.report-photo-compact img { height: 165px !important; }
-          .cleaning-report .report-photo-frame.report-photo-compact button { padding: 4px !important; }
-          .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 4px 6px !important; font-size: 8px !important; }
-          .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
+            .cleaning-report .report-area-photos { gap: 8px !important; padding: 8px !important; }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 135px !important; }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 135px; }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) button { padding: 4px !important; }
+            .cleaning-report .report-photo-frame figcaption { padding: 3px 5px !important; font-size: 7px !important; }
+            .cleaning-report .report-activity-row {
+              grid-template-columns: 22px minmax(0, 1fr) auto !important;
+              align-items: center !important;
+              gap: 4px !important;
+              padding: 2px 8px !important;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+           .cleaning-report .report-activity-row p { font-size: 10px !important; line-height: 1.05 !important; }
+           .cleaning-report .report-activity-row > span:first-child { font-size: 8px !important; }
+           .cleaning-report .report-activity-row > span:last-child { padding: 2px 6px !important; font-size: 7px !important; }
+            .cleaning-report .report-activity-row .mt-3 { margin-top: 3px !important; }
+            .cleaning-report .report-photo-frame.report-photo-compact img { height: 90px !important; }
+           .cleaning-report .report-photo-frame.report-photo-compact button { padding: 3px !important; }
+           .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 2px 4px !important; font-size: 7px !important; }
+           .cleaning-report .report-area-page[data-density="compact"] .report-photo-frame:not(.report-photo-compact) img {
+             height: 115px !important;
+           }
+           .cleaning-report .report-area-page[data-density="compact"] .report-photo-frame:not(.report-photo-compact) {
+             min-height: 115px !important;
+           }
+           .cleaning-report .report-area-page[data-density="dense"] .report-area-header,
+           .cleaning-report .report-area-page[data-density="ultra"] .report-area-header {
+             padding: 5px 8px !important;
+           }
+           .cleaning-report .report-area-page[data-density="dense"] .report-photo-frame:not(.report-photo-compact) img,
+           .cleaning-report .report-area-page[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) img {
+             height: 95px !important;
+           }
+           .cleaning-report .report-area-page[data-density="dense"] .report-photo-frame:not(.report-photo-compact),
+           .cleaning-report .report-area-page[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) {
+             min-height: 95px !important;
+           }
+           .cleaning-report .report-area-page[data-density="dense"] .report-activity-row,
+           .cleaning-report .report-area-page[data-density="ultra"] .report-activity-row {
+             padding: 1px 7px !important;
+           }
+           .cleaning-report .report-area-page[data-density="dense"] .report-activity-row p,
+           .cleaning-report .report-area-page[data-density="ultra"] .report-activity-row p {
+             font-size: 9px !important;
+             line-height: 1 !important;
+           }
+           .cleaning-report .report-signature { border-top: 0 !important; padding-top: 16px !important; padding-bottom: 16px !important; }
            .cleaning-report .report-signature { break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-footer { padding: 8px 20px !important; }
           .cleaning-report .report-action-bar { display: none; }
-           .cleaning-report .checklist-sheet { min-height: 0 !important; break-inside: avoid; page-break-inside: avoid; break-after: page; page-break-after: always; }
-          .cleaning-report .checklist-sheet:last-child { break-after: auto; page-break-after: auto; }
-           .cleaning-report .checklist-sheet img { max-height: calc(100vh - 58mm); }
+           .cleaning-report .report-checklist-section { padding: 0 !important; }
+           .cleaning-report .report-checklist-heading { display: none !important; }
+            .cleaning-report .checklist-sheet {
+              display: grid !important;
+              grid-template-rows: 9mm auto minmax(0, 1fr) 7mm !important;
+              width: 100% !important;
+              height: 285mm !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              break-before: page;
+              page-break-before: always;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            .cleaning-report .checklist-sheet img { max-height: 245mm !important; }
         }
       `}</style>
 
-      <div className="report-print-header fixed left-0 right-0 top-0 z-50 hidden h-[12mm] items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
-        {logoSrc ? (
-          <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
-        ) : (
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em]">{companyName}</span>
-        )}
-        <span className="font-mono text-[9px] uppercase tracking-[0.16em]">Reporte de limpieza Técnica</span>
-      </div>
-
-      <header className="relative overflow-hidden bg-[#123b66] px-5 py-7 text-[#f5f2e9] sm:px-8 sm:py-9">
+      <div className="report-cover-page">
+      <header className="report-main-header relative overflow-hidden bg-[#123b66] px-5 py-7 text-[#f5f2e9] sm:px-8 sm:py-9">
         <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full border-[28px] border-[#008acb]/30" aria-hidden="true" />
         <div className="absolute bottom-0 right-20 h-1 w-28 bg-[#2b68a2]" aria-hidden="true" />
         <div className="relative flex flex-col gap-8 sm:flex-row sm:items-start sm:justify-between">
@@ -570,7 +776,8 @@ export function CleaningReport({
          </div>
       </div>
 
-      <section className="border-b border-[#d8d9d3] px-5 py-7 sm:px-8 sm:py-8">
+      <div className="report-cover-viewport report-fit-viewport">
+      <section className="report-cover-summary report-fit-content border-b border-[#d8d9d3] px-5 py-7 sm:px-8 sm:py-8">
         <div className="grid gap-7 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Resumen del servicio</p>
@@ -594,7 +801,7 @@ export function CleaningReport({
           </div>
           <div className="grid grid-cols-2 gap-2 sm:gap-3">
             <Metric eyebrow="Avance" value={`${completion}%`} detail={`${completedActivities} de ${totalActivities} actividades`} accent="teal" />
-            <Metric eyebrow="Áreas incluidas" value={`${execution.areas.filter((area) => !area.excluded).length}`} detail="En este servicio" accent="teal" />
+            <Metric eyebrow="Áreas incluidas" value={`${includedAreas.length}`} detail="En este servicio" accent="teal" />
           </div>
         </div>
         <div className="mt-7">
@@ -606,24 +813,63 @@ export function CleaningReport({
             <div className="h-full bg-[#008acb] transition-[width]" style={{ width: `${completion}%` }} />
           </div>
         </div>
+         <div className="report-completed-areas mt-7 border-t border-[#d8d9d3] pt-5">
+           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Áreas realizadas</p>
+           {completedAreas.length ? (
+             <div
+               className="report-completed-areas-grid mt-3 grid gap-2"
+               style={{ "--area-list-columns": completedAreas.length > 8 ? 2 : 1 } as React.CSSProperties}
+             >
+               {completedAreas.map((area) => (
+                 <div key={area.id} className="report-completed-area flex min-w-0 items-center gap-2 text-sm text-[#30443e]">
+                   <span className="report-completed-area-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#238a57] text-white">
+                     <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                   </span>
+                   <span className="min-w-0 leading-tight">{area.area_name}</span>
+                 </div>
+               ))}
+             </div>
+           ) : (
+             <p className="mt-2 text-sm text-[#69736d]">No hay áreas finalizadas.</p>
+           )}
+         </div>
       </section>
+      </div>
+       <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
+      </div>
 
-      <section className="px-5 py-7 sm:px-8 sm:py-8">
-        <div className="mb-5 flex items-end justify-between gap-4">
+       <section className="report-area-section px-5 py-7 sm:px-8 sm:py-8">
+         <div className="report-detail-heading mb-5 flex items-end justify-between gap-4">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Detalle operativo</p>
             <h2 className="mt-2 font-serif text-3xl text-[#123b66]">Áreas y actividades</h2>
           </div>
           <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
-        <div className="space-y-5">
-          {execution.areas.filter((area) => !area.excluded).map((area, index) => {
+         <div className="report-area-pages space-y-5">
+           {includedAreas.map((area, index) => {
             const areaActivities = activitiesByArea.get(area.area_name) || [];
             const areaCompleted = areaActivities.filter(
               (activity) => activity.completed || activity.not_applicable,
             ).length;
+             const photoActivities = areaActivities.filter(
+               (activity) => activity.requires_photo && (activity.initial_photo || activity.final_photo),
+             ).length;
+             const textWeight = areaActivities.reduce(
+               (total, activity) => total + activity.description.length + (activity.activity_description?.length || 0) + (activity.note?.length || 0),
+               0,
+             );
+             const contentScore = areaActivities.length + photoActivities * 4 + Math.ceil(textWeight / 180);
+             const density = contentScore >= 28 ? "ultra" : contentScore >= 18 ? "dense" : contentScore >= 10 ? "compact" : "normal";
             return (
-              <section key={area.id} className="report-area-block overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
+               <div
+                 key={area.id}
+                 className="report-area-page"
+                 data-density={density}
+               >
+                 <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
+                 <div className="report-area-viewport report-fit-viewport">
+                 <section className="report-area-content report-fit-content report-area-block overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
                 <AreaHeader area={area} number={index + 1} completed={areaCompleted} total={areaActivities.length} />
                 <div className="report-area-photos grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-3">
                   <PhotoFrame src={area.initial_photo} alt={`Evidencia inicial del área ${area.area_name}`} label="Registro inicial del área" />
@@ -639,17 +885,26 @@ export function CleaningReport({
                     <div className="px-4 py-6 text-sm text-[#7b857e]">No hay actividades registradas para esta área.</div>
                   )}
                 </div>
-              </section>
+                 </section>
+                 </div>
+                 <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
+               </div>
             );
           })}
         </div>
       </section>
 
-      <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
+       <section className="report-signature-page">
+         <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
+         <div className="report-signature-content">
+           <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
+         </div>
+         <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
+       </section>
 
       {execution.checklist_photos?.length ? (
-        <section className="border-t border-[#d8d9d3] bg-[#f1f1eb] px-5 py-7 sm:px-8 sm:py-8">
-          <div className="mb-5">
+         <section className="report-checklist-section border-t border-[#d8d9d3] bg-[#f1f1eb] px-5 py-7 sm:px-8 sm:py-8">
+           <div className="report-checklist-heading mb-5">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Evidencia posterior a la firma</p>
             <h2 className="mt-2 font-serif text-3xl text-[#123b66]">Captura de checklist</h2>
             <p className="mt-2 text-sm text-[#69736d]">Cada imagen corresponde a una hoja de evidencia del checklist.</p>
@@ -657,6 +912,7 @@ export function CleaningReport({
           <div className="space-y-5">
             {execution.checklist_photos.map((photo, index) => (
               <div key={`${photo}-${index}`} className="checklist-sheet flex min-h-[28rem] flex-col overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6] p-3 sm:p-5">
+                 <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
                 <div className="mb-3 flex items-center justify-between border-b border-[#e1e1db] pb-3">
                   <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#758079]">Captura de checklist</span>
                   <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#758079]">Hoja {String(index + 1).padStart(2, "0")}</span>
@@ -664,16 +920,13 @@ export function CleaningReport({
                 <div className="flex min-h-0 flex-1 items-center justify-center bg-white p-2 sm:p-4">
                   <img src={photo} alt={`Captura de checklist, hoja ${index + 1}`} className="max-h-[34rem] w-full object-contain" />
                 </div>
+                 <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
               </div>
             ))}
           </div>
         </section>
       ) : null}
 
-     <div className="report-print-footer fixed bottom-0 left-0 right-0 z-50 hidden items-center justify-between border-t border-[#9fc5dc] bg-white px-6 py-2 font-mono text-[9px] uppercase tracking-[0.13em] text-[#52645e]">
-       <span>2026 · {companyName}</span>
-       <span>Página <span className="report-print-page-number" /></span>
-     </div>
      <footer className="report-footer flex flex-col gap-2 border-t border-[#d8d9d3] bg-[#eeeDE5] px-5 py-4 font-mono text-[9px] uppercase tracking-[0.13em] text-[#7d8780] sm:flex-row sm:items-center sm:justify-between sm:px-8 print:hidden">
         <span>Reporte generado desde Limpiezas industriales</span>
         <span>Folio {reportNumber} · Conserva este documento con sus evidencias</span>
