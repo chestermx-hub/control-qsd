@@ -377,11 +377,12 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-           @page { size: A4; margin: 8mm 8mm 14mm; }
+           @page { size: A4; margin: 18mm 8mm 14mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
-           .cleaning-report { position: absolute; left: 0; top: 0; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+           .cleaning-report { position: static !important; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .cleaning-report, .cleaning-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+           .report-print-header { display: flex !important; }
            .report-print-footer { display: flex !important; }
            .report-print-page-number::after { content: counter(page); }
           .cleaning-report > header { padding: 20px 24px !important; }
@@ -393,13 +394,15 @@ export function CleaningReport({
           .cleaning-report > section { padding: 16px 20px !important; }
           .cleaning-report > section .mt-7 { margin-top: 12px !important; }
           .cleaning-report > section .mb-5 { margin-bottom: 10px !important; }
-          .cleaning-report .avoid-break { break-inside: avoid; page-break-inside: avoid; }
-          .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; }
+           .cleaning-report .report-area-block { break-inside: auto; page-break-inside: auto; }
+           .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-area-header h3 { font-size: 20px !important; }
+           .cleaning-report .report-area-photos { break-inside: avoid; page-break-inside: avoid; }
            .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 170px !important; }
            .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 170px; }
-           .cleaning-report .report-activity-row { gap: 10px; padding: 10px 14px !important; break-inside: avoid; page-break-inside: avoid; }
-          .cleaning-report .report-activity-row p { line-height: 1.25; }
+           .cleaning-report .report-activity-row { gap: 6px; padding: 4px 10px !important; break-inside: avoid; page-break-inside: avoid; }
+          .cleaning-report .report-activity-row p { line-height: 1.15; }
+           .cleaning-report .report-activity-row .mt-3 { margin-top: 4px !important; }
            .cleaning-report .report-photo-frame.report-photo-compact img { height: 210px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact button { padding: 4px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 4px 6px !important; font-size: 8px !important; }
@@ -411,6 +414,15 @@ export function CleaningReport({
           .cleaning-report .checklist-sheet img { max-height: calc(100vh - 48mm); }
         }
       `}</style>
+
+      <div className="report-print-header fixed left-0 right-0 top-0 z-50 hidden h-[12mm] items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
+        {logoSrc ? (
+          <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
+        ) : (
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em]">{companyName}</span>
+        )}
+        <span className="font-mono text-[9px] uppercase tracking-[0.16em]">Reporte de limpieza Técnica</span>
+      </div>
 
       <header className="relative overflow-hidden bg-[#123b66] px-5 py-7 text-[#f5f2e9] sm:px-8 sm:py-9">
         <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full border-[28px] border-[#008acb]/30" aria-hidden="true" />
@@ -535,9 +547,9 @@ export function CleaningReport({
               (activity) => activity.completed || activity.not_applicable,
             ).length;
             return (
-              <section key={area.id} className="avoid-break overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
+              <section key={area.id} className="report-area-block overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
                 <AreaHeader area={area} number={index + 1} completed={areaCompleted} total={areaActivities.length} />
-                <div className="grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-3">
+                <div className="report-area-photos grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-3">
                   <PhotoFrame src={area.initial_photo} alt={`Evidencia inicial del área ${area.area_name}`} label="Registro inicial del área" />
                   <PhotoFrame src={area.intermediate_photo} alt={`Demostración del proceso del área ${area.area_name}`} label="Demostración del proceso" />
                   <PhotoFrame src={area.final_photo} alt={`Evidencia final del área ${area.area_name}`} label="Registro final del área" />
