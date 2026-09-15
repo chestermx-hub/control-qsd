@@ -1038,7 +1038,7 @@ function ExecutionPageModern({
   if (showReport) {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
           <Button type="button" variant="outline" onClick={() => setShowReport(false)}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Volver a la captura

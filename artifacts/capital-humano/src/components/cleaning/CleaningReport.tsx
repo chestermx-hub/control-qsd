@@ -377,7 +377,7 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-           @page { size: A4; margin: 18mm 8mm 14mm; }
+           @page { size: A4; margin: 18mm 8mm 22mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
            .cleaning-report { position: static !important; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -385,6 +385,7 @@ export function CleaningReport({
            .report-first-page-header-cover { display: block !important; }
            .report-print-header { display: flex !important; }
            .report-print-footer { display: flex !important; }
+           .report-print-footer { bottom: 5mm !important; }
            .report-print-page-number::after { content: counter(page); }
           .cleaning-report > header { padding: 20px 24px !important; }
           .cleaning-report > header img { height: 52px !important; max-width: 15rem !important; opacity: 1 !important; }
