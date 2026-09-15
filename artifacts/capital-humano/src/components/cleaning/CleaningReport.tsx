@@ -377,12 +377,11 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-           @page { size: A4; margin: 16mm 8mm 14mm; }
+           @page { size: A4; margin: 8mm 8mm 14mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
-           .cleaning-report { position: absolute; left: 0; top: 0; width: 100%; padding-top: 12mm; padding-bottom: 10mm; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+           .cleaning-report { position: absolute; left: 0; top: 0; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .cleaning-report, .cleaning-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-           .report-print-header { display: flex !important; }
            .report-print-footer { display: flex !important; }
            .report-print-page-number::after { content: counter(page); }
           .cleaning-report > header { padding: 20px 24px !important; }
@@ -583,14 +582,6 @@ export function CleaningReport({
         </section>
       ) : null}
 
-     <div className="report-print-header fixed left-0 right-0 top-0 z-50 hidden h-[12mm] items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
-       {logoSrc ? (
-         <img src={logoSrc} alt="QSD" className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
-       ) : (
-         <span className="font-mono text-[10px] uppercase tracking-[0.2em]">QSD</span>
-       )}
-       <span className="font-mono text-[9px] uppercase tracking-[0.16em]">Reporte de limpieza Técnica</span>
-     </div>
      <div className="report-print-footer fixed bottom-0 left-0 right-0 z-50 hidden items-center justify-between border-t border-[#9fc5dc] bg-white px-6 py-2 font-mono text-[9px] uppercase tracking-[0.13em] text-[#52645e]">
        <span>2026 · {companyName}</span>
        <span>Página <span className="report-print-page-number" /></span>
