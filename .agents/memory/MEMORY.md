@@ -16,3 +16,4 @@
 - [Pie tooltip totals](pie-tooltip-totals.md) — pie tooltip payloads may contain only the active slice; calculate percentages from the full rendered dataset.
 - [Cleaning line number scope](cleaning-line-number-scope.md) — line number belongs to the client and cleaning execution, not to area classification.
 - [DB schema declarations before API typecheck](db-schema-typecheck.md) — refresh lib/db declarations after schema changes to avoid stale API types.
+- [Chromium multipage print furniture](chromium-multipage-print-furniture.md) — avoid negative offsets for fixed headers/footers; clone per-page padding to reserve their space.

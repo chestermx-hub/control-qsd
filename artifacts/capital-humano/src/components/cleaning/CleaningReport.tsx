@@ -377,7 +377,7 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-           @page { size: A4; margin: 14mm 7mm 16mm; }
+           @page { size: A4; margin: 5mm 6mm 7mm; }
            html, body, #root {
              height: auto !important;
              min-height: 0 !important;
@@ -414,22 +414,20 @@ export function CleaningReport({
              width: 100% !important;
              max-width: none !important;
              margin: 0 !important;
+             padding-top: 9mm !important;
+             padding-bottom: 7mm !important;
              overflow: visible !important;
              box-shadow: none !important;
+             box-decoration-break: clone;
+             -webkit-box-decoration-break: clone;
            }
            .cleaning-report, .cleaning-report * {
              -webkit-print-color-adjust: exact;
              print-color-adjust: exact;
            }
-           .report-first-page-header-cover {
-             display: block !important;
-             top: -14mm !important;
-             height: 14mm !important;
-             background: white !important;
-           }
            .report-print-header {
              display: flex !important;
-             top: -11mm !important;
+             top: 0 !important;
              height: 9mm !important;
              padding: 0 7mm !important;
            }
@@ -439,12 +437,15 @@ export function CleaningReport({
            }
            .report-print-footer {
              display: flex !important;
-             bottom: -12mm !important;
+             bottom: 0 !important;
              min-height: 7mm !important;
              padding: 1.5mm 7mm !important;
            }
            .report-print-page-number::after { content: counter(page); }
            .cleaning-report > header {
+             position: relative !important;
+             z-index: 60 !important;
+             margin-top: -9mm !important;
              overflow: hidden !important;
              break-inside: avoid;
              page-break-inside: avoid;
@@ -490,7 +491,6 @@ export function CleaningReport({
         }
       `}</style>
 
-      <div className="report-first-page-header-cover pointer-events-none absolute left-0 right-0 top-0 z-[60] hidden h-[18mm] bg-white" aria-hidden="true" />
       <div className="report-print-header fixed left-0 right-0 top-0 z-50 hidden h-[12mm] items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
         {logoSrc ? (
           <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
