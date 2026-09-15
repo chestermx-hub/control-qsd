@@ -8,14 +8,14 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="app-layout-shell flex h-screen bg-background">
       {/* Sidebar overlay (all screen sizes) */}
       <SidebarOverlay isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main content */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <main className="app-layout-main flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Top bar with hamburger */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0">
+        <div className="app-layout-topbar flex items-center gap-3 px-4 py-3 border-b bg-background shrink-0">
           <Button
             variant="ghost"
             size="icon"
@@ -28,11 +28,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
           <img src={qsdLogo} alt="QSD Clean Technology" className="h-8 w-auto max-w-[9rem] object-contain" />
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
-          <div className="mx-auto max-w-6xl">
+        <div className="app-layout-scroll flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          <div className="app-layout-content mx-auto max-w-6xl">
             {children}
           </div>
-          <footer className="mx-auto mt-8 max-w-6xl border-t pt-4 text-center text-xs text-muted-foreground">
+          <footer className="app-layout-footer mx-auto mt-8 max-w-6xl border-t pt-4 text-center text-xs text-muted-foreground">
             Querétaro Servicio Decapado 2026
           </footer>
         </div>

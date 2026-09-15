@@ -377,17 +377,80 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-           @page { size: A4; margin: 18mm 8mm 24mm; }
+           @page { size: A4; margin: 14mm 7mm 16mm; }
+           html, body, #root {
+             height: auto !important;
+             min-height: 0 !important;
+             overflow: visible !important;
+             background: white !important;
+           }
+           .app-layout-shell,
+           .app-layout-main,
+           .app-layout-scroll,
+           .app-layout-content {
+             display: block !important;
+             height: auto !important;
+             min-height: 0 !important;
+             max-height: none !important;
+             overflow: visible !important;
+           }
+           .app-layout-topbar,
+           .app-layout-footer {
+             display: none !important;
+           }
+           .app-layout-scroll,
+           .app-layout-content,
+           .report-page-shell {
+             width: 100% !important;
+             max-width: none !important;
+             margin: 0 !important;
+             padding: 0 !important;
+           }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
-           .cleaning-report { position: static !important; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .cleaning-report, .cleaning-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-           .report-first-page-header-cover { display: block !important; }
-           .report-print-header { display: flex !important; }
-           .report-print-footer { display: flex !important; }
-           .report-print-footer { bottom: 5mm !important; }
+           .cleaning-report {
+             position: relative !important;
+             display: block !important;
+             width: 100% !important;
+             max-width: none !important;
+             margin: 0 !important;
+             overflow: visible !important;
+             box-shadow: none !important;
+           }
+           .cleaning-report, .cleaning-report * {
+             -webkit-print-color-adjust: exact;
+             print-color-adjust: exact;
+           }
+           .report-first-page-header-cover {
+             display: block !important;
+             top: -14mm !important;
+             height: 14mm !important;
+             background: white !important;
+           }
+           .report-print-header {
+             display: flex !important;
+             top: -11mm !important;
+             height: 9mm !important;
+             padding: 0 7mm !important;
+           }
+           .report-print-header img {
+             height: 6mm !important;
+             max-width: 28mm !important;
+           }
+           .report-print-footer {
+             display: flex !important;
+             bottom: -12mm !important;
+             min-height: 7mm !important;
+             padding: 1.5mm 7mm !important;
+           }
            .report-print-page-number::after { content: counter(page); }
-           .cleaning-report > header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
+           .cleaning-report > header {
+             overflow: hidden !important;
+             break-inside: avoid;
+             page-break-inside: avoid;
+             break-after: avoid;
+             page-break-after: avoid;
+           }
           .cleaning-report > header { padding: 20px 24px !important; }
           .cleaning-report > header img { height: 52px !important; max-width: 15rem !important; opacity: 1 !important; }
           .cleaning-report > header .gap-8 { gap: 16px !important; }
@@ -399,7 +462,14 @@ export function CleaningReport({
           .cleaning-report > section .mb-5 { margin-bottom: 10px !important; }
            .cleaning-report > section:first-of-type { break-inside: avoid; page-break-inside: avoid; }
            .cleaning-report .report-area-block { break-inside: auto; page-break-inside: auto; }
-           .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; break-inside: avoid; page-break-inside: avoid; }
+           .cleaning-report .report-area-header {
+             gap: 10px;
+             padding: 10px 14px !important;
+             break-inside: avoid;
+             page-break-inside: avoid;
+             break-after: avoid-page;
+             page-break-after: avoid;
+           }
           .cleaning-report .report-area-header h3 { font-size: 20px !important; }
            .cleaning-report .report-area-photos { break-inside: avoid; page-break-inside: avoid; }
            .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 170px !important; }
@@ -407,16 +477,16 @@ export function CleaningReport({
            .cleaning-report .report-activity-row { gap: 6px; padding: 4px 10px !important; break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-activity-row p { line-height: 1.15; }
            .cleaning-report .report-activity-row .mt-3 { margin-top: 4px !important; }
-           .cleaning-report .report-photo-frame.report-photo-compact img { height: 210px !important; }
+           .cleaning-report .report-photo-frame.report-photo-compact img { height: 165px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact button { padding: 4px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 4px 6px !important; font-size: 8px !important; }
           .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
            .cleaning-report .report-signature { break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-footer { padding: 8px 20px !important; }
           .cleaning-report .report-action-bar { display: none; }
-          .cleaning-report .checklist-sheet { min-height: calc(100vh - 16mm); break-after: page; page-break-after: always; }
+           .cleaning-report .checklist-sheet { min-height: 0 !important; break-inside: avoid; page-break-inside: avoid; break-after: page; page-break-after: always; }
           .cleaning-report .checklist-sheet:last-child { break-after: auto; page-break-after: auto; }
-          .cleaning-report .checklist-sheet img { max-height: calc(100vh - 48mm); }
+           .cleaning-report .checklist-sheet img { max-height: calc(100vh - 58mm); }
         }
       `}</style>
 
