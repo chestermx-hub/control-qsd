@@ -556,7 +556,9 @@ export function CleaningReport({
            }
            .report-print-header {
              display: flex !important;
+              box-sizing: border-box !important;
              height: 9mm !important;
+              min-height: 0 !important;
              padding: 0 7mm !important;
              flex: none !important;
            }
@@ -566,9 +568,12 @@ export function CleaningReport({
            }
            .report-print-footer {
              display: flex !important;
+              box-sizing: border-box !important;
              height: 7mm !important;
+              min-height: 0 !important;
              padding: 1.5mm 7mm !important;
              flex: none !important;
+              overflow: hidden !important;
            }
            .cleaning-report .report-cover-page {
              display: grid !important;
