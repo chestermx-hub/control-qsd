@@ -385,7 +385,39 @@ export function CleaningReport({
     execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
   );
   const includedAreas = execution.areas.filter((area) => !area.excluded);
-  const completedAreas = includedAreas.filter((area) => area.ready);
+  const areaLayouts = includedAreas.map((area, index) => {
+    const activities = activitiesByArea.get(area.area_name) || [];
+    const completed = activities.filter(
+      (activity) => activity.completed || activity.not_applicable,
+    ).length;
+    const photoActivities = activities.filter(
+      (activity) => activity.requires_photo && (activity.initial_photo || activity.final_photo),
+    ).length;
+    const textWeight = activities.reduce(
+      (total, activity) => total + activity.description.length + (activity.activity_description?.length || 0) + (activity.note?.length || 0),
+      0,
+    );
+    const contentScore = activities.length + photoActivities * 4 + Math.ceil(textWeight / 180);
+    const density = contentScore >= 28 ? "ultra" : contentScore >= 18 ? "dense" : contentScore >= 10 ? "compact" : "normal";
+
+    return {
+      area,
+      number: index + 1,
+      activities,
+      completed,
+      density,
+      fitsHalfPage: contentScore < 10,
+    };
+  });
+  const areaPages = areaLayouts.reduce<(typeof areaLayouts)[]>((pages, layout) => {
+    const previousPage = pages.at(-1);
+    if (layout.fitsHalfPage && previousPage?.length === 1 && previousPage[0].fitsHalfPage) {
+      previousPage.push(layout);
+    } else {
+      pages.push([layout]);
+    }
+    return pages;
+  }, []);
   const reportActivities = execution.activities.filter(
     (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
   );
@@ -615,13 +647,28 @@ export function CleaningReport({
             .cleaning-report .report-signature-content {
               min-height: 0 !important;
             }
-            .cleaning-report .report-area-page[data-density="compact"] .report-area-content {
+            .cleaning-report .report-area-page-content {
+              display: grid !important;
+              min-height: 0 !important;
+              gap: 3mm !important;
+              padding: 3mm 0 !important;
+            }
+            .cleaning-report .report-area-page-content > * {
+              margin-top: 0 !important;
+            }
+            .cleaning-report .report-area-page[data-area-count="1"] .report-area-page-content {
+              grid-template-rows: minmax(0, 1fr) !important;
+            }
+            .cleaning-report .report-area-page[data-area-count="2"] .report-area-page-content {
+              grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+            }
+            .cleaning-report .report-area-viewport[data-density="compact"] .report-area-content {
               zoom: 0.9;
             }
-            .cleaning-report .report-area-page[data-density="dense"] .report-area-content {
+            .cleaning-report .report-area-viewport[data-density="dense"] .report-area-content {
               zoom: 0.78;
             }
-            .cleaning-report .report-area-page[data-density="ultra"] .report-area-content {
+            .cleaning-report .report-area-viewport[data-density="ultra"] .report-area-content {
               zoom: 0.64;
             }
            .cleaning-report .report-area-header {
@@ -655,30 +702,30 @@ export function CleaningReport({
             .cleaning-report .report-photo-frame.report-photo-compact img { height: 90px !important; }
            .cleaning-report .report-photo-frame.report-photo-compact button { padding: 3px !important; }
            .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 2px 4px !important; font-size: 7px !important; }
-           .cleaning-report .report-area-page[data-density="compact"] .report-photo-frame:not(.report-photo-compact) img {
+           .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) img {
              height: 115px !important;
            }
-           .cleaning-report .report-area-page[data-density="compact"] .report-photo-frame:not(.report-photo-compact) {
+           .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) {
              min-height: 115px !important;
            }
-           .cleaning-report .report-area-page[data-density="dense"] .report-area-header,
-           .cleaning-report .report-area-page[data-density="ultra"] .report-area-header {
+           .cleaning-report .report-area-viewport[data-density="dense"] .report-area-header,
+           .cleaning-report .report-area-viewport[data-density="ultra"] .report-area-header {
              padding: 5px 8px !important;
            }
-           .cleaning-report .report-area-page[data-density="dense"] .report-photo-frame:not(.report-photo-compact) img,
-           .cleaning-report .report-area-page[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) img {
+           .cleaning-report .report-area-viewport[data-density="dense"] .report-photo-frame:not(.report-photo-compact) img,
+           .cleaning-report .report-area-viewport[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) img {
              height: 95px !important;
            }
-           .cleaning-report .report-area-page[data-density="dense"] .report-photo-frame:not(.report-photo-compact),
-           .cleaning-report .report-area-page[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) {
+           .cleaning-report .report-area-viewport[data-density="dense"] .report-photo-frame:not(.report-photo-compact),
+           .cleaning-report .report-area-viewport[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) {
              min-height: 95px !important;
            }
-           .cleaning-report .report-area-page[data-density="dense"] .report-activity-row,
-           .cleaning-report .report-area-page[data-density="ultra"] .report-activity-row {
+           .cleaning-report .report-area-viewport[data-density="dense"] .report-activity-row,
+           .cleaning-report .report-area-viewport[data-density="ultra"] .report-activity-row {
              padding: 1px 7px !important;
            }
-           .cleaning-report .report-area-page[data-density="dense"] .report-activity-row p,
-           .cleaning-report .report-area-page[data-density="ultra"] .report-activity-row p {
+           .cleaning-report .report-area-viewport[data-density="dense"] .report-activity-row p,
+           .cleaning-report .report-area-viewport[data-density="ultra"] .report-activity-row p {
              font-size: 9px !important;
              line-height: 1 !important;
            }
@@ -814,13 +861,13 @@ export function CleaningReport({
           </div>
         </div>
          <div className="report-completed-areas mt-7 border-t border-[#d8d9d3] pt-5">
-           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Áreas realizadas</p>
-           {completedAreas.length ? (
+           <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#758079]">Áreas incluidas</p>
+           {includedAreas.length ? (
              <div
                className="report-completed-areas-grid mt-3 grid gap-2"
-               style={{ "--area-list-columns": completedAreas.length > 8 ? 2 : 1 } as React.CSSProperties}
+               style={{ "--area-list-columns": includedAreas.length > 8 ? 2 : 1 } as React.CSSProperties}
              >
-               {completedAreas.map((area) => (
+               {includedAreas.map((area) => (
                  <div key={area.id} className="report-completed-area flex min-w-0 items-center gap-2 text-sm text-[#30443e]">
                    <span className="report-completed-area-icon flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#238a57] text-white">
                      <Check className="h-3.5 w-3.5" aria-hidden="true" />
@@ -830,7 +877,7 @@ export function CleaningReport({
                ))}
              </div>
            ) : (
-             <p className="mt-2 text-sm text-[#69736d]">No hay áreas finalizadas.</p>
+             <p className="mt-2 text-sm text-[#69736d]">No hay áreas incluidas.</p>
            )}
          </div>
       </section>
@@ -847,30 +894,18 @@ export function CleaningReport({
           <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
          <div className="report-area-pages space-y-5">
-           {includedAreas.map((area, index) => {
-            const areaActivities = activitiesByArea.get(area.area_name) || [];
-            const areaCompleted = areaActivities.filter(
-              (activity) => activity.completed || activity.not_applicable,
-            ).length;
-             const photoActivities = areaActivities.filter(
-               (activity) => activity.requires_photo && (activity.initial_photo || activity.final_photo),
-             ).length;
-             const textWeight = areaActivities.reduce(
-               (total, activity) => total + activity.description.length + (activity.activity_description?.length || 0) + (activity.note?.length || 0),
-               0,
-             );
-             const contentScore = areaActivities.length + photoActivities * 4 + Math.ceil(textWeight / 180);
-             const density = contentScore >= 28 ? "ultra" : contentScore >= 18 ? "dense" : contentScore >= 10 ? "compact" : "normal";
-            return (
+           {areaPages.map((page, pageIndex) => (
                <div
-                 key={area.id}
+                 key={`area-page-${pageIndex}`}
                  className="report-area-page"
-                 data-density={density}
+                 data-area-count={page.length}
                >
                  <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
-                 <div className="report-area-viewport report-fit-viewport">
+                 <div className="report-area-page-content space-y-5">
+                 {page.map(({ area, number, activities: areaActivities, completed: areaCompleted, density }) => (
+                 <div key={area.id} className="report-area-viewport report-fit-viewport" data-density={density}>
                  <section className="report-area-content report-fit-content report-area-block overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
-                <AreaHeader area={area} number={index + 1} completed={areaCompleted} total={areaActivities.length} />
+                 <AreaHeader area={area} number={number} completed={areaCompleted} total={areaActivities.length} />
                 <div className="report-area-photos grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-3">
                   <PhotoFrame src={area.initial_photo} alt={`Evidencia inicial del área ${area.area_name}`} label="Registro inicial del área" />
                   <PhotoFrame src={area.intermediate_photo} alt={`Demostración del proceso del área ${area.area_name}`} label="Demostración del proceso" />
@@ -887,10 +922,11 @@ export function CleaningReport({
                 </div>
                  </section>
                  </div>
+                 ))}
+                 </div>
                  <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
                </div>
-            );
-          })}
+           ))}
         </div>
       </section>
 
