@@ -343,21 +343,6 @@ function PrintPageHeader({
   );
 }
 
-function PrintPageFooter({
-  companyName,
-  reportNumber,
-}: {
-  companyName: string;
-  reportNumber: string;
-}) {
-  return (
-    <div className="report-print-footer hidden items-center justify-between border-t border-[#9fc5dc] bg-white px-6 font-mono text-[9px] uppercase tracking-[0.13em] text-[#52645e]">
-      <span>2026 · {companyName}</span>
-      <span>Folio {reportNumber}</span>
-    </div>
-  );
-}
-
 export function CleaningReport({
   execution,
   signature,
@@ -418,6 +403,8 @@ export function CleaningReport({
     }
     return pages;
   }, []);
+  const lastAreaPage = areaPages.at(-1);
+  const signatureFitsLastArea = Boolean(lastAreaPage?.length === 1 && lastAreaPage[0].fitsHalfPage);
   const reportActivities = execution.activities.filter(
     (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
   );
@@ -557,15 +544,9 @@ export function CleaningReport({
              height: 6mm !important;
              max-width: 28mm !important;
            }
-           .report-print-footer {
-             display: flex !important;
-             height: 7mm !important;
-             padding: 1.5mm 7mm !important;
-             flex: none !important;
-           }
            .cleaning-report .report-cover-page {
              display: grid !important;
-             grid-template-rows: auto minmax(0, 1fr) 7mm !important;
+             grid-template-rows: auto minmax(0, 1fr) !important;
              width: 100% !important;
              height: 285mm !important;
              overflow: hidden !important;
@@ -634,14 +615,20 @@ export function CleaningReport({
             .cleaning-report .report-area-page,
             .cleaning-report .report-signature-page {
               display: grid !important;
-              grid-template-rows: 9mm minmax(0, 1fr) 7mm !important;
+              grid-template-rows: 9mm minmax(0, 1fr) !important;
               width: 100% !important;
               height: 285mm !important;
-              break-before: page;
-              page-break-before: always;
               break-inside: avoid;
               page-break-inside: avoid;
               overflow: hidden !important;
+            }
+            .cleaning-report .report-area-page + .report-area-page {
+              break-before: page;
+              page-break-before: always;
+            }
+            .cleaning-report .report-signature-page {
+              break-before: page;
+              page-break-before: always;
             }
             .cleaning-report .report-area-content,
             .cleaning-report .report-signature-content {
@@ -661,6 +648,10 @@ export function CleaningReport({
             }
             .cleaning-report .report-area-page[data-area-count="2"] .report-area-page-content {
               grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+            }
+            .cleaning-report .report-signature-inline {
+              min-height: 0 !important;
+              overflow: hidden !important;
             }
             .cleaning-report .report-area-viewport[data-density="compact"] .report-area-content {
               zoom: 0.9;
@@ -737,7 +728,7 @@ export function CleaningReport({
            .cleaning-report .report-checklist-heading { display: none !important; }
             .cleaning-report .checklist-sheet {
               display: grid !important;
-              grid-template-rows: 9mm auto minmax(0, 1fr) 7mm !important;
+              grid-template-rows: 9mm auto minmax(0, 1fr) !important;
               width: 100% !important;
               height: 285mm !important;
               min-height: 0 !important;
@@ -882,7 +873,6 @@ export function CleaningReport({
          </div>
       </section>
       </div>
-       <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
       </div>
 
        <section className="report-area-section px-5 py-7 sm:px-8 sm:py-8">
@@ -894,11 +884,13 @@ export function CleaningReport({
           <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
          <div className="report-area-pages space-y-5">
-           {areaPages.map((page, pageIndex) => (
+           {areaPages.map((page, pageIndex) => {
+             const includeSignature = signatureFitsLastArea && pageIndex === areaPages.length - 1;
+             return (
                <div
                  key={`area-page-${pageIndex}`}
                  className="report-area-page"
-                 data-area-count={page.length}
+                 data-area-count={page.length + (includeSignature ? 1 : 0)}
                >
                  <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
                  <div className="report-area-page-content space-y-5">
@@ -923,20 +915,28 @@ export function CleaningReport({
                  </section>
                  </div>
                  ))}
+                 {includeSignature && (
+                   <div className="report-signature-inline report-fit-viewport">
+                     <div className="report-fit-content">
+                       <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
+                     </div>
+                   </div>
+                 )}
                  </div>
-                 <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
                </div>
-           ))}
+             );
+           })}
         </div>
       </section>
 
-       <section className="report-signature-page">
-         <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
-         <div className="report-signature-content">
-           <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
-         </div>
-         <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
-       </section>
+       {!signatureFitsLastArea && (
+         <section className="report-signature-page">
+           <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
+           <div className="report-signature-content">
+             <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
+           </div>
+         </section>
+       )}
 
       {execution.checklist_photos?.length ? (
          <section className="report-checklist-section border-t border-[#d8d9d3] bg-[#f1f1eb] px-5 py-7 sm:px-8 sm:py-8">
@@ -956,7 +956,6 @@ export function CleaningReport({
                 <div className="flex min-h-0 flex-1 items-center justify-center bg-white p-2 sm:p-4">
                   <img src={photo} alt={`Captura de checklist, hoja ${index + 1}`} className="max-h-[34rem] w-full object-contain" />
                 </div>
-                 <PrintPageFooter companyName={companyName} reportNumber={reportNumber} />
               </div>
             ))}
           </div>
