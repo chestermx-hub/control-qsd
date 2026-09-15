@@ -377,7 +377,7 @@ export function CleaningReport({
     >
       <style>{`
         @media print {
-           @page { size: A4; margin: 18mm 8mm 22mm; }
+           @page { size: A4; margin: 18mm 8mm 24mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
            .cleaning-report { position: static !important; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -387,6 +387,7 @@ export function CleaningReport({
            .report-print-footer { display: flex !important; }
            .report-print-footer { bottom: 5mm !important; }
            .report-print-page-number::after { content: counter(page); }
+           .cleaning-report > header { break-inside: avoid; page-break-inside: avoid; break-after: avoid; page-break-after: avoid; }
           .cleaning-report > header { padding: 20px 24px !important; }
           .cleaning-report > header img { height: 52px !important; max-width: 15rem !important; opacity: 1 !important; }
           .cleaning-report > header .gap-8 { gap: 16px !important; }
@@ -396,6 +397,7 @@ export function CleaningReport({
           .cleaning-report > section { padding: 16px 20px !important; }
           .cleaning-report > section .mt-7 { margin-top: 12px !important; }
           .cleaning-report > section .mb-5 { margin-bottom: 10px !important; }
+           .cleaning-report > section:first-of-type { break-inside: avoid; page-break-inside: avoid; }
            .cleaning-report .report-area-block { break-inside: auto; page-break-inside: auto; }
            .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-area-header h3 { font-size: 20px !important; }
@@ -409,6 +411,7 @@ export function CleaningReport({
           .cleaning-report .report-photo-frame.report-photo-compact button { padding: 4px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 4px 6px !important; font-size: 8px !important; }
           .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
+           .cleaning-report .report-signature { break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-footer { padding: 8px 20px !important; }
           .cleaning-report .report-action-bar { display: none; }
           .cleaning-report .checklist-sheet { min-height: calc(100vh - 16mm); break-after: page; page-break-after: always; }
