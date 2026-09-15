@@ -94,6 +94,59 @@ function activityStatus(activity: CleaningReportActivity) {
   return { label: "Pendiente", tone: "pending" as const };
 }
 
+type PreparedPrintImage = {
+  image: HTMLImageElement;
+  originalSrc: string;
+  printSrc: string;
+};
+
+async function preparePrintImages(report: HTMLElement): Promise<PreparedPrintImage[]> {
+  const images = Array.from(
+    report.querySelectorAll<HTMLImageElement>("img[data-print-compress]"),
+  );
+
+  const prepared = await Promise.all(images.map(async (image) => {
+    try {
+      if (!image.complete) await image.decode();
+      if (!image.naturalWidth || !image.naturalHeight) return null;
+
+      const maxEdge = Number(image.dataset.printMaxEdge || 1000);
+      const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
+      const width = Math.max(1, Math.round(image.naturalWidth * scale));
+      const height = Math.max(1, Math.round(image.naturalHeight * scale));
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const context = canvas.getContext("2d");
+      if (!context) return null;
+      context.drawImage(image, 0, 0, width, height);
+
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob(resolve, "image/jpeg", 0.68);
+      });
+      if (!blob) return null;
+
+      const originalSrc = image.src;
+      const printSrc = URL.createObjectURL(blob);
+      image.src = printSrc;
+      await image.decode().catch(() => undefined);
+      return { image, originalSrc, printSrc };
+    } catch {
+      return null;
+    }
+  }));
+
+  return prepared.filter((item): item is PreparedPrintImage => item !== null);
+}
+
+function restorePrintImages(images: PreparedPrintImage[]) {
+  images.forEach(({ image, originalSrc, printSrc }) => {
+    image.src = originalSrc;
+    URL.revokeObjectURL(printSrc);
+  });
+}
+
 function PhotoFrame({
   src,
   alt,
@@ -132,6 +185,8 @@ function PhotoFrame({
           <img
             src={src}
             alt={alt}
+            data-print-compress
+            data-print-max-edge="1000"
             className={cn(
               "block w-full bg-white object-contain",
               compact ? "h-36 sm:h-48" : "h-52 sm:h-60",
@@ -435,6 +490,8 @@ export function CleaningReport({
   const completion = totalActivities ? Math.round((completedActivities / totalActivities) * 100) : 0;
   const reportNumber = `ICMX-${String(execution.id).padStart(5, "0")}`;
   const reportRef = useRef<HTMLElement>(null);
+  const preparedPrintImagesRef = useRef<PreparedPrintImage[]>([]);
+  const [preparingPrint, setPreparingPrint] = useState(false);
 
   useEffect(() => {
     const resetPrintScale = () => {
@@ -474,28 +531,46 @@ export function CleaningReport({
     };
 
     const printMedia = window.matchMedia("print");
+    const restorePreparedImages = () => {
+      restorePrintImages(preparedPrintImagesRef.current);
+      preparedPrintImagesRef.current = [];
+    };
+    const resetAfterPrint = () => {
+      resetPrintScale();
+      restorePreparedImages();
+    };
     const onPrintMediaChange = (event: MediaQueryListEvent) => {
       if (event.matches) fitPrintPages();
-      else resetPrintScale();
+      else resetAfterPrint();
     };
 
     window.addEventListener("beforeprint", fitPrintPages);
-    window.addEventListener("afterprint", resetPrintScale);
+    window.addEventListener("afterprint", resetAfterPrint);
     printMedia.addEventListener("change", onPrintMediaChange);
 
     return () => {
       window.removeEventListener("beforeprint", fitPrintPages);
-      window.removeEventListener("afterprint", resetPrintScale);
+      window.removeEventListener("afterprint", resetAfterPrint);
       printMedia.removeEventListener("change", onPrintMediaChange);
       resetPrintScale();
+      restorePreparedImages();
     };
   }, []);
 
-  const printReport = () => {
+  const printReport = async () => {
     if (onPrint) {
       onPrint();
       return;
     }
+
+    const report = reportRef.current;
+    if (report) {
+      setPreparingPrint(true);
+      restorePrintImages(preparedPrintImagesRef.current);
+      preparedPrintImagesRef.current = await preparePrintImages(report);
+      setPreparingPrint(false);
+    }
+
     window.print();
   };
 
@@ -639,6 +714,9 @@ export function CleaningReport({
             .cleaning-report .report-detail-heading { display: none !important; }
             .cleaning-report .report-area-section {
               padding: 0 !important;
+            }
+            .report-page-shell > * {
+              margin-block: 0 !important;
             }
             .cleaning-report .report-area-pages {
               margin: 0 !important;
@@ -840,11 +918,12 @@ export function CleaningReport({
            <Button
              type="button"
              onClick={printReport}
+              disabled={preparingPrint}
              variant="outline"
              className="w-full border-[#9fc5dc] bg-transparent text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
            >
              <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
-             Imprimir / PDF
+              {preparingPrint ? "Optimizando PDF…" : "Imprimir / PDF"}
            </Button>
          </div>
       </div>
@@ -999,7 +1078,13 @@ export function CleaningReport({
                   <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#758079]">Hoja {String(index + 1).padStart(2, "0")}</span>
                 </div>
                 <div className="flex min-h-0 flex-1 items-center justify-center bg-white p-2 sm:p-4">
-                  <img src={photo} alt={`Captura de checklist, hoja ${index + 1}`} className="max-h-[34rem] w-full object-contain" />
+                  <img
+                    src={photo}
+                    alt={`Captura de checklist, hoja ${index + 1}`}
+                    data-print-compress
+                    data-print-max-edge="1600"
+                    className="max-h-[34rem] w-full object-contain"
+                  />
                 </div>
                  <PrintPageFooter
                    companyName={companyName}

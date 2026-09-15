@@ -13,4 +13,10 @@ For reports that require exactly one domain item per sheet, prefer explicit A4-h
 
 **Why:** Heuristic sizing based only on row counts can still clip long labels, notes, or photo-bearing rows.
 
-**How to apply:** Fit from actual `scrollHeight`/rendered height after print styles activate, and do not impose a minimum scale that could leave hidden overflow. Give fixed-height grid headers and footers `box-sizing: border-box`; otherwise vertical padding increases their effective height. Remove screen-only sibling spacing utilities from page containers in print CSS; a margin after a full-height sheet can create a blank fragment before the next forced page break.
+**How to apply:** Fit from actual `scrollHeight`/rendered height after print styles activate, and do not impose a minimum scale that could leave hidden overflow. Give fixed-height grid headers and footers `box-sizing: border-box`; otherwise vertical padding increases their effective height. Remove screen-only spacing from page containers and every ancestor wrapper in print CSS; even a margin before the report can fragment a full-height cover onto a blank page before its forced break.
+
+CSS image dimensions do not reduce Chromium PDF size; Chromium can embed each original full-resolution photo.
+
+**Why:** A six-page report reached 175 MB because 25 phone-resolution images contributed about 160 MB.
+
+**How to apply:** Before explicit button-driven printing, temporarily replace report photo sources with resized, JPEG-compressed object URLs, await image decoding, print, then restore originals on `afterprint`.
