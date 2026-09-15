@@ -382,6 +382,7 @@ export function CleaningReport({
            .cleaning-report, .cleaning-report * { visibility: visible; }
            .cleaning-report { position: static !important; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
           .cleaning-report, .cleaning-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+           .report-first-page-header-cover { display: block !important; }
            .report-print-header { display: flex !important; }
            .report-print-footer { display: flex !important; }
            .report-print-page-number::after { content: counter(page); }
@@ -415,6 +416,7 @@ export function CleaningReport({
         }
       `}</style>
 
+      <div className="report-first-page-header-cover pointer-events-none absolute left-0 right-0 top-0 z-[60] hidden h-[18mm] bg-white" aria-hidden="true" />
       <div className="report-print-header fixed left-0 right-0 top-0 z-50 hidden h-[12mm] items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
         {logoSrc ? (
           <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
