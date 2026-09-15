@@ -579,7 +579,7 @@ export function CleaningReport({
              display: grid !important;
               grid-template-rows: auto minmax(0, 1fr) !important;
              width: 100% !important;
-              height: 283mm !important;
+              height: 280mm !important;
              overflow: hidden !important;
              break-after: page;
              page-break-after: always;
@@ -652,7 +652,7 @@ export function CleaningReport({
               display: grid !important;
               grid-template-rows: 9mm minmax(0, 1fr) 7mm !important;
               width: 100% !important;
-              height: 283mm !important;
+              height: 280mm !important;
               break-inside: avoid;
               page-break-inside: avoid;
               overflow: hidden !important;
@@ -765,7 +765,7 @@ export function CleaningReport({
               display: grid !important;
                grid-template-rows: 9mm auto minmax(0, 1fr) 7mm !important;
               width: 100% !important;
-               height: 283mm !important;
+               height: 280mm !important;
               min-height: 0 !important;
               margin: 0 !important;
               padding: 0 !important;
@@ -774,7 +774,7 @@ export function CleaningReport({
               break-inside: avoid;
               page-break-inside: avoid;
             }
-             .cleaning-report .checklist-sheet img { max-height: 245mm !important; }
+             .cleaning-report .checklist-sheet img { max-height: 242mm !important; }
         }
       `}</style>
 
