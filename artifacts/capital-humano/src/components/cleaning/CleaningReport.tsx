@@ -392,11 +392,11 @@ export function CleaningReport({
           .cleaning-report .avoid-break { break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-area-header { gap: 10px; padding: 10px 14px !important; }
           .cleaning-report .report-area-header h3 { font-size: 20px !important; }
-          .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 100px !important; }
-          .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 100px; }
+           .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 170px !important; }
+           .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 170px; }
            .cleaning-report .report-activity-row { gap: 10px; padding: 10px 14px !important; break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-activity-row p { line-height: 1.25; }
-          .cleaning-report .report-photo-frame.report-photo-compact img { height: 156px !important; }
+           .cleaning-report .report-photo-frame.report-photo-compact img { height: 210px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact button { padding: 4px !important; }
           .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 4px 6px !important; font-size: 8px !important; }
           .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
@@ -440,7 +440,7 @@ export function CleaningReport({
           <div className="shrink-0 sm:text-right">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-[#a9ddf2]">Folio</p>
             <p className="mt-1 font-mono text-lg text-[#f5f2e9]">{reportNumber}</p>
-            <div className="mt-4 inline-flex items-center gap-2 border border-[#4c85ab] px-3 py-2">
+             <div className="mt-4 inline-flex items-center gap-2 border border-[#4c85ab] px-3 py-2 print:hidden">
               <ShieldCheck className="h-4 w-4 text-[#a9ddf2]" aria-hidden="true" />
               <span className="font-mono text-[10px] uppercase tracking-[0.13em] text-[#d7eef8]">
                 {statusLabel(execution.status)}
