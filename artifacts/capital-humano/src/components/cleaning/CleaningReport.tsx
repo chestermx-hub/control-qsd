@@ -590,7 +590,7 @@ export function CleaningReport({
        <span className="font-mono text-[9px] uppercase tracking-[0.16em]">Reporte de limpieza Técnica</span>
      </div>
      <div className="report-print-footer fixed bottom-0 left-0 right-0 z-50 hidden items-center justify-between border-t border-[#9fc5dc] bg-white px-6 py-2 font-mono text-[9px] uppercase tracking-[0.13em] text-[#52645e]">
-       <span>2026 · QSD</span>
+       <span>2026 · QIS</span>
        <span>Página <span className="report-print-page-number" /></span>
      </div>
      <footer className="report-footer flex flex-col gap-2 border-t border-[#d8d9d3] bg-[#eeeDE5] px-5 py-4 font-mono text-[9px] uppercase tracking-[0.13em] text-[#7d8780] sm:flex-row sm:items-center sm:justify-between sm:px-8 print:hidden">

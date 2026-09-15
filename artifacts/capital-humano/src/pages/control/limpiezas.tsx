@@ -13,7 +13,7 @@ import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { ChecklistPhotosDialog, CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
-import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
+import qisLogo from "@assets/Logo_Qis_Oficial_1789504832796.gif";
 
 type ClientLine = { id?: number; line_number: string; line_name?: string };
 type Client = { id: number; name: string; plant_number: string; line_number?: string; lines?: ClientLine[]; periodicity: string; udn_id?: number };
@@ -1039,7 +1039,7 @@ function ExecutionPageModern({
         <CleaningReport
           execution={execution}
           signature={signature}
-          logoSrc={qsdLogo}
+          logoSrc={qisLogo}
           onRequestChecklist={openChecklist}
           onRequestSignature={() => setSignatureOpen(true)}
         />
