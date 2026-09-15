@@ -343,6 +343,23 @@ function PrintPageHeader({
   );
 }
 
+function PrintPageFooter({
+  companyName,
+  pageNumber,
+  totalPages,
+}: {
+  companyName: string;
+  pageNumber: number;
+  totalPages: number;
+}) {
+  return (
+    <div className="report-print-footer hidden items-center justify-between border-t border-[#9fc5dc] bg-white px-6 font-mono text-[9px] uppercase tracking-[0.13em] text-[#52645e]">
+      <span>2026 · {companyName}</span>
+      <span>Página {pageNumber} de {totalPages}</span>
+    </div>
+  );
+}
+
 export function CleaningReport({
   execution,
   signature,
@@ -405,6 +422,9 @@ export function CleaningReport({
   }, []);
   const lastAreaPage = areaPages.at(-1);
   const signatureFitsLastArea = Boolean(lastAreaPage?.length === 1 && lastAreaPage[0].fitsHalfPage);
+  const checklistPageCount = execution.checklist_photos?.length || 0;
+  const standaloneSignaturePages = signatureFitsLastArea ? 0 : 1;
+  const totalPrintPages = 1 + areaPages.length + standaloneSignaturePages + checklistPageCount;
   const reportActivities = execution.activities.filter(
     (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
   );
@@ -544,11 +564,17 @@ export function CleaningReport({
              height: 6mm !important;
              max-width: 28mm !important;
            }
+           .report-print-footer {
+             display: flex !important;
+             height: 7mm !important;
+             padding: 1.5mm 7mm !important;
+             flex: none !important;
+           }
            .cleaning-report .report-cover-page {
              display: grid !important;
-             grid-template-rows: auto minmax(0, 1fr) !important;
+             grid-template-rows: auto minmax(0, 1fr) 7mm !important;
              width: 100% !important;
-             height: 285mm !important;
+             height: 283mm !important;
              overflow: hidden !important;
              break-after: page;
              page-break-after: always;
@@ -615,9 +641,9 @@ export function CleaningReport({
             .cleaning-report .report-area-page,
             .cleaning-report .report-signature-page {
               display: grid !important;
-              grid-template-rows: 9mm minmax(0, 1fr) !important;
+              grid-template-rows: 9mm minmax(0, 1fr) 7mm !important;
               width: 100% !important;
-              height: 285mm !important;
+              height: 283mm !important;
               break-inside: avoid;
               page-break-inside: avoid;
               overflow: hidden !important;
@@ -728,9 +754,9 @@ export function CleaningReport({
            .cleaning-report .report-checklist-heading { display: none !important; }
             .cleaning-report .checklist-sheet {
               display: grid !important;
-              grid-template-rows: 9mm auto minmax(0, 1fr) !important;
+               grid-template-rows: 9mm auto minmax(0, 1fr) 7mm !important;
               width: 100% !important;
-              height: 285mm !important;
+               height: 283mm !important;
               min-height: 0 !important;
               margin: 0 !important;
               padding: 0 !important;
@@ -873,6 +899,7 @@ export function CleaningReport({
          </div>
       </section>
       </div>
+       <PrintPageFooter companyName={companyName} pageNumber={1} totalPages={totalPrintPages} />
       </div>
 
        <section className="report-area-section px-5 py-7 sm:px-8 sm:py-8">
@@ -923,6 +950,11 @@ export function CleaningReport({
                    </div>
                  )}
                  </div>
+                 <PrintPageFooter
+                   companyName={companyName}
+                   pageNumber={pageIndex + 2}
+                   totalPages={totalPrintPages}
+                 />
                </div>
              );
            })}
@@ -935,6 +967,11 @@ export function CleaningReport({
            <div className="report-signature-content">
              <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
            </div>
+           <PrintPageFooter
+             companyName={companyName}
+             pageNumber={areaPages.length + 2}
+             totalPages={totalPrintPages}
+           />
          </section>
        )}
 
@@ -956,6 +993,11 @@ export function CleaningReport({
                 <div className="flex min-h-0 flex-1 items-center justify-center bg-white p-2 sm:p-4">
                   <img src={photo} alt={`Captura de checklist, hoja ${index + 1}`} className="max-h-[34rem] w-full object-contain" />
                 </div>
+                 <PrintPageFooter
+                   companyName={companyName}
+                   pageNumber={areaPages.length + standaloneSignaturePages + index + 2}
+                   totalPages={totalPrintPages}
+                 />
               </div>
             ))}
           </div>
