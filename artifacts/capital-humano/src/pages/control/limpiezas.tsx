@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
 import { ChecklistPhotosDialog, CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
 import qisLogo from "@assets/Logo_Qis_Oficial_1789504832796.gif";
+import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
 type ClientLine = { id?: number; line_number: string; line_name?: string };
 type Client = { id: number; name: string; plant_number: string; line_number?: string; lines?: ClientLine[]; periodicity: string; udn_id?: number };
@@ -23,9 +24,16 @@ type AreaClient = { client_id: number; line_ids?: number[]; activities: AreaActi
 type Area = { id: number; code: string; name: string; description?: string; area_type: string; client_id?: number; clients?: AreaClient[]; activities: AreaActivity[] };
 type FlowActivity = { id?: number; description: string; activity_description?: string; area_name?: string; requires_photo?: boolean; initial_photo?: string; final_photo?: string };
 type Flow = { id: number; client_id: number; line_number?: string; name: string; description?: string; activities: FlowActivity[] };
-type Catalogs = { clients: Client[]; udns: { id: number; name: string }[]; areas: Area[]; types: Flow[] };
+type Catalogs = { clients: Client[]; udns: { id: number; name: string; code: string }[]; areas: Area[]; types: Flow[] };
 type ExecutionArea = { id: number; area_name: string; initial_photo?: string; intermediate_photo?: string; final_photo?: string; ready: boolean; excluded?: boolean };
 type Execution = { id: number; execution_date: string; line_number?: string; status: string; client: Client; cleaning_type: Flow; areas: ExecutionArea[]; activities: (FlowActivity & { id: number; completed: boolean; not_applicable: boolean; area_name?: string })[]; signature?: string; signature_user_name?: string; signed_at?: string; checklist_photos?: string[] };
+
+function reportBrandForClient(client: Client, udns: Catalogs["udns"]) {
+  const assignedUdn = udns.find((udn) => udn.id === client.udn_id);
+  const identifier = `${assignedUdn?.code || ""} ${assignedUdn?.name || ""}`.toUpperCase();
+  if (identifier.includes("QIS")) return { logo: qisLogo, name: "QIS" };
+  return { logo: qsdLogo, name: "QSD" };
+}
 
 function currentDateInputValue() {
   const now = new Date();
@@ -1025,6 +1033,7 @@ function ExecutionPageModern({
   const signature: CleaningReportSignature | undefined = execution.signature
     ? { dataUrl: execution.signature, signerName: execution.signature_user_name || "Usuario responsable", signedAt: execution.signed_at }
     : undefined;
+  const reportBrand = reportBrandForClient(execution.client, catalogs.udns);
 
   if (showReport) {
     return (
@@ -1039,7 +1048,8 @@ function ExecutionPageModern({
         <CleaningReport
           execution={execution}
           signature={signature}
-          logoSrc={qisLogo}
+          logoSrc={reportBrand.logo}
+          companyName={reportBrand.name}
           onRequestChecklist={openChecklist}
           onRequestSignature={() => setSignatureOpen(true)}
         />
