@@ -654,7 +654,8 @@ export function CleaningReport({
              display: grid !important;
               grid-template-rows: auto minmax(0, 1fr) !important;
              width: 100% !important;
-              height: 280mm !important;
+               height: auto !important;
+               min-height: 0 !important;
              overflow: hidden !important;
              break-after: page;
              page-break-after: always;

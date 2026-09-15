@@ -15,6 +15,12 @@ For reports that require exactly one domain item per sheet, prefer explicit A4-h
 
 **How to apply:** Fit from actual `scrollHeight`/rendered height after print styles activate, and do not impose a minimum scale that could leave hidden overflow. Give fixed-height grid headers and footers `box-sizing: border-box`; otherwise vertical padding increases their effective height. Remove screen-only spacing from page containers and every ancestor wrapper in print CSS; even a margin before the report can fragment a full-height cover onto a blank page before its forced break.
 
+If a cover has no footer, do not keep a full-page fixed height solely to fill its background; let its height follow content and use only the page break after it.
+
+**Why:** A vertically offset 280 mm cover spilled only its background onto a completely blank second page, then its forced break moved the first detail sheet to page three.
+
+**How to apply:** Reserve explicit physical height for sheets that need bottom-aligned furniture. For a footerless cover, use auto height and a forced break after the content.
+
 CSS image dimensions do not reduce Chromium PDF size; Chromium can embed each original full-resolution photo.
 
 **Why:** A six-page report reached 175 MB because 25 phone-resolution images contributed about 160 MB.
