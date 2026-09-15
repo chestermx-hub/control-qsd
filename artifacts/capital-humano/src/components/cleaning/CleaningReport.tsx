@@ -375,8 +375,10 @@ export function CleaningReport({
           @page { size: A4; margin: 8mm; }
            body > * { visibility: hidden; }
            .cleaning-report, .cleaning-report * { visibility: visible; }
-           .cleaning-report { position: absolute; left: 0; top: 0; width: 100%; }
-          .cleaning-report > header { padding: 16px 20px !important; }
+           .cleaning-report { position: absolute; left: 0; top: 0; width: 100%; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .cleaning-report, .cleaning-report * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          .cleaning-report > header { padding: 20px 24px !important; }
+          .cleaning-report > header img { height: 52px !important; max-width: 15rem !important; opacity: 1 !important; }
           .cleaning-report > header .gap-8 { gap: 16px !important; }
           .cleaning-report > header .mb-7 { margin-bottom: 8px !important; }
           .cleaning-report > header h1 { font-size: 26px !important; }
@@ -389,8 +391,11 @@ export function CleaningReport({
           .cleaning-report .report-area-header h3 { font-size: 20px !important; }
           .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 100px !important; }
           .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 100px; }
-          .cleaning-report .report-activity-row { gap: 8px; padding: 6px 10px !important; }
+           .cleaning-report .report-activity-row { gap: 10px; padding: 10px 14px !important; break-inside: avoid; page-break-inside: avoid; }
           .cleaning-report .report-activity-row p { line-height: 1.25; }
+          .cleaning-report .report-photo-frame.report-photo-compact img { height: 156px !important; }
+          .cleaning-report .report-photo-frame.report-photo-compact button { padding: 4px !important; }
+          .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 4px 6px !important; font-size: 8px !important; }
           .cleaning-report .report-signature { padding-top: 16px !important; padding-bottom: 16px !important; }
           .cleaning-report .report-footer { padding: 8px 20px !important; }
           .cleaning-report .report-action-bar { display: none; }
@@ -407,7 +412,7 @@ export function CleaningReport({
           <div className="max-w-xl">
             <div className="mb-7 flex items-center gap-3">
               {logoSrc && (
-                <img src={logoSrc} alt="Identidad del servicio" className="h-8 w-auto max-w-[9rem] object-contain brightness-0 invert" />
+                <img src={logoSrc} alt="Identidad del servicio" className="h-14 w-auto max-w-[14rem] object-contain brightness-0 invert" />
               )}
               {!logoSrc && (
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#b9ddeb]">
