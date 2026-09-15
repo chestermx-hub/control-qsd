@@ -579,7 +579,7 @@ export function CleaningReport({
              display: grid !important;
              grid-template-rows: auto minmax(0, 1fr) 7mm !important;
              width: 100% !important;
-              height: 265mm !important;
+              height: 283mm !important;
              overflow: hidden !important;
              break-after: page;
              page-break-after: always;
@@ -643,12 +643,16 @@ export function CleaningReport({
             .cleaning-report .report-area-pages {
               margin: 0 !important;
             }
+            .cleaning-report .report-area-pages > *,
+            .cleaning-report .report-checklist-pages > * {
+              margin-block: 0 !important;
+            }
             .cleaning-report .report-area-page,
             .cleaning-report .report-signature-page {
               display: grid !important;
               grid-template-rows: 9mm minmax(0, 1fr) 7mm !important;
               width: 100% !important;
-              height: 265mm !important;
+              height: 283mm !important;
               break-inside: avoid;
               page-break-inside: avoid;
               overflow: hidden !important;
@@ -672,7 +676,7 @@ export function CleaningReport({
               padding: 3mm 0 !important;
             }
             .cleaning-report .report-area-page-content > * {
-              margin-top: 0 !important;
+              margin-block: 0 !important;
             }
             .cleaning-report .report-area-page[data-area-count="1"] .report-area-page-content {
               grid-template-rows: minmax(0, 1fr) !important;
@@ -761,7 +765,7 @@ export function CleaningReport({
               display: grid !important;
                grid-template-rows: 9mm auto minmax(0, 1fr) 7mm !important;
               width: 100% !important;
-               height: 265mm !important;
+               height: 283mm !important;
               min-height: 0 !important;
               margin: 0 !important;
               padding: 0 !important;
@@ -770,7 +774,7 @@ export function CleaningReport({
               break-inside: avoid;
               page-break-inside: avoid;
             }
-             .cleaning-report .checklist-sheet img { max-height: 227mm !important; }
+             .cleaning-report .checklist-sheet img { max-height: 245mm !important; }
         }
       `}</style>
 
@@ -987,7 +991,7 @@ export function CleaningReport({
             <h2 className="mt-2 font-serif text-3xl text-[#123b66]">Captura de checklist</h2>
             <p className="mt-2 text-sm text-[#69736d]">Cada imagen corresponde a una hoja de evidencia del checklist.</p>
           </div>
-          <div className="space-y-5">
+          <div className="report-checklist-pages space-y-5">
             {execution.checklist_photos.map((photo, index) => (
               <div key={`${photo}-${index}`} className="checklist-sheet flex min-h-[28rem] flex-col overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6] p-3 sm:p-5">
                  <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
