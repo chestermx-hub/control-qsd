@@ -849,6 +849,7 @@ function ExecutionPageModern({
         if (!active) return;
         setExecution(latest);
         setExecutionDate(latest.execution_date);
+        setChecklistPhotos(latest.checklist_photos || []);
       })
       .catch((error) => {
         if (active) toast({ title: error instanceof Error ? error.message : "No se pudo actualizar el reporte", variant: "destructive" });
@@ -927,11 +928,27 @@ function ExecutionPageModern({
     setSavingSignature(true);
     try {
       const signaturePath = await uploadSignatureImage(signatureDataUrl);
-      setPendingSignature({ path: signaturePath, signerName });
-      setChecklistPhotos(execution.checklist_photos || []);
-      setSignatureOpen(false);
-      setChecklistOpen(true);
-      toast({ title: "Firma capturada", description: "Ahora agrega las fotos del checklist para cerrar el reporte." });
+      const photos = checklistPhotos.length ? checklistPhotos : (execution.checklist_photos || []);
+      if (photos.length < 5) {
+        setPendingSignature({ path: signaturePath, signerName });
+        setChecklistPhotos(photos);
+        setSignatureOpen(false);
+        setChecklistOpen(true);
+        toast({ title: "Firma capturada", description: "Carga mínimo 5 fotos desde el checklist para cerrar el reporte." });
+      } else {
+        const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            signature: signaturePath,
+            signature_user_name: signerName,
+            checklist_photos: photos,
+          }),
+        });
+        setExecution(updated);
+        setChecklistPhotos(updated.checklist_photos || photos);
+        setSignatureOpen(false);
+        toast({ title: "Reporte firmado y cerrado", description: "La firma y el checklist quedaron guardados." });
+      }
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : "No se pudo guardar la firma", variant: "destructive" });
     } finally {
@@ -940,27 +957,40 @@ function ExecutionPageModern({
   };
 
   const saveChecklist = async (photos: string[]) => {
-    if (!execution || !pendingSignature) return;
+    if (!execution) return;
     setSavingChecklist(true);
     try {
+      const signaturePayload = pendingSignature
+        ? { signature: pendingSignature.path, signature_user_name: pendingSignature.signerName }
+        : {};
       const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          signature: pendingSignature.path,
-          signature_user_name: pendingSignature.signerName,
           checklist_photos: photos,
+          ...signaturePayload,
         }),
       });
       setExecution(updated);
       setChecklistPhotos(updated.checklist_photos || photos);
+      const signedNow = Boolean(pendingSignature);
       setPendingSignature(null);
       setChecklistOpen(false);
-      toast({ title: "Reporte firmado y cerrado", description: "La firma y las fotos del checklist quedaron guardadas." });
+      toast({
+        title: signedNow ? "Reporte firmado y cerrado" : "Checklist guardado",
+        description: signedNow ? "La firma y las fotos del checklist quedaron guardadas." : "Las fotos quedaron asociadas al reporte.",
+      });
     } catch (error) {
       toast({ title: error instanceof Error ? error.message : "No se pudo guardar el checklist", variant: "destructive" });
     } finally {
       setSavingChecklist(false);
     }
+  };
+
+  const openChecklist = () => {
+    if (!execution) return;
+    setPendingSignature(null);
+    setChecklistPhotos(execution.checklist_photos || []);
+    setChecklistOpen(true);
   };
 
   const checklistDialog = (
@@ -1010,6 +1040,7 @@ function ExecutionPageModern({
           execution={execution}
           signature={signature}
           logoSrc={qsdLogo}
+          onRequestChecklist={openChecklist}
           onRequestSignature={() => setSignatureOpen(true)}
         />
         <SignatureDialog

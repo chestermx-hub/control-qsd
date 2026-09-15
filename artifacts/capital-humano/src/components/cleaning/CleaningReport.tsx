@@ -4,6 +4,7 @@ import {
   Check,
   FileDown,
   Image as ImageIcon,
+  ImagePlus,
   PenLine,
   ShieldCheck,
 } from "lucide-react";
@@ -64,6 +65,7 @@ export interface CleaningReportProps {
   signature?: CleaningReportSignature;
   logoSrc?: string;
   onPrint?: () => void;
+  onRequestChecklist?: () => void;
   onRequestSignature?: () => void;
   className?: string;
 }
@@ -326,6 +328,7 @@ export function CleaningReport({
   signature,
   logoSrc,
   onPrint,
+  onRequestChecklist,
   onRequestSignature,
   className,
 }: CleaningReportProps) {
@@ -451,15 +454,28 @@ export function CleaningReport({
         <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-[#79837c]">
           Documento verificable · {formatDate(execution.execution_date)}
         </p>
-        <Button
-          type="button"
-          onClick={printReport}
-          variant="outline"
-          className="w-full border-[#9fc5dc] bg-transparent text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
-        >
-          <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
-          Imprimir / PDF
-        </Button>
+         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+           {onRequestChecklist && (
+             <Button
+               type="button"
+               onClick={onRequestChecklist}
+               variant="outline"
+               className="w-full border-[#9fc5dc] bg-transparent text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
+             >
+               <ImagePlus className="mr-2 h-4 w-4" aria-hidden="true" />
+               Cargar checklist
+             </Button>
+           )}
+           <Button
+             type="button"
+             onClick={printReport}
+             variant="outline"
+             className="w-full border-[#9fc5dc] bg-transparent text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
+           >
+             <FileDown className="mr-2 h-4 w-4" aria-hidden="true" />
+             Imprimir / PDF
+           </Button>
+         </div>
       </div>
 
       <section className="border-b border-[#d8d9d3] px-5 py-7 sm:px-8 sm:py-8">
