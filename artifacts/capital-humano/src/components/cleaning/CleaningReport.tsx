@@ -516,7 +516,7 @@ export function CleaningReport({
               )}
               <span className="h-px w-8 bg-[#2b68a2]" aria-hidden="true" />
               <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.17em] text-[#b9ddeb]">
-                Limpiezas industriales
+                Limpieza Técnica
               </span>
             </div>
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#a9ddf2]">
