@@ -571,7 +571,7 @@ function AreaExecutionToggle({ area, onChange }: { area: ExecutionArea; onChange
   const turnOff = () => {
     if (area.excluded || window.confirm(`¿Deseas apagar ${area.area_name}? Esta área no se ejecutará en esta limpieza.`)) onChange(!area.excluded);
   };
-  return <button type="button" aria-label={`${area.excluded ? "Activar" : "Excluir"} ${area.area_name}`} onClick={turnOff} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.excluded ? "bg-slate-200" : "bg-emerald-500"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}><span className={`absolute top-1.5 h-4 w-4 rounded-full transition-transform ${area.excluded ? "translate-x-1 bg-red-500" : "translate-x-6 bg-emerald-700"}`} /></button>;
+  return <button type="button" aria-label={`${area.excluded ? "Activar" : "Excluir"} ${area.area_name}`} onClick={turnOff} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.excluded ? "bg-slate-200" : "bg-emerald-500"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}><span className={`absolute top-1.5 h-4 w-4 rounded-full transition-transform ${area.excluded ? "translate-x-1 bg-red-500" : "translate-x-1 bg-emerald-700"}`} /></button>;
 }
 
 function CustomFlowDialog({ catalogs, open, onOpenChange, onCreated }: { catalogs: Catalogs; open: boolean; onOpenChange: (open: boolean) => void; onCreated: (flow: Flow) => void }) {
