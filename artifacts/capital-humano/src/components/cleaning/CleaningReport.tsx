@@ -874,6 +874,8 @@ export function CleaningReport({
               gap: 4mm !important;
               min-height: 0 !important;
               padding: 4mm !important;
+               flex: 0 0 auto !important;
+               grid-template-rows: repeat(2, 78mm) !important;
             }
             .cleaning-report .report-activity-sheet-grid > * {
               min-height: 0 !important;
@@ -895,16 +897,16 @@ export function CleaningReport({
              .cleaning-report .report-activity-evidence {
                break-inside: avoid;
                page-break-inside: avoid;
-               margin-top: 3mm !important;
-               padding: 3mm !important;
+               margin-top: 0 !important;
+               padding: 2mm !important;
              }
              .cleaning-report .report-activity-evidence-grid {
                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                gap: 3mm !important;
              }
              .cleaning-report .report-photo-gallery {
-               height: 32mm !important;
-               min-height: 32mm !important;
+               height: 42mm !important;
+               min-height: 42mm !important;
              }
              .cleaning-report .report-photo-gallery button {
                display: flex !important;
