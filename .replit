@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "postgresql-16", "python-base-3.13"]
+modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -25,3 +25,15 @@ packages = ["chromium"]
 
 [objectStorage]
 defaultBucketID = "replit-objstore-e4a2d6ee-14fc-4cae-8504-2f2d55586631"
+
+[[ports]]
+localPort = 8080
+externalPort = 8080
+
+[[ports]]
+localPort = 8081
+externalPort = 80
+
+[[ports]]
+localPort = 21951
+externalPort = 3000

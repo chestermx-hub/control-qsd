@@ -57,7 +57,7 @@ export default function NuevoRegistro() {
 
   const { data: panels } = useListPanels();
   const { data: visualZones } = useListVisualZones();
-  const { data: defects } = useListDefects();
+  const { data: defects, isLoading: isLoadingDefects } = useListDefects();
   const { data: zones } = useListZones();
   const activePanels = useMemo(
     () => panels?.filter((panel) => panel.is_active !== false),
@@ -84,7 +84,7 @@ export default function NuevoRegistro() {
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
   const applicableDefects = useMemo(
     () => zoneId
-      ? defects?.filter((defect) => defect.applicable_zones?.some((zone) => zone.id === zoneId)) ?? []
+      ? defects?.filter((defect) => defect.applicable_zones?.some((zone) => Number(zone.id) === zoneId)) ?? []
       : [],
     [defects, zoneId],
   );
@@ -106,8 +106,13 @@ export default function NuevoRegistro() {
     : sidePositionOptions.findIndex((option) => option.value === sidePosition);
 
   useEffect(() => {
-    setSidePosition(selectedPanel?.side_mode === "bilateral" ? null : "center");
-  }, [selectedPanel?.id, selectedPanel?.side_mode]);
+    setSidePosition(
+      selectedPanel?.side_mode === "bilateral"
+        || (selectedPanel?.side_mode == null && selectedPanel?.side_id != null)
+        ? null
+        : "center",
+    );
+  }, [selectedPanel?.id, selectedPanel?.side_mode, selectedPanel?.side_id]);
 
   const [dialogCell, setDialogCell] = useState<DialogCell | null>(null);
   const [dialogDefectId, setDialogDefectId] = useState<string>("");
@@ -189,6 +194,10 @@ export default function NuevoRegistro() {
 
   const handleSaveDefect = () => {
     if (!dialogCell) return;
+    if (!zoneId) {
+      toast({ title: "Selecciona una zona auditada antes de registrar", variant: "destructive" });
+      return;
+    }
     if (requiresSideSelection && !sidePosition) {
       toast({ title: "Selecciona LH, Centro o RH antes de registrar", variant: "destructive" });
       return;
@@ -510,32 +519,52 @@ export default function NuevoRegistro() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Defecto</Label>
-              <select
-                value={dialogDefectId}
-                disabled={isZonaU && !!zonaUDefect}
-                size={isZonaU && zonaUDefect ? 1 : 6}
-                onChange={(e) => setDialogDefectId(e.target.value)}
-                className="h-auto min-h-9 max-h-44 w-full overflow-y-auto rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-100"
+              <div
+                role="listbox"
+                aria-label="Defectos disponibles"
+                aria-busy={isLoadingDefects}
+                className="h-44 w-full overflow-y-scroll rounded-md border border-input bg-background p-1 shadow-sm overscroll-contain"
               >
                 {isZonaU && zonaUDefect ? (
-                  <option value={zonaUDefect.id.toString()}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={dialogDefectId === String(zonaUDefect.id)}
+                    onClick={() => setDialogDefectId(String(zonaUDefect.id))}
+                    className={`w-full rounded px-3 py-2 text-left text-sm ${dialogDefectId === String(zonaUDefect.id) ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                  >
                     {zonaUDefect.code} — {zonaUDefect.name}
-                  </option>
+                  </button>
+                ) : isLoadingDefects ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Cargando defectos...</p>
+                ) : !zoneId ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Selecciona primero una zona auditada</p>
+                ) : applicableDefects.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">No hay defectos asignados a esta zona</p>
                 ) : (
-                  <>
-                    <option value="">Selecciona un defecto</option>
-                    {applicableDefects.map((d) => (
-                      <option key={d.id} value={d.id.toString()}>
+                  applicableDefects.map((d) => {
+                    const value = String(d.id);
+                    const selected = dialogDefectId === value;
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => setDialogDefectId(value)}
+                        className={`w-full rounded px-3 py-2 text-left text-sm ${selected ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
                         {d.code} — {d.name}
-                      </option>
-                    ))}
-                    {!zoneId && <option value="" disabled>Selecciona primero una zona auditada</option>}
-                    {zoneId && !applicableDefects.length && (
-                      <option value="" disabled>No hay defectos asignados a esta zona</option>
-                    )}
-                  </>
+                      </button>
+                    );
+                  })
                 )}
-              </select>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {dialogDefectId
+                  ? `Seleccionado: ${applicableDefects.find((d) => String(d.id) === dialogDefectId)?.code ?? zonaUDefect?.code ?? ""}`
+                  : "Desplázate dentro de la lista para ver todos los registros."}
+              </p>
               {isZonaU && zonaUDefect && (
                 <p className="text-xs text-muted-foreground">
                   ZONA U sólo registra el defecto fijo: {zonaUDefect.code} — {zonaUDefect.name}.
