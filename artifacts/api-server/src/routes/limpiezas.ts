@@ -254,6 +254,7 @@ router.patch("/limpiezas/areas/:id", async (req, res) => {
         .where(and(eq(cleaningExecutionActivitiesTable.executionId, execution.id), eq(cleaningExecutionActivitiesTable.areaName, previousArea.name)));
     }
   }
+  await syncAreaActivitiesToCleaningTypes(area.id, area.name);
   await syncAreaActivitiesToOpenExecutions(area.id, area.name);
   res.json(await areaWithActivities(id));
 });
@@ -353,7 +354,7 @@ async function syncNewAreasToOpenExecutions(typeId: number) {
   }
 }
 
-async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: string) {
+async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: string, executionId?: number) {
   const [executions, areaActivities, assignments] = await Promise.all([
     db.select().from(cleaningExecutionsTable),
     db.select().from(cleaningAreaActivitiesTable)
@@ -361,7 +362,11 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
       .orderBy(asc(cleaningAreaActivitiesTable.sortOrder)),
     db.select().from(cleaningAreaClientsTable).where(eq(cleaningAreaClientsTable.areaId, areaId)),
   ]);
-  const openExecutions = executions.filter((execution) => execution.status !== "completed" && !execution.signature);
+  const openExecutions = executions.filter((execution) =>
+    execution.status !== "completed" &&
+    !execution.signature &&
+    (executionId === undefined || execution.id === executionId),
+  );
   if (!openExecutions.length) return;
 
   for (const execution of openExecutions) {
@@ -427,6 +432,105 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
   }
 }
 
+async function replaceCleaningTypeAreaActivities(
+  typeId: number,
+  areaName: string,
+  activities: Array<{ description: string; activityDescription: string | null; requiresPhoto: boolean }>,
+) {
+  const existing = await db.select().from(cleaningTypeActivitiesTable)
+    .where(and(eq(cleaningTypeActivitiesTable.cleaningTypeId, typeId), eq(cleaningTypeActivitiesTable.areaName, areaName)))
+    .orderBy(asc(cleaningTypeActivitiesTable.sortOrder));
+  if (!existing.length) return;
+
+  const baseSortOrder = existing[0].sortOrder;
+  await db.delete(cleaningTypeActivitiesTable)
+    .where(and(eq(cleaningTypeActivitiesTable.cleaningTypeId, typeId), eq(cleaningTypeActivitiesTable.areaName, areaName)));
+  for (const [index, activity] of activities.entries()) {
+    await db.insert(cleaningTypeActivitiesTable).values({
+      cleaningTypeId: typeId,
+      description: activity.description,
+      activityDescription: activity.activityDescription,
+      areaName,
+      sortOrder: baseSortOrder + index,
+      requiresPhoto: activity.requiresPhoto,
+    });
+  }
+}
+
+async function syncAreaActivitiesToCleaningTypes(areaId: number, areaName: string) {
+  const [area, assignments, types] = await Promise.all([
+    db.select().from(cleaningAreasTable).where(eq(cleaningAreasTable.id, areaId)).then((rows) => rows[0]),
+    db.select().from(cleaningAreaClientsTable).where(eq(cleaningAreaClientsTable.areaId, areaId)),
+    db.select().from(cleaningTypesTable),
+  ]);
+  if (!area) return;
+
+  if (!assignments.length && area.clientId) {
+    const baseActivities = await db.select().from(cleaningAreaActivitiesTable)
+      .where(eq(cleaningAreaActivitiesTable.areaId, areaId))
+      .orderBy(asc(cleaningAreaActivitiesTable.sortOrder));
+    for (const type of types.filter((candidate) => candidate.clientId === area.clientId)) {
+      await replaceCleaningTypeAreaActivities(type.id, areaName, baseActivities.map((activity) => ({
+        description: activity.description,
+        activityDescription: activity.activityDescription,
+        requiresPhoto: activity.requiresPhoto,
+      })));
+    }
+    return;
+  }
+
+  for (const assignment of assignments) {
+    const [configuredActivities, selectedLines, clientLines] = await Promise.all([
+      db.select().from(cleaningAreaClientActivitiesTable)
+        .where(eq(cleaningAreaClientActivitiesTable.areaClientId, assignment.id))
+        .orderBy(asc(cleaningAreaClientActivitiesTable.sortOrder)),
+      db.select().from(cleaningAreaClientLinesTable)
+        .where(eq(cleaningAreaClientLinesTable.areaClientId, assignment.id)),
+      db.select().from(cleaningClientLinesTable)
+        .where(eq(cleaningClientLinesTable.clientId, assignment.clientId)),
+    ]);
+    const selectedLineIds = new Set(selectedLines.map((line) => line.clientLineId));
+    const genericActivities = configuredActivities
+      .filter((activity) => activity.clientLineId == null)
+      .map((activity) => ({
+        description: activity.description,
+        activityDescription: activity.activityDescription,
+        requiresPhoto: activity.requiresPhoto,
+      }));
+    const activitiesByLine = new Map<number, typeof genericActivities>();
+    configuredActivities.forEach((activity) => {
+      if (activity.clientLineId == null) return;
+      const activities = activitiesByLine.get(activity.clientLineId) || [];
+      activities.push({
+        description: activity.description,
+        activityDescription: activity.activityDescription,
+        requiresPhoto: activity.requiresPhoto,
+      });
+      activitiesByLine.set(activity.clientLineId, activities);
+    });
+
+    for (const line of clientLines.filter((candidate) => selectedLineIds.has(candidate.id))) {
+      const activities = activitiesByLine.get(line.id) || genericActivities;
+      for (const type of types.filter((candidate) => candidate.clientId === assignment.clientId && candidate.lineNumber === line.lineNumber)) {
+        await replaceCleaningTypeAreaActivities(type.id, areaName, activities);
+      }
+    }
+  }
+}
+
+async function syncConfiguredAreasToOpenExecution(executionId: number) {
+  const [execution, executionAreas, areas] = await Promise.all([
+    db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId)).then((rows) => rows[0]),
+    db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId)),
+    db.select().from(cleaningAreasTable),
+  ]);
+  if (!execution || execution.status === "completed" || execution.signature) return;
+  for (const executionArea of executionAreas) {
+    const area = areas.find((candidate) => candidate.name === executionArea.areaName);
+    if (area) await syncAreaActivitiesToOpenExecutions(area.id, area.name, executionId);
+  }
+}
+
 async function executionJson(id: number) {
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, id));
   if (!execution) return null;
@@ -469,13 +573,17 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, activityDescription: activity.activityDescription, areaName: activity.areaName, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto });
   const areaNames = Array.from(new Set(activities.map((activity) => activity.areaName || "Área general")));
   for (const [index, areaName] of areaNames.entries()) await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: index });
+  await syncConfiguredAreasToOpenExecution(execution.id);
   res.status(201).json(await executionJson(execution.id));
 });
 router.get("/limpiezas/ejecuciones/:id", async (req, res) => {
   const executionId = Number(req.params.id);
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
   if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
-  if (execution.status !== "completed" && !execution.signature) await syncNewAreasToOpenExecutions(execution.cleaningTypeId);
+  if (execution.status !== "completed" && !execution.signature) {
+    await syncNewAreasToOpenExecutions(execution.cleaningTypeId);
+    await syncConfiguredAreasToOpenExecution(executionId);
+  }
   res.json(await executionJson(executionId));
 });
 router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
