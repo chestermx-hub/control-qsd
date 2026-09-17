@@ -303,7 +303,7 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
         </p>
         {activity.note && <p className="mt-1 text-xs italic text-[#78827b]">{activity.note}</p>}
         {activity.requires_photo && (
-          <div className="mt-4 grid max-w-4xl grid-cols-1 gap-4">
+          <div className="mt-2 grid max-w-4xl grid-cols-2 gap-2">
             <PhotoFrame
               src={activity.initial_photo}
               alt={`Evidencia inicial: ${activity.description}`}
@@ -337,21 +337,21 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
 function ActivitySheet({
   area,
   number,
-  activity,
-  activityIndex,
+  activities,
 }: {
   area: CleaningReportArea;
   number: number;
-  activity?: CleaningReportActivity;
-  activityIndex: number;
+  activities: CleaningReportActivity[];
 }) {
+  const activityDensity = activities.length > 8 ? "ultra" : activities.length > 4 ? "dense" : "normal";
+
   return (
     <section className="report-area-content report-fit-content report-area-block flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
       <AreaHeader
         area={area}
         number={number}
-        completed={activity && (activity.completed || activity.not_applicable) ? 1 : 0}
-        total={activity ? 1 : 0}
+        completed={activities.filter((activity) => activity.completed || activity.not_applicable).length}
+        total={activities.length}
       />
       <div className="report-activity-sheet-grid grid min-h-0 flex-1 gap-4 p-4 sm:grid-cols-2">
         <PhotoFrame
@@ -370,8 +370,12 @@ function ActivitySheet({
           label="Fin"
         />
         <div className="report-activity-detail min-w-0 overflow-auto border border-[#d8d9d3] bg-white">
-          {activity ? (
-            <ActivityRow activity={activity} index={activityIndex} />
+          {activities.length ? (
+            <div className="report-activity-list min-h-0" data-activity-density={activityDensity}>
+              {activities.map((activity, activityIndex) => (
+                <ActivityRow key={`${activity.id}-${activityIndex}`} activity={activity} index={activityIndex} />
+              ))}
+            </div>
           ) : (
             <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[#7b857e]">
               No hay actividades registradas para esta área.
@@ -503,22 +507,17 @@ export function CleaningReport({
   const activitySheets: Array<{
     area: CleaningReportArea;
     number: number;
-    activity?: CleaningReportActivity;
-    activityIndex: number;
+    activities: CleaningReportActivity[];
   }> = includedAreas.reduce<Array<{
     area: CleaningReportArea;
     number: number;
-    activity?: CleaningReportActivity;
-    activityIndex: number;
+    activities: CleaningReportActivity[];
   }>>((sheets, area, areaIndex) => {
-    const activities = activitiesByArea.get(area.area_name) || [];
-    if (activities.length) {
-      activities.forEach((activity, activityIndex) => {
-        sheets.push({ area, number: areaIndex + 1, activity, activityIndex });
-      });
-    } else {
-      sheets.push({ area, number: areaIndex + 1, activityIndex: 0 });
-    }
+    sheets.push({
+      area,
+      number: areaIndex + 1,
+      activities: activitiesByArea.get(area.area_name) || [],
+    });
     return sheets;
   }, []);
   const checklistPageCount = execution.checklist_photos?.length || 0;
@@ -812,9 +811,20 @@ export function CleaningReport({
             .cleaning-report .report-activity-sheet-grid > * {
               min-height: 0 !important;
             }
-            .cleaning-report .report-activity-detail {
-              overflow: hidden !important;
-            }
+             .cleaning-report .report-activity-detail {
+               overflow: hidden !important;
+             }
+             .cleaning-report .report-activity-list {
+               overflow: hidden !important;
+             }
+             .cleaning-report .report-activity-list[data-activity-density="dense"] {
+               zoom: 0.82;
+               width: 121.95%;
+             }
+             .cleaning-report .report-activity-list[data-activity-density="ultra"] {
+               zoom: 0.68;
+               width: 147.06%;
+             }
             .cleaning-report .report-area-page-content > * {
               margin-block: 0 !important;
             }
@@ -869,9 +879,22 @@ export function CleaningReport({
            .cleaning-report .report-activity-row > span:first-child { font-size: 8px !important; }
            .cleaning-report .report-activity-row > span:last-child { padding: 2px 6px !important; font-size: 7px !important; }
             .cleaning-report .report-activity-row .mt-3 { margin-top: 3px !important; }
-            .cleaning-report .report-photo-frame.report-photo-compact img { height: 160px !important; }
-           .cleaning-report .report-photo-frame.report-photo-compact button { padding: 3px !important; }
+             .cleaning-report .report-photo-frame.report-photo-compact img { height: 100px !important; }
+            .cleaning-report .report-photo-frame.report-photo-compact { min-height: 100px !important; }
+            .cleaning-report .report-photo-frame.report-photo-compact button { padding: 2px !important; }
            .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 2px 4px !important; font-size: 7px !important; }
+            .cleaning-report .report-activity-list[data-activity-density="dense"] .report-photo-frame.report-photo-compact img {
+              height: 84px !important;
+            }
+            .cleaning-report .report-activity-list[data-activity-density="dense"] .report-photo-frame.report-photo-compact {
+              min-height: 84px !important;
+            }
+            .cleaning-report .report-activity-list[data-activity-density="ultra"] .report-photo-frame.report-photo-compact img {
+              height: 72px !important;
+            }
+            .cleaning-report .report-activity-list[data-activity-density="ultra"] .report-photo-frame.report-photo-compact {
+              min-height: 72px !important;
+            }
            .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) img {
              height: 200px !important;
            }
@@ -1065,16 +1088,15 @@ export function CleaningReport({
           <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
          <div className="report-area-pages space-y-5">
-           {activitySheets.map(({ area, number, activity, activityIndex }, pageIndex) => (
-             <div key={`${area.id}-${activity?.id || "sin-actividad"}-${activityIndex}`} className="report-area-page">
+            {activitySheets.map(({ area, number, activities }, pageIndex) => (
+             <div key={area.id} className="report-area-page">
                <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
                <div className="report-area-page-content">
                  <div className="report-area-viewport report-fit-viewport">
                    <ActivitySheet
                      area={area}
                      number={number}
-                     activity={activity}
-                     activityIndex={activityIndex}
+                      activities={activities}
                    />
                  </div>
                </div>
