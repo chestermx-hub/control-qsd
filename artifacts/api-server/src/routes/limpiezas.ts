@@ -400,6 +400,8 @@ async function syncAreaActivitiesToOpenExecutions(areaId: number, areaName: stri
       const genericActivities = configuredActivities
         .filter((activity) => activity.clientLineId == null)
         .map((activity) => ({ description: activity.description, activityDescription: activity.activityDescription, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto }));
+      if (selectedLines.length && !selectedLineIds.size) continue;
+      if (!lineActivities.length && !genericActivities.length) continue;
       activities = lineActivities.length ? lineActivities : genericActivities;
     }
     const existingActivities = await db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, execution.id));
@@ -469,6 +471,7 @@ async function syncAreaActivitiesToCleaningTypes(areaId: number, areaName: strin
     const baseActivities = await db.select().from(cleaningAreaActivitiesTable)
       .where(eq(cleaningAreaActivitiesTable.areaId, areaId))
       .orderBy(asc(cleaningAreaActivitiesTable.sortOrder));
+    if (!baseActivities.length) return;
     for (const type of types.filter((candidate) => candidate.clientId === area.clientId)) {
       await replaceCleaningTypeAreaActivities(type.id, areaName, baseActivities.map((activity) => ({
         description: activity.description,
@@ -511,6 +514,7 @@ async function syncAreaActivitiesToCleaningTypes(areaId: number, areaName: strin
 
     for (const line of clientLines.filter((candidate) => selectedLineIds.has(candidate.id))) {
       const activities = activitiesByLine.get(line.id) || genericActivities;
+      if (!activities.length) continue;
       for (const type of types.filter((candidate) => candidate.clientId === assignment.clientId && candidate.lineNumber === line.lineNumber)) {
         await replaceCleaningTypeAreaActivities(type.id, areaName, activities);
       }
