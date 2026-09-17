@@ -173,7 +173,7 @@ function PhotoFrame({
     return (
       <div
         className={cn(
-          "report-photo-frame flex min-h-24 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
+          "report-photo-frame flex h-full min-h-0 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
           compact ? "min-h-16" : "min-h-28",
         )}
       >
@@ -189,15 +189,24 @@ function PhotoFrame({
 
   return (
     <>
-      <figure className={cn("report-photo-frame overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]", compact && "report-photo-compact")}>
-        <button type="button" className="block w-full cursor-zoom-in bg-white p-2" onClick={() => setPreviewOpen(true)} aria-label={`Ampliar ${label}`}>
+      <figure className={cn("report-photo-frame flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]", compact && "report-photo-compact")}>
+        <button
+          type="button"
+          className={cn(
+            "cursor-zoom-in bg-white p-2",
+            compact ? "block w-full" : "flex min-h-0 flex-1 items-center justify-center",
+          )}
+          onClick={() => setPreviewOpen(true)}
+          aria-label={`Ampliar ${label}`}
+        >
           <img
             src={src}
             alt={alt}
             data-print-compress
             data-print-max-edge="1000"
             className={cn(
-              "block w-full bg-white object-contain",
+              "block w-full bg-white object-contain object-center",
+              !compact && "h-full min-h-0",
               compact ? "h-56 sm:h-72" : "h-64 sm:h-80",
             )}
           />
@@ -863,9 +872,28 @@ export function CleaningReport({
               gap: 12px !important;
               padding: 12px !important;
             }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 230px !important; }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 230px; }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) button { padding: 4px !important; }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) {
+              display: flex !important;
+              height: 100% !important;
+              min-height: 0 !important;
+              flex-direction: column !important;
+            }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) button {
+              display: flex !important;
+              min-height: 0 !important;
+              flex: 1 1 auto !important;
+              align-items: center !important;
+              justify-content: center !important;
+              padding: 4px !important;
+            }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) img {
+              width: 100% !important;
+              height: 100% !important;
+              max-width: 100% !important;
+              max-height: 100% !important;
+              object-fit: contain !important;
+              object-position: center !important;
+            }
             .cleaning-report .report-photo-frame figcaption { padding: 3px 5px !important; font-size: 7px !important; }
             .cleaning-report .report-activity-row {
               grid-template-columns: 22px minmax(0, 1fr) auto !important;
@@ -895,23 +923,9 @@ export function CleaningReport({
             .cleaning-report .report-activity-list[data-activity-density="ultra"] .report-photo-frame.report-photo-compact {
               min-height: 72px !important;
             }
-           .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) img {
-             height: 200px !important;
-           }
-           .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) {
-             min-height: 200px !important;
-           }
            .cleaning-report .report-area-viewport[data-density="dense"] .report-area-header,
            .cleaning-report .report-area-viewport[data-density="ultra"] .report-area-header {
              padding: 5px 8px !important;
-           }
-           .cleaning-report .report-area-viewport[data-density="dense"] .report-photo-frame:not(.report-photo-compact) img,
-           .cleaning-report .report-area-viewport[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) img {
-             height: 170px !important;
-           }
-           .cleaning-report .report-area-viewport[data-density="dense"] .report-photo-frame:not(.report-photo-compact),
-           .cleaning-report .report-area-viewport[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) {
-             min-height: 170px !important;
            }
            .cleaning-report .report-area-viewport[data-density="dense"] .report-activity-row,
            .cleaning-report .report-area-viewport[data-density="ultra"] .report-activity-row {
