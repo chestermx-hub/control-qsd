@@ -176,7 +176,7 @@ function PhotoFrame({
       <div
         className={cn(
           "report-photo-frame flex h-full min-h-0 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
-          compact ? "min-h-16" : gallery ? "min-h-28 sm:min-h-36" : "min-h-28",
+          compact ? "min-h-16" : gallery ? "min-h-48 sm:min-h-56" : "min-h-28",
         )}
       >
         <div className="space-y-1">
@@ -195,7 +195,7 @@ function PhotoFrame({
         className={cn(
           "report-photo-frame flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]",
           compact && "report-photo-compact",
-          gallery && "report-photo-gallery min-h-28 sm:min-h-36",
+          gallery && "report-photo-gallery min-h-48 sm:min-h-56",
         )}
       >
         <button
@@ -214,7 +214,7 @@ function PhotoFrame({
             data-print-max-edge="1000"
             className={cn(
               "block w-full bg-white object-contain object-center",
-              compact ? "h-56 sm:h-72" : gallery ? "h-28 sm:h-36" : "h-full min-h-0",
+              compact ? "h-56 sm:h-72" : gallery ? "h-48 sm:h-56" : "h-full min-h-0",
             )}
           />
         </button>
@@ -905,8 +905,8 @@ export function CleaningReport({
                gap: 3mm !important;
              }
              .cleaning-report .report-photo-gallery {
-               height: 42mm !important;
-               min-height: 42mm !important;
+               height: 58mm !important;
+               min-height: 58mm !important;
              }
              .cleaning-report .report-photo-gallery button {
                display: flex !important;
