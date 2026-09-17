@@ -503,25 +503,40 @@ export default function NuevoRegistro() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Defecto</Label>
-              <select
+              <Select
                 value={dialogDefectId}
+                onValueChange={setDialogDefectId}
                 disabled={isZonaU && !!zonaUDefect}
-                onChange={(e) => setDialogDefectId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-100"
               >
-                {isZonaU && zonaUDefect ? (
-                  <option value={zonaUDefect.id.toString()}>{zonaUDefect.code} — {zonaUDefect.name}</option>
-                ) : (
-                  <>
-                    <option value="">Selecciona un defecto</option>
-                    {applicableDefects.map((d) => (
-                      <option key={d.id} value={d.id.toString()}>{d.code} — {d.name}</option>
-                    ))}
-                    {!zoneId && <option value="" disabled>Selecciona primero una zona auditada</option>}
-                    {zoneId && !applicableDefects.length && <option value="" disabled>No hay defectos asignados a esta zona</option>}
-                  </>
-                )}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un defecto" />
+                </SelectTrigger>
+                <SelectContent position="item-aligned" className="max-h-[min(60vh,24rem)]">
+                  {isZonaU && zonaUDefect ? (
+                    <SelectItem value={zonaUDefect.id.toString()}>
+                      {zonaUDefect.code} — {zonaUDefect.name}
+                    </SelectItem>
+                  ) : (
+                    <>
+                      {applicableDefects.map((d) => (
+                        <SelectItem key={d.id} value={d.id.toString()}>
+                          {d.code} — {d.name}
+                        </SelectItem>
+                      ))}
+                      {!zoneId && (
+                        <SelectItem value="no-zone" disabled>
+                          Selecciona primero una zona auditada
+                        </SelectItem>
+                      )}
+                      {zoneId && !applicableDefects.length && (
+                        <SelectItem value="no-defects" disabled>
+                          No hay defectos asignados a esta zona
+                        </SelectItem>
+                      )}
+                    </>
+                  )}
+                </SelectContent>
+              </Select>
               {isZonaU && zonaUDefect && (
                 <p className="text-xs text-muted-foreground">
                   ZONA U sólo registra el defecto fijo: {zonaUDefect.code} — {zonaUDefect.name}.
