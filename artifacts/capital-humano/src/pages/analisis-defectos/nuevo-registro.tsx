@@ -78,7 +78,8 @@ export default function NuevoRegistro() {
   const resolvedUnitNumber = isContinuing ? existingUnitNumber! : (dailyCounter?.next_unit_number ?? 1);
 
   const selectedPanel = useMemo(() => activePanels?.find((p) => p.id === panelId), [activePanels, panelId]);
-  const requiresSideSelection = selectedPanel?.side_mode === "bilateral";
+  const requiresSideSelection = selectedPanel?.side_mode === "bilateral"
+    || (selectedPanel?.side_mode == null && selectedPanel?.side_id != null);
   const canSelectGrid = !requiresSideSelection || sidePosition !== null;
   const panelVisualZone = useMemo(() => visualZones?.find((v) => v.id === selectedPanel?.visual_zone_id), [visualZones, selectedPanel]);
   const applicableDefects = useMemo(
@@ -124,6 +125,12 @@ export default function NuevoRegistro() {
 
   const createCapture = useCreateAuditCapture({
     mutation: {
+      onError: (error) => {
+        toast({
+          title: error instanceof Error ? error.message : "No se pudo registrar el defecto",
+          variant: "destructive",
+        });
+      },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListAuditCapturesQueryKey() });
 
@@ -503,40 +510,32 @@ export default function NuevoRegistro() {
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Defecto</Label>
-              <Select
+              <select
                 value={dialogDefectId}
-                onValueChange={setDialogDefectId}
                 disabled={isZonaU && !!zonaUDefect}
+                size={isZonaU && zonaUDefect ? 1 : 6}
+                onChange={(e) => setDialogDefectId(e.target.value)}
+                className="h-auto min-h-9 max-h-44 w-full overflow-y-auto rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-100"
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un defecto" />
-                </SelectTrigger>
-                <SelectContent position="item-aligned" className="max-h-[min(60vh,24rem)]">
-                  {isZonaU && zonaUDefect ? (
-                    <SelectItem value={zonaUDefect.id.toString()}>
-                      {zonaUDefect.code} — {zonaUDefect.name}
-                    </SelectItem>
-                  ) : (
-                    <>
-                      {applicableDefects.map((d) => (
-                        <SelectItem key={d.id} value={d.id.toString()}>
-                          {d.code} — {d.name}
-                        </SelectItem>
-                      ))}
-                      {!zoneId && (
-                        <SelectItem value="no-zone" disabled>
-                          Selecciona primero una zona auditada
-                        </SelectItem>
-                      )}
-                      {zoneId && !applicableDefects.length && (
-                        <SelectItem value="no-defects" disabled>
-                          No hay defectos asignados a esta zona
-                        </SelectItem>
-                      )}
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
+                {isZonaU && zonaUDefect ? (
+                  <option value={zonaUDefect.id.toString()}>
+                    {zonaUDefect.code} — {zonaUDefect.name}
+                  </option>
+                ) : (
+                  <>
+                    <option value="">Selecciona un defecto</option>
+                    {applicableDefects.map((d) => (
+                      <option key={d.id} value={d.id.toString()}>
+                        {d.code} — {d.name}
+                      </option>
+                    ))}
+                    {!zoneId && <option value="" disabled>Selecciona primero una zona auditada</option>}
+                    {zoneId && !applicableDefects.length && (
+                      <option value="" disabled>No hay defectos asignados a esta zona</option>
+                    )}
+                  </>
+                )}
+              </select>
               {isZonaU && zonaUDefect && (
                 <p className="text-xs text-muted-foreground">
                   ZONA U sólo registra el defecto fijo: {zonaUDefect.code} — {zonaUDefect.name}.
