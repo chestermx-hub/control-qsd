@@ -88,6 +88,15 @@ function statusLabel(status?: string) {
   return status || "Reporte operativo";
 }
 
+function folioPart(value: string) {
+  return value.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") || "SinDato";
+}
+
+function executionFolioName(execution: Pick<CleaningReportExecution, "client" | "line_number" | "execution_date">) {
+  const [year = "0000", month = "00", day = "00"] = execution.execution_date.slice(0, 10).split("-");
+  return `${folioPart(execution.client?.name || "Cliente")}_${folioPart(execution.line_number || "SinLinea")}_${day}${month}${year}`;
+}
+
 function activityStatus(activity: CleaningReportActivity) {
   if (activity.not_applicable) return { label: "No aplica", tone: "neutral" as const };
   if (activity.completed) return { label: "Completada", tone: "complete" as const };
@@ -488,7 +497,7 @@ export function CleaningReport({
     (activity) => activity.completed || activity.not_applicable,
   ).length;
   const completion = totalActivities ? Math.round((completedActivities / totalActivities) * 100) : 0;
-  const reportNumber = `ICMX-${String(execution.id).padStart(5, "0")}`;
+  const reportNumber = executionFolioName(execution);
   const reportRef = useRef<HTMLElement>(null);
   const preparedPrintImagesRef = useRef<PreparedPrintImage[]>([]);
   const [preparingPrint, setPreparingPrint] = useState(false);

@@ -41,6 +41,15 @@ function currentDateInputValue() {
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
+function folioPart(value: string) {
+  return value.trim().replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "") || "SinDato";
+}
+
+function executionFolioName(execution: Pick<Execution, "client" | "line_number" | "execution_date">) {
+  const [year = "0000", month = "00", day = "00"] = execution.execution_date.slice(0, 10).split("-");
+  return `${folioPart(execution.client?.name || "Cliente")}_${folioPart(execution.line_number || "SinLinea")}_${day}${month}${year}`;
+}
+
 const api = async (path: string, options?: RequestInit) => {
   const response = await fetch(`/api${path}`, { credentials: "include", headers: { "Content-Type": "application/json", ...(options?.headers || {}) }, ...options });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "No se pudo completar la operación");
@@ -622,9 +631,9 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const { toast } = useToast();
-  useEffect(() => { api("/limpiezas/ejecuciones").then(setReports).finally(() => setLoading(false)); }, []);
+  useEffect(() => { api("/limpiezas/ejecuciones?status=open").then(setReports).finally(() => setLoading(false)); }, []);
   const remove = async (id: number) => { if (!window.confirm("¿Eliminar este reporte del histórico? Esta acción no se puede deshacer.")) return; try { await api(`/limpiezas/ejecuciones/${id}`, { method: "DELETE" }); setReports((current) => current.filter((report) => report.id !== id)); toast({ title: "Reporte eliminado" }); } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo eliminar el reporte", variant: "destructive" }); } };
-  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Histórico de reportes</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">No hay reportes registrados.</p> : <div className="divide-y rounded-md border">{reports.map((report) => { const inProgress = !report.signature; return <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{report.client?.name || "Cliente"} · {report.cleaning_type?.name || "Reporte de limpieza"}</span><span className="block text-xs text-muted-foreground">{report.execution_date} · Línea trabajada: {report.line_number || "—"}</span></button><div className="flex items-center justify-between gap-2"><Badge variant={inProgress ? "secondary" : "default"}>{inProgress ? "En progreso" : "Completado"}</Badge>{isAdmin && inProgress && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>; })}</div>}</CardContent></Card>;
+  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Folios activos</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">No hay folios activos.</p> : <div className="divide-y rounded-md border">{reports.map((report) => <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{executionFolioName(report)}</span><span className="block text-xs text-muted-foreground">{report.cleaning_type?.name || "Reporte de limpieza"}</span></button><div className="flex items-center justify-between gap-2"><Badge variant="secondary">En progreso</Badge>{isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>)}</div>}</CardContent></Card>;
 }
 
 function LegacyStartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted: (execution: Execution) => void }) {
@@ -801,19 +810,6 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
         </div>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[
-          ["01", "Evidencia por módulo", "Fotos iniciales y finales organizadas por área."],
-          ["02", "Seguimiento en vivo", "Actividades completadas y pendientes en un vistazo."],
-          ["03", "Cierre verificable", "Firma del usuario y documento listo para PDF."],
-        ].map(([number, title, description]) => (
-          <div key={number} className="rounded-xl border bg-card p-4">
-            <p className="text-xs font-semibold tracking-[0.16em] text-primary">{number}</p>
-            <p className="mt-3 font-semibold">{title}</p>
-           <p className="mt-1 text-sm leading-5 text-muted-foreground">{description}</p>
-          </div>
-        ))}
-      </div>
        <CustomFlowDialog catalogs={catalogs} open={customOpen} onOpenChange={setCustomOpen} onCreated={(flow) => { setClientId(String(flow.client_id)); setFlowId(String(flow.id)); setLineNumber(flow.line_number || ""); }} />
     </div>
   );
@@ -936,10 +932,11 @@ function ExecutionPageModern({
 
   const saveSignature = async (signatureDataUrl: string, signerName: string) => {
     if (!execution) return;
+    const photos = checklistPhotos.length ? checklistPhotos : (execution.checklist_photos || []);
+    if (photos.length >= 1 && !window.confirm("¿Confirmas que deseas cerrar este folio? Después de confirmar quedará como completado.")) return;
     setSavingSignature(true);
     try {
       const signaturePath = await uploadSignatureImage(signatureDataUrl);
-      const photos = checklistPhotos.length ? checklistPhotos : (execution.checklist_photos || []);
       if (photos.length < 1) {
         setPendingSignature({ path: signaturePath, signerName });
         setChecklistPhotos(photos);
@@ -969,6 +966,8 @@ function ExecutionPageModern({
 
   const saveChecklist = async (photos: string[]) => {
     if (!execution || !canEditExecution) return;
+    const signedNow = Boolean(pendingSignature);
+    if (signedNow && !window.confirm("¿Confirmas que deseas cerrar este folio? Después de confirmar quedará como completado.")) return;
     setSavingChecklist(true);
     try {
       const signaturePayload = pendingSignature
@@ -983,7 +982,6 @@ function ExecutionPageModern({
       });
       setExecution(updated);
       setChecklistPhotos(updated.checklist_photos || photos);
-      const signedNow = Boolean(pendingSignature);
       setPendingSignature(null);
       setChecklistOpen(false);
       toast({
@@ -1236,8 +1234,8 @@ function HistoryPage({ catalogs, reload }: { catalogs: Catalogs; reload: () => v
       <div className="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Archivo operativo</p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight">Histórico de reportes</h2>
-           <p className="mt-1 text-sm text-muted-foreground">Consulta evidencias y actividades de todos los reportes.</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">Folios activos</h2>
+           <p className="mt-1 text-sm text-muted-foreground">Consulta y continúa los reportes que siguen abiertos.</p>
         </div>
         <Button type="button" variant="outline" onClick={() => setLocation("/limpiezas-icmx")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
