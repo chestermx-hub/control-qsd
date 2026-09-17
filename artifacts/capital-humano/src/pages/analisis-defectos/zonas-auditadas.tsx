@@ -469,7 +469,7 @@ function AgregarDefectosDialog({
 
   const applicableDefects = useMemo(
     () => selectedZoneId
-      ? defects?.filter((defect) => defect.applicable_zones?.some((zone) => zone.id === selectedZoneId)) ?? []
+      ? defects?.filter((defect) => defect.applicable_zones?.some((zone) => Number(zone.id) === selectedZoneId)) ?? []
       : [],
     [defects, selectedZoneId],
   );
@@ -492,6 +492,9 @@ function AgregarDefectosDialog({
 
   const createCapture = useCreateAuditCapture({
     mutation: {
+      onError: (error) => {
+        toast({ title: error.message || "No se pudo guardar el defecto", variant: "destructive" });
+      },
       onSuccess: (data) => {
         queryClient.invalidateQueries({ queryKey: getListAuditCapturesQueryKey() });
         const cell = dialogCell!;
@@ -593,9 +596,7 @@ function AgregarDefectosDialog({
         zone_id: selectedZoneId ?? undefined,
         panel_id: panel.id,
         side_id: panel.side_id ?? undefined,
-        side_position: panel.side_id && (sidePosition === "left" || sidePosition === "right")
-          ? sidePosition
-          : undefined,
+        side_position: panel.side_id ? sidePosition : "center",
         visual_zone_id: panel.visual_zone_id ?? undefined,
          grid_col: dialogCell.colIndex + 1,
          grid_col_label: dialogCell.colLabel,
@@ -809,20 +810,39 @@ function AgregarDefectosDialog({
           <div className="space-y-4">
             <div className="space-y-1">
               <Label>Defecto</Label>
-              <Select onValueChange={setDialogDefectId} value={dialogDefectId}>
-                <SelectTrigger><SelectValue placeholder="Selecciona un defecto" /></SelectTrigger>
-                <SelectContent>
-                  {applicableDefects.map((d) => (
-                    <SelectItem key={d.id} value={d.id.toString()}>{d.code} — {d.name}</SelectItem>
-                  ))}
-                  {!selectedZoneId && (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">Selecciona primero una zona auditada.</div>
-                  )}
-                  {selectedZoneId && !applicableDefects.length && (
-                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No hay defectos asignados a esta zona.</div>
-                  )}
-                </SelectContent>
-              </Select>
+              <div
+                role="listbox"
+                aria-label="Defectos disponibles"
+                className="h-44 w-full overflow-y-scroll rounded-md border border-input bg-background p-1 shadow-sm overscroll-contain"
+              >
+                {!selectedZoneId ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">Selecciona primero una zona auditada.</p>
+                ) : applicableDefects.length === 0 ? (
+                  <p className="px-3 py-2 text-sm text-muted-foreground">No hay defectos asignados a esta zona.</p>
+                ) : (
+                  applicableDefects.map((d) => {
+                    const value = String(d.id);
+                    const selected = dialogDefectId === value;
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        role="option"
+                        aria-selected={selected}
+                        onClick={() => setDialogDefectId(value)}
+                        className={`w-full rounded px-3 py-2 text-left text-sm ${selected ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}
+                      >
+                        {d.code} — {d.name}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {dialogDefectId
+                  ? `Seleccionado: ${applicableDefects.find((d) => String(d.id) === dialogDefectId)?.code ?? ""}`
+                  : "Desplázate dentro de la lista para ver todos los defectos."}
+              </p>
             </div>
             <div className="space-y-1">
               <Label>Cantidad</Label>
