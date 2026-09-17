@@ -50,6 +50,15 @@ function executionFolioName(execution: Pick<Execution, "client" | "line_number" 
   return `${folioPart(execution.client?.name || "Cliente")}_${folioPart(execution.line_number || "SinLinea")}_${day}${month}${year}`;
 }
 
+function relevantExecutionActivities(execution: Execution) {
+  const activeAreaNames = new Set(
+    execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
+  );
+  return execution.activities.filter(
+    (activity) => !activity.area_name || activeAreaNames.has(activity.area_name),
+  );
+}
+
 const api = async (path: string, options?: RequestInit) => {
   const response = await fetch(`/api${path}`, { credentials: "include", headers: { "Content-Type": "application/json", ...(options?.headers || {}) }, ...options });
   if (!response.ok) throw new Error((await response.json().catch(() => ({}))).error || "No se pudo completar la operación");
@@ -728,7 +737,8 @@ function ExecutionPage({ catalogs, reload }: { catalogs: Catalogs; reload: () =>
   const updateArea = async (area: ExecutionArea, patch: any) => { try { await api(`/limpiezas/ejecuciones/${execution!.id}/areas/${area.id}`, { method: "PATCH", body: JSON.stringify(patch) }); setExecution(await api(`/limpiezas/ejecuciones/${execution!.id}`)); } catch (e) { toast({ title: e instanceof Error ? e.message : "No se pudo actualizar el área", variant: "destructive" }); } };
   const report = () => { if (!execution) return; const w = window.open("", "_blank"); if (!w) return; w.document.write(`<html><head><title>Reporte de limpieza ${execution.client.name}</title><style>body{font-family:Arial;padding:28px;color:#172033}h1{color:#0f766e}section{border:1px solid #ddd;margin:16px 0;padding:14px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #ddd;padding:8px;text-align:left;vertical-align:top}img{width:120px;height:90px;object-fit:cover;margin-right:8px;border:1px solid #ddd}.activity-photos{display:flex;gap:8px;align-items:center}.activity-photos img{width:100px;height:75px}</style></head><body><h1>Reporte de Limpieza ICMX</h1><p><b>Cliente:</b> ${execution.client.name}<br><b>Planta:</b> ${execution.client.plant_number}<br><b>Tipo de limpieza:</b> ${execution.cleaning_type.name}<br><b>Fecha:</b> ${execution.execution_date}</p>${execution.areas.map(area => `<section><h2>${area.area_name} · ${area.ready ? "Lista" : "Pendiente"}</h2><p>${area.initial_photo ? `<img src="${area.initial_photo}" alt="Foto inicial del área">` : ""}${area.final_photo ? `<img src="${area.final_photo}" alt="Foto final del área">` : ""}</p><table><tr><th>Actividad</th><th>Estado</th><th>Fotos inicial y final</th></tr>${execution.activities.filter(a => (a.area_name || "Área general") === area.area_name).map(a => `<tr><td>${a.description}</td><td>${a.not_applicable ? "No aplica" : a.completed ? "Completada" : "Pendiente"}</td><td><div class="activity-photos">${a.initial_photo ? `<img src="${a.initial_photo}" alt="Foto inicial">` : "<span>Sin foto inicial</span>"}${a.final_photo ? `<img src="${a.final_photo}" alt="Foto final">` : "<span>Sin foto final</span>"}</div></td></tr>`).join("")}</table></section>`).join("")}<script>window.onload=()=>window.print()</script></body></html>`); w.document.close(); };
    if (!execution) return <><StartExecution catalogs={catalogs} onStarted={setExecution} /><ReportHistory onOpen={setExecution} /></>;
-  const done = execution.activities.filter(a => a.completed || a.not_applicable).length;
+  const relevantActivities = relevantExecutionActivities(execution);
+  const done = relevantActivities.filter(a => a.completed || a.not_applicable).length;
     return <div className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><h2 className="text-xl font-semibold break-words">{execution.cleaning_type.name}</h2><p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p></div><div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button className="w-full sm:w-auto" variant="outline" onClick={report}><Download className="mr-2 h-4 w-4" />Reporte PDF</Button><Button className="w-full sm:w-auto" variant="outline" onClick={() => setExecution(null)}>Volver a Limpiezas ICMX</Button></div></div><div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${(done / execution.activities.length) * 100}%` }} /></div>{execution.areas.map((area) => { const areaActivities = execution.activities.filter(a => (a.area_name || "Área general") === area.area_name); return <Card key={area.id} className={area.ready ? "border-emerald-500/60" : ""}><CardContent className="space-y-4 p-4 sm:p-5"><div className="flex items-start gap-3"><div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${area.ready ? "bg-emerald-500 text-white" : "bg-muted"}`}>{area.ready ? <Check className="h-4 w-4" /> : <span className="text-sm font-semibold">{areaActivities[0] ? execution.activities.indexOf(areaActivities[0]) + 1 : "·"}</span>}</div><div className="min-w-0 flex-1"><p className="font-semibold break-words">{area.area_name}</p><p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p></div><button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={!area.initial_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}><span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} /></button></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} onUploaded={path => updateArea(area, { initial_photo: path })} /></div><div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={path => updateArea(area, { final_photo: path })} /></div></div><div className="divide-y rounded-md border">{areaActivities.map((a, index) => <div key={a.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${a.not_applicable ? "bg-muted/50" : ""}`}><span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span><p className={`min-w-0 text-sm break-words md:flex-1 ${a.not_applicable ? "line-through text-muted-foreground" : ""}`}>{a.description}</p><ActivityPhoto activity={a} areaInitialPhoto={area.initial_photo} onUploaded={path => updateActivity(a, { initial_photo: path })} /><div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents"><label className={`flex min-h-11 items-center gap-2 text-xs ${!area.initial_photo || (a.requires_photo && !a.initial_photo) ? "cursor-not-allowed text-amber-700" : "text-muted-foreground"}`} title={!area.initial_photo ? "Toma primero la foto inicial del área" : a.requires_photo && !a.initial_photo ? "Toma primero la foto inicial" : undefined}><input className="h-5 w-5 accent-primary" type="checkbox" checked={a.not_applicable} disabled={a.completed || !area.initial_photo || (a.requires_photo && !a.initial_photo)} onChange={e => updateActivity(a, { not_applicable: e.target.checked, completed: false })} />No aplica</label>{a.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !a.not_applicable && <Button size="sm" className="min-h-10" disabled={!area.initial_photo || (a.requires_photo && !a.initial_photo)} title={!area.initial_photo ? "Toma primero la foto inicial del área" : a.requires_photo && !a.initial_photo ? "Toma primero la foto inicial" : undefined} onClick={() => updateActivity(a, { completed: true })}>Completar</Button>}</div></div>)}</div></CardContent></Card>; })}</div>;
 }
 
@@ -1092,7 +1102,8 @@ function ExecutionPageModern({
     );
   }
 
-  const done = execution.activities.filter((activity) => activity.completed || activity.not_applicable).length;
+  const relevantActivities = relevantExecutionActivities(execution);
+  const done = relevantActivities.filter((activity) => activity.completed || activity.not_applicable).length;
   const signature: CleaningReportSignature | undefined = execution.signature
     ? { dataUrl: execution.signature, signerName: execution.signature_user_name || "Usuario responsable", signedAt: execution.signed_at }
     : undefined;
@@ -1137,7 +1148,7 @@ function ExecutionPageModern({
             <FileText className="h-5 w-5 shrink-0 text-primary" />
             <h2 className="text-xl font-semibold break-words">{execution.cleaning_type.name}</h2>
           </div>
-          <p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p>
+          <p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{relevantActivities.length} actividades</p>
         </div>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
           {canEditExecution && (
@@ -1162,7 +1173,7 @@ function ExecutionPageModern({
         </div>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full bg-primary transition-all" style={{ width: `${execution.activities.length ? (done / execution.activities.length) * 100 : 0}%` }} />
+        <div className="h-full bg-primary transition-all" style={{ width: `${relevantActivities.length ? (done / relevantActivities.length) * 100 : 0}%` }} />
       </div>
       {execution.signature && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
