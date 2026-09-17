@@ -6,6 +6,17 @@ import type { Request, Response } from "express";
 const router = Router();
 const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, activity_description: row.activityDescription, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, intermediate_photo: row.intermediatePhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
+async function isAdmin(req: Request) {
+  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
+  if (!userId) return false;
+  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId));
+  return user?.role === "admin" || user?.role === "superadmin";
+}
+
+async function canEditExecution(req: Request, execution: typeof cleaningExecutionsTable.$inferSelect) {
+  return !execution.signature || await isAdmin(req);
+}
+
 async function clientWithLines(id: number) {
   const [client] = await db.select().from(cleaningClientsTable).where(eq(cleaningClientsTable.id, id));
   if (!client) return null;
@@ -561,7 +572,7 @@ async function maybeCompleteExecution(executionId: number) {
 router.get("/limpiezas/ejecuciones", async (req, res) => {
   const rows = await db.select().from(cleaningExecutionsTable).orderBy(asc(cleaningExecutionsTable.executionDate));
   const filteredRows = req.query.status === "open"
-    ? rows.filter((row) => row.status !== "completed" && !row.signature)
+    ? rows.filter((row) => !row.signature)
     : rows;
   res.json(await Promise.all(filteredRows.map((r) => executionJson(r.id))));
 });
@@ -594,6 +605,10 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   const executionId = Number(req.params.id);
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
   if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  if (!await canEditExecution(req, execution)) {
+    res.status(403).json({ error: "Sólo un administrador puede editar reportes completados" });
+    return;
+  }
   const hasChecklistPhotos = req.body.checklist_photos !== undefined;
   const checklistPhotos = hasChecklistPhotos
     ? (Array.isArray(req.body.checklist_photos) ? req.body.checklist_photos.filter((photo: unknown): photo is string => typeof photo === "string" && photo.trim().length > 0) : [])
@@ -604,7 +619,7 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   }
   const requestedDate = typeof req.body.execution_date === "string" ? req.body.execution_date.trim() : undefined;
   if (requestedDate !== undefined) {
-    if (execution.signature || execution.status === "completed") {
+    if (execution.signature && !await isAdmin(req)) {
       res.status(400).json({ error: "La fecha no puede modificarse después de cerrar el reporte" });
       return;
     }
@@ -659,14 +674,18 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   res.json(await executionJson(executionId));
 });
 router.delete("/limpiezas/ejecuciones/:id", async (req, res) => {
-  const userId = (req.session as unknown as Record<string, unknown>).userId as number | undefined;
-  if (!userId) { res.status(401).json({ error: "No autenticado" }); return; }
-  const [user] = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.id, userId));
-  if (!user || (user.role !== "admin" && user.role !== "superadmin")) { res.status(403).json({ error: "Sólo un administrador puede eliminar reportes" }); return; }
-  await db.delete(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, Number(req.params.id))); res.status(204).send();
+  const executionId = Number(req.params.id);
+  const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
+  if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  if (!await isAdmin(req)) { res.status(403).json({ error: "Sólo un administrador puede eliminar reportes en proceso" }); return; }
+  if (execution.signature) { res.status(403).json({ error: "Los reportes completados no se pueden eliminar" }); return; }
+  await db.delete(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId)); res.status(204).send();
 });
 router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
   const executionId = Number(req.params.id); const areaId = Number(req.params.areaId);
+  const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
+  if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  if (!await canEditExecution(req, execution)) { res.status(403).json({ error: "Sólo un administrador puede editar reportes completados" }); return; }
   const [current] = await db.select().from(cleaningExecutionAreasTable).where(and(eq(cleaningExecutionAreasTable.id, areaId), eq(cleaningExecutionAreasTable.executionId, executionId)));
   if (!current) { res.status(404).json({ error: "Área de ejecución no encontrada" }); return; }
   const initialPhoto = req.body.initial_photo ?? current.initialPhoto;
@@ -688,6 +707,9 @@ router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {
 });
 router.patch("/limpiezas/ejecuciones/:id/actividades/:activityId", async (req, res) => {
   const executionId = Number(req.params.id); const activityId = Number(req.params.activityId);
+  const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
+  if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
+  if (!await canEditExecution(req, execution)) { res.status(403).json({ error: "Sólo un administrador puede editar reportes completados" }); return; }
   const { initial_photo, final_photo, completed, not_applicable } = req.body;
   const [current] = await db.select().from(cleaningExecutionActivitiesTable).where(and(eq(cleaningExecutionActivitiesTable.id, activityId), eq(cleaningExecutionActivitiesTable.executionId, executionId)));
   if (!current) { res.status(404).json({ error: "Actividad no encontrada" }); return; }

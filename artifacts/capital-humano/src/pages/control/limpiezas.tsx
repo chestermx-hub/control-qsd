@@ -554,24 +554,24 @@ function PhotoButton({ label, value, onUploaded, disabled = false }: { label: st
   return <div className="space-y-2">{inputs}{value ? <><button type="button" className="group relative block w-full max-w-[220px] overflow-hidden rounded-lg border bg-muted text-left" onClick={() => setPreviewOpen(true)} aria-label={`Ver ${label.toLocaleLowerCase()} ampliada`}><img src={value} alt={label} className="h-24 w-full object-cover transition-transform group-hover:scale-[1.03] sm:h-28" /><span className="absolute inset-x-0 bottom-0 bg-slate-950/70 px-2 py-1 text-center text-[11px] font-medium text-white">Ver ampliada</span></button>{sourceButtons}<Dialog open={previewOpen} onOpenChange={setPreviewOpen}><DialogContent className="w-[calc(100%-1rem)] max-w-4xl p-3 sm:p-5"><DialogHeader><DialogTitle>{label}</DialogTitle></DialogHeader><div className="flex max-h-[78vh] items-center justify-center overflow-hidden rounded-lg bg-slate-950/5 p-1 sm:p-3"><img src={value} alt={label} className="max-h-[72vh] max-w-full object-contain" /></div></DialogContent></Dialog></> : <>{busy ? <Button type="button" variant="outline" className="min-h-11 w-full" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Subiendo...</Button> : disabled ? <Button type="button" variant="outline" className="min-h-11 w-full" disabled>Disponible al completar</Button> : <>{sourceButtons}</>}</>}</div>;
 }
 
-function ActivityPhoto({ activity, areaInitialPhoto, onUploaded }: { activity: FlowActivity & { completed?: boolean }; areaInitialPhoto?: string; onUploaded: (path: string) => void }) {
+function ActivityPhoto({ activity, areaInitialPhoto, disabled = false, onUploaded }: { activity: FlowActivity & { completed?: boolean }; areaInitialPhoto?: string; disabled?: boolean; onUploaded: (path: string) => void }) {
   if (!activity.requires_photo) return null;
-  return <div className={`col-span-2 grid gap-2 pl-8 md:order-3 md:flex-1 md:pl-0 ${activity.requires_photo ? "sm:grid-cols-2" : ""}`}><div><p className="mb-1 text-xs text-muted-foreground">Foto inicial obligatoria</p><PhotoButton label="Tomar foto inicial" value={activity.initial_photo} disabled={!areaInitialPhoto} onUploaded={onUploaded} /></div>{activity.requires_photo && <div><p className="mb-1 text-xs text-muted-foreground">Foto final</p><PhotoButton label="Tomar foto final" value={activity.final_photo} disabled={!areaInitialPhoto || !activity.completed || !activity.initial_photo} onUploaded={(path) => onUploaded(`__FINAL__${path}`)} /></div>}</div>;
+  return <div className={`col-span-2 grid gap-2 pl-8 md:order-3 md:flex-1 md:pl-0 ${activity.requires_photo ? "sm:grid-cols-2" : ""}`}><div><p className="mb-1 text-xs text-muted-foreground">Foto inicial obligatoria</p><PhotoButton label="Tomar foto inicial" value={activity.initial_photo} disabled={disabled || !areaInitialPhoto} onUploaded={onUploaded} /></div>{activity.requires_photo && <div><p className="mb-1 text-xs text-muted-foreground">Foto final</p><PhotoButton label="Tomar foto final" value={activity.final_photo} disabled={disabled || !areaInitialPhoto || !activity.completed || !activity.initial_photo} onUploaded={(path) => onUploaded(`__FINAL__${path}`)} /></div>}</div>;
 }
 
-function AreaFinalPhoto({ area, activities, onUploaded }: { area: ExecutionArea; activities: Execution["activities"]; onUploaded: (path: string) => void }) {
+function AreaFinalPhoto({ area, activities, disabled = false, onUploaded }: { area: ExecutionArea; activities: Execution["activities"]; disabled?: boolean; onUploaded: (path: string) => void }) {
   if (area.excluded) return <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">Esta área está excluida de la ejecución.</div>;
   const complete = activities.every((activity) => (activity.completed || activity.not_applicable) && (!activity.requires_photo || (activity.initial_photo && activity.final_photo)));
   const available = complete && Boolean(area.intermediate_photo);
   if (!available && !area.final_photo) return <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">{!area.intermediate_photo ? "La foto final se habilitará después de tomar la demostración del proceso." : "La foto final se habilitará al completar las actividades del área."}</div>;
-  return <PhotoButton label="Tomar foto final del área" value={area.final_photo} disabled={!available} onUploaded={onUploaded} />;
+  return <PhotoButton label="Tomar foto final del área" value={area.final_photo} disabled={disabled || !available} onUploaded={onUploaded} />;
 }
 
-function AreaExecutionToggle({ area, onChange }: { area: ExecutionArea; onChange: (excluded: boolean) => void }) {
+function AreaExecutionToggle({ area, disabled = false, onChange }: { area: ExecutionArea; disabled?: boolean; onChange: (excluded: boolean) => void }) {
   const turnOff = () => {
     if (area.excluded || window.confirm(`¿Deseas apagar ${area.area_name}? Esta área no se ejecutará en esta limpieza.`)) onChange(!area.excluded);
   };
-  return <button type="button" aria-label={`${area.excluded ? "Activar" : "Excluir"} ${area.area_name}`} onClick={turnOff} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.excluded ? "bg-slate-200" : "bg-emerald-500"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}><span className={`absolute top-1.5 h-4 w-4 rounded-full transition-transform ${area.excluded ? "translate-x-1 bg-red-500" : "translate-x-1 bg-emerald-700"}`} /></button>;
+  return <button type="button" disabled={disabled} aria-label={`${area.excluded ? "Activar" : "Excluir"} ${area.area_name}`} onClick={turnOff} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.excluded ? "bg-slate-200" : "bg-emerald-500"} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50`}><span className={`absolute top-1.5 h-4 w-4 rounded-full transition-transform ${area.excluded ? "translate-x-1 bg-red-500" : "translate-x-1 bg-emerald-700"}`} /></button>;
 }
 
 function CustomFlowDialog({ catalogs, open, onOpenChange, onCreated }: { catalogs: Catalogs; open: boolean; onOpenChange: (open: boolean) => void; onCreated: (flow: Flow) => void }) {
@@ -622,9 +622,9 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const { toast } = useToast();
-  useEffect(() => { api("/limpiezas/ejecuciones?status=open").then(setReports).finally(() => setLoading(false)); }, []);
+  useEffect(() => { api("/limpiezas/ejecuciones").then(setReports).finally(() => setLoading(false)); }, []);
   const remove = async (id: number) => { if (!window.confirm("¿Eliminar este reporte del histórico? Esta acción no se puede deshacer.")) return; try { await api(`/limpiezas/ejecuciones/${id}`, { method: "DELETE" }); setReports((current) => current.filter((report) => report.id !== id)); toast({ title: "Reporte eliminado" }); } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo eliminar el reporte", variant: "destructive" }); } };
-  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Registros abiertos</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">No hay registros abiertos.</p> : <div className="divide-y rounded-md border">{reports.map((report) => <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{report.client?.name || "Cliente"} · {report.cleaning_type?.name || "Reporte de limpieza"}</span><span className="block text-xs text-muted-foreground">{report.execution_date}</span></button><div className="flex items-center justify-between gap-2"><Badge variant="secondary">En progreso</Badge>{isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>)}</div>}</CardContent></Card>;
+  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Histórico de reportes</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">No hay reportes registrados.</p> : <div className="divide-y rounded-md border">{reports.map((report) => { const inProgress = !report.signature; return <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{report.client?.name || "Cliente"} · {report.cleaning_type?.name || "Reporte de limpieza"}</span><span className="block text-xs text-muted-foreground">{report.execution_date}</span></button><div className="flex items-center justify-between gap-2"><Badge variant={inProgress ? "secondary" : "default"}>{inProgress ? "En progreso" : "Completado"}</Badge>{isAdmin && inProgress && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>; })}</div>}</CardContent></Card>;
 }
 
 function LegacyStartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted: (execution: Execution) => void }) {
@@ -848,6 +848,8 @@ function ExecutionPageModern({
   const areaRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const { toast } = useToast();
   const { user } = useAuth();
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const canEditExecution = !execution?.signature || isAdmin;
 
   useEffect(() => {
     if (!initialExecution?.id) return;
@@ -866,7 +868,7 @@ function ExecutionPageModern({
   }, [initialExecution?.id]);
 
   const saveExecutionDate = async () => {
-    if (!execution || execution.signature || !executionDate) return;
+    if (!execution || !canEditExecution || !executionDate) return;
     setSavingDate(true);
     try {
       const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
@@ -895,6 +897,7 @@ function ExecutionPageModern({
   };
 
   const refreshAfterEvidence = async (path: string, options: RequestInit) => {
+    if (!canEditExecution) return;
     await api(path, options);
     const refreshed = await api(`/limpiezas/ejecuciones/${execution!.id}`);
     setExecution(refreshed);
@@ -965,7 +968,7 @@ function ExecutionPageModern({
   };
 
   const saveChecklist = async (photos: string[]) => {
-    if (!execution) return;
+    if (!execution || !canEditExecution) return;
     setSavingChecklist(true);
     try {
       const signaturePayload = pendingSignature
@@ -995,7 +998,7 @@ function ExecutionPageModern({
   };
 
   const openChecklist = () => {
-    if (!execution) return;
+    if (!execution || !canEditExecution) return;
     setPendingSignature(null);
     setChecklistPhotos(execution.checklist_photos || []);
     setChecklistOpen(true);
@@ -1050,8 +1053,8 @@ function ExecutionPageModern({
           signature={signature}
           logoSrc={reportBrand.logo}
           companyName={reportBrand.name}
-          onRequestChecklist={openChecklist}
-          onRequestSignature={() => setSignatureOpen(true)}
+          onRequestChecklist={canEditExecution ? openChecklist : undefined}
+          onRequestSignature={canEditExecution ? () => setSignatureOpen(true) : undefined}
         />
         <SignatureDialog
           open={signatureOpen}
@@ -1077,7 +1080,7 @@ function ExecutionPageModern({
           <p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p>
         </div>
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
-          {!execution.signature && (
+          {canEditExecution && (
             <div className="flex items-end gap-2">
               <label className="space-y-1 text-xs font-medium">
                 <span className="block text-muted-foreground">Fecha de ejecución</span>
@@ -1169,27 +1172,27 @@ function ExecutionPageModern({
                   <div className="flex w-full shrink-0 items-start justify-end sm:w-auto sm:justify-start">
                     <div className="space-y-1 text-center">
                       <span className="block text-[10px] text-muted-foreground">Incluir</span>
-                      <AreaExecutionToggle area={area} onChange={(excluded) => updateArea(area, { excluded })} />
+                      <AreaExecutionToggle area={area} disabled={!canEditExecution} onChange={(excluded) => updateArea(area, { excluded })} />
                     </div>
                   </div>
               </div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} disabled={Boolean(area.excluded)} onUploaded={(path) => updateArea(area, { initial_photo: path })} /></div>
-                  <div><p className="mb-2 text-xs font-medium">Demostración del proceso</p><PhotoButton label="Tomar foto de demostración" value={area.intermediate_photo} disabled={Boolean(area.excluded || !area.initial_photo)} onUploaded={(path) => updateArea(area, { intermediate_photo: path })} /></div>
-                  <div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={(path) => updateArea(area, { final_photo: path })} /></div>
+                    <div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} disabled={Boolean(area.excluded || !canEditExecution)} onUploaded={(path) => updateArea(area, { initial_photo: path })} /></div>
+                  <div><p className="mb-2 text-xs font-medium">Demostración del proceso</p><PhotoButton label="Tomar foto de demostración" value={area.intermediate_photo} disabled={Boolean(area.excluded || !area.initial_photo || !canEditExecution)} onUploaded={(path) => updateArea(area, { intermediate_photo: path })} /></div>
+                  <div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} disabled={!canEditExecution} onUploaded={(path) => updateArea(area, { final_photo: path })} /></div>
               </div>
               <div className="divide-y rounded-md border">
                 {areaActivities.map((activity, index) => (
                   <div key={activity.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${activity.not_applicable ? "bg-muted/50" : ""}`}>
                     <span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span>
                     <div className={`min-w-0 break-words text-sm md:flex-1 ${activity.not_applicable ? "text-muted-foreground line-through" : ""}`}><p>{activity.description}</p>{activity.completed && activity.activity_description && <p className="mt-1 text-xs text-muted-foreground">Información: {activity.activity_description}</p>}</div>
-                    <ActivityPhoto activity={activity} areaInitialPhoto={area.initial_photo} onUploaded={(path) => updateActivity(activity, { initial_photo: path })} />
+                    <ActivityPhoto activity={activity} areaInitialPhoto={area.initial_photo} disabled={!canEditExecution} onUploaded={(path) => updateActivity(activity, { initial_photo: path })} />
                     <div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents">
                        <label className={`flex min-h-11 items-center gap-2 text-xs ${!area.initial_photo || (activity.requires_photo && !activity.initial_photo) ? "cursor-not-allowed text-amber-700" : "text-muted-foreground"}`} title={!area.initial_photo ? "Toma primero la foto inicial del área" : activity.requires_photo && !activity.initial_photo ? "Toma primero la foto inicial" : undefined}>
-                         <input className="h-5 w-5 accent-primary" type="checkbox" checked={activity.not_applicable} disabled={activity.completed || !area.initial_photo || (activity.requires_photo && !activity.initial_photo)} onChange={(event) => updateActivity(activity, { not_applicable: event.target.checked, completed: false })} />
+                         <input className="h-5 w-5 accent-primary" type="checkbox" checked={activity.not_applicable} disabled={!canEditExecution || activity.completed || !area.initial_photo || (activity.requires_photo && !activity.initial_photo)} onChange={(event) => updateActivity(activity, { not_applicable: event.target.checked, completed: false })} />
                         No aplica
                       </label>
-                       {activity.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !activity.not_applicable && <Button size="sm" className="min-h-10" disabled={!area.initial_photo || (activity.requires_photo && !activity.initial_photo)} title={!area.initial_photo ? "Toma primero la foto inicial del área" : activity.requires_photo && !activity.initial_photo ? "Toma primero la foto inicial" : undefined} onClick={() => updateActivity(activity, { completed: true })}>Completar</Button>}
+                       {activity.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !activity.not_applicable && canEditExecution && <Button size="sm" className="min-h-10" disabled={!area.initial_photo || (activity.requires_photo && !activity.initial_photo)} title={!area.initial_photo ? "Toma primero la foto inicial del área" : activity.requires_photo && !activity.initial_photo ? "Toma primero la foto inicial" : undefined} onClick={() => updateActivity(activity, { completed: true })}>Completar</Button>}
                     </div>
                   </div>
                 ))}
