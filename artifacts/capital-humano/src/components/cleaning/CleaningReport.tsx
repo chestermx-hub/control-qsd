@@ -198,7 +198,7 @@ function PhotoFrame({
             data-print-max-edge="1000"
             className={cn(
               "block w-full bg-white object-contain",
-              compact ? "h-36 sm:h-48" : "h-52 sm:h-60",
+              compact ? "h-56 sm:h-72" : "h-64 sm:h-80",
             )}
           />
         </button>
@@ -303,7 +303,7 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
         </p>
         {activity.note && <p className="mt-1 text-xs italic text-[#78827b]">{activity.note}</p>}
         {activity.requires_photo && (
-          <div className="mt-3 grid max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mt-4 grid max-w-4xl grid-cols-1 gap-4">
             <PhotoFrame
               src={activity.initial_photo}
               alt={`Evidencia inicial: ${activity.description}`}
@@ -1022,7 +1022,7 @@ export function CleaningReport({
                  <div key={area.id} className="report-area-viewport report-fit-viewport" data-density={density}>
                  <section className="report-area-content report-fit-content report-area-block overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
                  <AreaHeader area={area} number={number} completed={areaCompleted} total={areaActivities.length} />
-                <div className="report-area-photos grid gap-4 border-b border-[#e1e1db] bg-[#f1f1eb] p-4 sm:grid-cols-3">
+                <div className="report-area-photos grid grid-cols-1 gap-5 border-b border-[#e1e1db] bg-[#f1f1eb] p-5">
                   <PhotoFrame src={area.initial_photo} alt={`Evidencia inicial del área ${area.area_name}`} label="Registro inicial del área" />
                   <PhotoFrame src={area.intermediate_photo} alt={`Demostración del proceso del área ${area.area_name}`} label="Demostración del proceso" />
                   <PhotoFrame src={area.final_photo} alt={`Evidencia final del área ${area.area_name}`} label="Registro final del área" />
