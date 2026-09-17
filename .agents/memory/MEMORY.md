@@ -18,3 +18,4 @@
 - [DB schema declarations before API typecheck](db-schema-typecheck.md) — refresh lib/db declarations after schema changes to avoid stale API types.
 - [Chromium multipage print furniture](chromium-multipage-print-furniture.md) — avoid negative offsets for fixed headers/footers; clone per-page padding to reserve their space.
 - [Cleaning activity source of truth](cleaning-activity-source.md) — area/client/line configuration must resync flow snapshots and open executions before capture.
+- [PNG chart export checks](png-chart-export-e2e.md) — validate download names and PNG signatures; SVG chart labels may concatenate adjacent text nodes in browser assertions.

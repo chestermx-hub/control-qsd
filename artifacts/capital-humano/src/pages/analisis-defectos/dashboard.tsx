@@ -499,7 +499,7 @@ function PanelAxisTick({
         fill={fill}
         fontSize={10}
       >
-        {label.length > 18 ? `${label.slice(0, 18)}…` : label}
+        {label}
       </text>
     </g>
   );
@@ -1542,6 +1542,14 @@ export default function AnalisisDashboard() {
                               if (!Number.isNaN(id)) handleZoneChange(activeZoneId === id ? null : id);
                             }}
                           >
+                             <LabelList
+                               dataKey={showZoneDpu ? "dpu" : "value"}
+                               position="top"
+                               formatter={(value: number) =>
+                                 showZoneDpu ? formatDecimal(value) : formatNumber(value)
+                               }
+                               style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                             />
                             {visibleZoneData.map((entry, index) => (
                               <Cell
                                 key={`${entry.id}-${index}`}
