@@ -555,11 +555,35 @@ function Configuration({ catalogs, reload, initialTab }: { catalogs: Catalogs; r
   return <Tabs defaultValue={initialTab} className="space-y-5"><TabsList className="w-full justify-start overflow-x-auto"><TabsTrigger className="shrink-0" value="clientes">Clientes</TabsTrigger><TabsTrigger className="shrink-0" value="areas">Áreas</TabsTrigger><TabsTrigger className="shrink-0" value="flujos">Tipos de limpieza</TabsTrigger></TabsList><TabsContent value="clientes"><CatalogTab kind="client" title="Clientes" catalogs={catalogs} reload={reload} /></TabsContent><TabsContent value="areas"><CatalogTab kind="area" title="Áreas" catalogs={catalogs} reload={reload} /></TabsContent><TabsContent value="flujos"><CatalogTab kind="flow" title="Tipos de limpieza" catalogs={catalogs} reload={reload} /></TabsContent></Tabs>;
 }
 
+async function optimizeEvidencePhoto(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("Selecciona una imagen válida");
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxEdge = 1600;
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No se pudo procesar la foto");
+    context.drawImage(bitmap, 0, 0, width, height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.78));
+    if (!blob) throw new Error("No se pudo comprimir la foto");
+    if (blob.size >= file.size && scale === 1) return file;
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "evidencia";
+    return new File([blob], `${baseName}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  } finally {
+    bitmap.close();
+  }
+}
+
 function PhotoButton({ label, value, onUploaded, disabled = false }: { label: string; value?: string; onUploaded: (path: string) => void; disabled?: boolean }) {
   const cameraRef = useRef<HTMLInputElement>(null); const galleryRef = useRef<HTMLInputElement>(null); const [busy, setBusy] = useState(false); const [previewOpen, setPreviewOpen] = useState(false); const { toast } = useToast();
-  const upload = async (file?: File) => { if (!file) return; setBusy(true); try { const response = await api("/storage/uploads/request-url", { method: "POST", body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) }); const put = await fetch(response.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } }); if (!put.ok) throw new Error("No se pudo subir la foto"); onUploaded(`/api/storage${response.objectPath}`); } catch (e) { toast({ title: e instanceof Error ? e.message : "Error al subir foto", variant: "destructive" }); } finally { setBusy(false); } };
+  const upload = async (file?: File) => { if (!file) return; setBusy(true); try { const optimizedFile = await optimizeEvidencePhoto(file); const response = await api("/storage/uploads/request-url", { method: "POST", body: JSON.stringify({ name: optimizedFile.name, size: optimizedFile.size, contentType: optimizedFile.type }) }); const put = await fetch(response.uploadURL, { method: "PUT", body: optimizedFile, headers: { "Content-Type": optimizedFile.type } }); if (!put.ok) throw new Error("No se pudo subir la foto"); onUploaded(`/api/storage${response.objectPath}`); } catch (e) { toast({ title: e instanceof Error ? e.message : "Error al subir foto", variant: "destructive" }); } finally { setBusy(false); } };
   const inputs = <><input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" disabled={busy || disabled} onChange={e => upload(e.target.files?.[0])} /><input ref={galleryRef} type="file" accept="image/*" className="hidden" disabled={busy || disabled} onChange={e => upload(e.target.files?.[0])} /></>;
-  const sourceButtons = <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" className="min-h-10" disabled={busy || disabled} onClick={() => cameraRef.current?.click()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}{busy ? "Subiendo..." : value ? "Cambiar" : label}</Button><Button type="button" variant="outline" size="sm" className="min-h-10" disabled={busy || disabled} onClick={() => galleryRef.current?.click()}><Images className="mr-2 h-4 w-4" />Elegir de galería</Button></div>;
+  const sourceButtons = <div className="flex flex-wrap gap-2"><Button type="button" variant="outline" size="sm" className="min-h-10" disabled={busy || disabled} onClick={() => cameraRef.current?.click()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}{busy ? "Procesando..." : value ? "Cambiar" : label}</Button><Button type="button" variant="outline" size="sm" className="min-h-10" disabled={busy || disabled} onClick={() => galleryRef.current?.click()}><Images className="mr-2 h-4 w-4" />Elegir de galería</Button></div>;
   return <div className="space-y-2">{inputs}{value ? <><button type="button" className="group relative block w-full max-w-[220px] overflow-hidden rounded-lg border bg-muted text-left" onClick={() => setPreviewOpen(true)} aria-label={`Ver ${label.toLocaleLowerCase()} ampliada`}><img src={value} alt={label} className="h-24 w-full object-cover transition-transform group-hover:scale-[1.03] sm:h-28" /><span className="absolute inset-x-0 bottom-0 bg-slate-950/70 px-2 py-1 text-center text-[11px] font-medium text-white">Ver ampliada</span></button>{sourceButtons}<Dialog open={previewOpen} onOpenChange={setPreviewOpen}><DialogContent className="w-[calc(100%-1rem)] max-w-4xl p-3 sm:p-5"><DialogHeader><DialogTitle>{label}</DialogTitle></DialogHeader><div className="flex max-h-[78vh] items-center justify-center overflow-hidden rounded-lg bg-slate-950/5 p-1 sm:p-3"><img src={value} alt={label} className="max-h-[72vh] max-w-full object-contain" /></div></DialogContent></Dialog></> : <>{busy ? <Button type="button" variant="outline" className="min-h-11 w-full" disabled><Loader2 className="mr-2 h-4 w-4 animate-spin" />Subiendo...</Button> : disabled ? <Button type="button" variant="outline" className="min-h-11 w-full" disabled>Disponible al completar</Button> : <>{sourceButtons}</>}</>}</div>;
 }
 

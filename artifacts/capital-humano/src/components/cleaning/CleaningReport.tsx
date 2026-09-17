@@ -334,6 +334,55 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
   );
 }
 
+function ActivitySheet({
+  area,
+  number,
+  activity,
+  activityIndex,
+}: {
+  area: CleaningReportArea;
+  number: number;
+  activity?: CleaningReportActivity;
+  activityIndex: number;
+}) {
+  return (
+    <section className="report-area-content report-fit-content report-area-block flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
+      <AreaHeader
+        area={area}
+        number={number}
+        completed={activity && (activity.completed || activity.not_applicable) ? 1 : 0}
+        total={activity ? 1 : 0}
+      />
+      <div className="report-activity-sheet-grid grid min-h-0 flex-1 gap-4 p-4 sm:grid-cols-2">
+        <PhotoFrame
+          src={area.initial_photo}
+          alt={`Evidencia inicial del área ${area.area_name}`}
+          label="Antes"
+        />
+        <PhotoFrame
+          src={area.intermediate_photo}
+          alt={`Demostración del proceso del área ${area.area_name}`}
+          label="Durante"
+        />
+        <PhotoFrame
+          src={area.final_photo}
+          alt={`Evidencia final del área ${area.area_name}`}
+          label="Fin"
+        />
+        <div className="report-activity-detail min-w-0 overflow-auto border border-[#d8d9d3] bg-white">
+          {activity ? (
+            <ActivityRow activity={activity} index={activityIndex} />
+          ) : (
+            <div className="flex h-full items-center justify-center p-6 text-center text-sm text-[#7b857e]">
+              No hay actividades registradas para esta área.
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function SignatureBlock({
   signature,
   onRequestSignature,
@@ -451,44 +500,30 @@ export function CleaningReport({
     execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
   );
   const includedAreas = execution.areas.filter((area) => !area.excluded);
-  const areaLayouts = includedAreas.map((area, index) => {
+  const activitySheets: Array<{
+    area: CleaningReportArea;
+    number: number;
+    activity?: CleaningReportActivity;
+    activityIndex: number;
+  }> = includedAreas.reduce<Array<{
+    area: CleaningReportArea;
+    number: number;
+    activity?: CleaningReportActivity;
+    activityIndex: number;
+  }>>((sheets, area, areaIndex) => {
     const activities = activitiesByArea.get(area.area_name) || [];
-    const completed = activities.filter(
-      (activity) => activity.completed || activity.not_applicable,
-    ).length;
-    const photoActivities = activities.filter(
-      (activity) => activity.requires_photo && (activity.initial_photo || activity.final_photo),
-    ).length;
-    const textWeight = activities.reduce(
-      (total, activity) => total + activity.description.length + (activity.activity_description?.length || 0) + (activity.note?.length || 0),
-      0,
-    );
-    const contentScore = activities.length + photoActivities * 4 + Math.ceil(textWeight / 180);
-    const density = contentScore >= 28 ? "ultra" : contentScore >= 18 ? "dense" : contentScore >= 10 ? "compact" : "normal";
-
-    return {
-      area,
-      number: index + 1,
-      activities,
-      completed,
-      density,
-      fitsHalfPage: contentScore < 10,
-    };
-  });
-  const areaPages = areaLayouts.reduce<(typeof areaLayouts)[]>((pages, layout) => {
-    const previousPage = pages.at(-1);
-    if (layout.fitsHalfPage && previousPage?.length === 1 && previousPage[0].fitsHalfPage) {
-      previousPage.push(layout);
+    if (activities.length) {
+      activities.forEach((activity, activityIndex) => {
+        sheets.push({ area, number: areaIndex + 1, activity, activityIndex });
+      });
     } else {
-      pages.push([layout]);
+      sheets.push({ area, number: areaIndex + 1, activityIndex: 0 });
     }
-    return pages;
+    return sheets;
   }, []);
-  const lastAreaPage = areaPages.at(-1);
-  const signatureFitsLastArea = Boolean(lastAreaPage?.length === 1 && lastAreaPage[0].fitsHalfPage);
   const checklistPageCount = execution.checklist_photos?.length || 0;
-  const standaloneSignaturePages = signatureFitsLastArea ? 0 : 1;
-  const totalPrintPages = 1 + areaPages.length + standaloneSignaturePages + checklistPageCount;
+  const standaloneSignaturePages = 1;
+  const totalPrintPages = 1 + activitySheets.length + standaloneSignaturePages + checklistPageCount;
   const reportActivities = execution.activities.filter(
     (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
   );
@@ -763,6 +798,23 @@ export function CleaningReport({
               gap: 3mm !important;
               padding: 3mm 0 !important;
             }
+            .cleaning-report .report-area-page-content > .report-area-viewport {
+              min-height: 0 !important;
+              overflow: hidden !important;
+            }
+            .cleaning-report .report-activity-sheet-grid {
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+              gap: 4mm !important;
+              min-height: 0 !important;
+              padding: 4mm !important;
+            }
+            .cleaning-report .report-activity-sheet-grid > * {
+              min-height: 0 !important;
+            }
+            .cleaning-report .report-activity-detail {
+              overflow: hidden !important;
+            }
             .cleaning-report .report-area-page-content > * {
               margin-block: 0 !important;
             }
@@ -922,11 +974,12 @@ export function CleaningReport({
              <Button
                type="button"
                onClick={onRequestChecklist}
+               disabled={Boolean(execution.checklist_photos?.length)}
                variant="outline"
                className="w-full border-[#9fc5dc] bg-transparent text-[#0d5f98] hover:bg-[#e8f5fb] sm:w-auto"
              >
                <ImagePlus className="mr-2 h-4 w-4" aria-hidden="true" />
-               Cargar checklist
+               {execution.checklist_photos?.length ? "Checklist cargado" : "Cargar checklist"}
              </Button>
            )}
            <Button
@@ -1012,69 +1065,40 @@ export function CleaningReport({
           <ArrowUpRight className="h-6 w-6 text-[#2b68a2]" aria-hidden="true" />
         </div>
          <div className="report-area-pages space-y-5">
-           {areaPages.map((page, pageIndex) => {
-             const includeSignature = signatureFitsLastArea && pageIndex === areaPages.length - 1;
-             return (
-               <div
-                 key={`area-page-${pageIndex}`}
-                 className="report-area-page"
-                 data-area-count={page.length + (includeSignature ? 1 : 0)}
-               >
-                 <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
-                 <div className="report-area-page-content space-y-5">
-                 {page.map(({ area, number, activities: areaActivities, completed: areaCompleted, density }) => (
-                 <div key={area.id} className="report-area-viewport report-fit-viewport" data-density={density}>
-                 <section className="report-area-content report-fit-content report-area-block overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
-                 <AreaHeader area={area} number={number} completed={areaCompleted} total={areaActivities.length} />
-                <div className="report-area-photos grid grid-cols-1 gap-5 border-b border-[#e1e1db] bg-[#f1f1eb] p-5">
-                  <PhotoFrame src={area.initial_photo} alt={`Evidencia inicial del área ${area.area_name}`} label="Registro inicial del área" />
-                  <PhotoFrame src={area.intermediate_photo} alt={`Demostración del proceso del área ${area.area_name}`} label="Demostración del proceso" />
-                  <PhotoFrame src={area.final_photo} alt={`Evidencia final del área ${area.area_name}`} label="Registro final del área" />
-                </div>
-                <div>
-                  {areaActivities.length ? (
-                    areaActivities.map((activity, activityIndex) => (
-                      <ActivityRow key={activity.id} activity={activity} index={activityIndex} />
-                    ))
-                  ) : (
-                    <div className="px-4 py-6 text-sm text-[#7b857e]">No hay actividades registradas para esta área.</div>
-                  )}
-                </div>
-                 </section>
+           {activitySheets.map(({ area, number, activity, activityIndex }, pageIndex) => (
+             <div key={`${area.id}-${activity?.id || "sin-actividad"}-${activityIndex}`} className="report-area-page">
+               <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
+               <div className="report-area-page-content">
+                 <div className="report-area-viewport report-fit-viewport">
+                   <ActivitySheet
+                     area={area}
+                     number={number}
+                     activity={activity}
+                     activityIndex={activityIndex}
+                   />
                  </div>
-                 ))}
-                 {includeSignature && (
-                   <div className="report-signature-inline report-fit-viewport">
-                     <div className="report-fit-content">
-                       <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
-                     </div>
-                   </div>
-                 )}
-                 </div>
-                 <PrintPageFooter
-                   companyName={companyName}
-                   pageNumber={pageIndex + 2}
-                   totalPages={totalPrintPages}
-                 />
                </div>
-             );
-           })}
+               <PrintPageFooter
+                 companyName={companyName}
+                 pageNumber={pageIndex + 2}
+                 totalPages={totalPrintPages}
+               />
+             </div>
+           ))}
         </div>
       </section>
 
-       {!signatureFitsLastArea && (
-         <section className="report-signature-page">
+       <section className="report-signature-page">
            <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
            <div className="report-signature-content">
              <SignatureBlock signature={signature} onRequestSignature={onRequestSignature} />
            </div>
            <PrintPageFooter
              companyName={companyName}
-             pageNumber={areaPages.length + 2}
+             pageNumber={activitySheets.length + 2}
              totalPages={totalPrintPages}
            />
-         </section>
-       )}
+       </section>
 
       {execution.checklist_photos?.length ? (
          <section className="report-checklist-section border-t border-[#d8d9d3] bg-[#f1f1eb] px-5 py-7 sm:px-8 sm:py-8">
@@ -1095,14 +1119,12 @@ export function CleaningReport({
                   <img
                     src={photo}
                     alt={`Captura de checklist, hoja ${index + 1}`}
-                    data-print-compress
-                    data-print-max-edge="1600"
                     className="max-h-[34rem] w-full object-contain"
                   />
                 </div>
                  <PrintPageFooter
                    companyName={companyName}
-                   pageNumber={areaPages.length + standaloneSignaturePages + index + 2}
+                   pageNumber={activitySheets.length + standaloneSignaturePages + index + 2}
                    totalPages={totalPrintPages}
                  />
               </div>
