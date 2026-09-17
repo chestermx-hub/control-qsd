@@ -917,7 +917,7 @@ function ExecutionPageModern({
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-  const canEditExecution = !execution?.signature || isAdmin;
+  const canEditExecution = (!execution?.signature && execution?.status !== "completed") || isAdmin;
 
   useEffect(() => {
     if (!initialExecution?.id) return;
@@ -1104,18 +1104,23 @@ function ExecutionPageModern({
 
   const relevantActivities = relevantExecutionActivities(execution);
   const done = relevantActivities.filter((activity) => activity.completed || activity.not_applicable).length;
+  const completedExecution = execution.status === "completed" || Boolean(execution.signature);
   const signature: CleaningReportSignature | undefined = execution.signature
     ? { dataUrl: execution.signature, signerName: execution.signature_user_name || "Usuario responsable", signedAt: execution.signed_at }
     : undefined;
   const reportBrand = reportBrandForClient(execution.client, catalogs.udns);
 
-  if (showReport) {
+  if (showReport || completedExecution) {
     return (
       <div className="report-page-shell space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 print:hidden">
-          <Button type="button" variant="outline" onClick={() => setShowReport(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => completedExecution ? (onBack ? onBack() : setExecution(null)) : setShowReport(false)}
+          >
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver a la captura
+            {completedExecution ? "Volver al histórico" : "Volver a la captura"}
           </Button>
           <p className="text-sm text-muted-foreground">Documento listo para imprimir o guardar como PDF.</p>
         </div>
