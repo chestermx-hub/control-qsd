@@ -61,7 +61,7 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
           <DialogHeader>
             <DialogTitle>Captura de checklist</DialogTitle>
             <DialogDescription>
-              Después de la firma, agrega mínimo 5 fotos del checklist. Cada foto se colocará en una hoja independiente del reporte.
+              Después de la firma, agrega mínimo 1 foto del checklist. Cada foto se colocará en una hoja independiente del reporte.
             </DialogDescription>
           </DialogHeader>
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" disabled={uploading || saving} onChange={(event) => addPhotos(Array.from(event.target.files || []))} />
@@ -70,7 +70,7 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-semibold">Evidencia de checklist</p>
-                <p className="text-xs text-muted-foreground">{photos.length} foto{photos.length === 1 ? "" : "s"} agregada{photos.length === 1 ? "" : "s"} · mínimo 5</p>
+                <p className="text-xs text-muted-foreground">{photos.length} foto{photos.length === 1 ? "" : "s"} agregada{photos.length === 1 ? "" : "s"} · mínimo 1</p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <Button type="button" variant="outline" className="min-h-11 w-full sm:w-auto" disabled={uploading || saving} onClick={() => cameraInputRef.current?.click()}>
@@ -97,7 +97,7 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
                 </div>
               </div>
             ))}
-            {Array.from({ length: Math.max(0, 5 - photos.length) }).map((_, index) => (
+            {Array.from({ length: Math.max(0, 1 - photos.length) }).map((_, index) => (
               <button key={`empty-${index}`} type="button" onClick={() => galleryInputRef.current?.click()} disabled={uploading || saving} className="flex aspect-[3/4] flex-col items-center justify-center gap-2 rounded-lg border border-dashed bg-muted/20 text-center text-xs text-muted-foreground hover:bg-muted/50">
                 <Upload className="h-5 w-5" />
                 <span>Hoja {photos.length + index + 1}</span>
@@ -106,9 +106,9 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={close} disabled={uploading || saving}>Cancelar</Button>
-            <Button type="button" className="w-full sm:w-auto" onClick={() => onConfirm(photos)} disabled={photos.length < 5 || uploading || saving}>
+            <Button type="button" className="w-full sm:w-auto" onClick={() => onConfirm(photos)} disabled={photos.length < 1 || uploading || saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Guardar checklist ({photos.length}/5)
+              Guardar checklist ({photos.length}/1)
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -937,12 +937,12 @@ function ExecutionPageModern({
     try {
       const signaturePath = await uploadSignatureImage(signatureDataUrl);
       const photos = checklistPhotos.length ? checklistPhotos : (execution.checklist_photos || []);
-      if (photos.length < 5) {
+      if (photos.length < 1) {
         setPendingSignature({ path: signaturePath, signerName });
         setChecklistPhotos(photos);
         setSignatureOpen(false);
         setChecklistOpen(true);
-        toast({ title: "Firma capturada", description: "Carga mínimo 5 fotos desde el checklist para cerrar el reporte." });
+        toast({ title: "Firma capturada", description: "Carga mínimo 1 foto desde el checklist para cerrar el reporte." });
       } else {
         const updated = await api(`/limpiezas/ejecuciones/${execution.id}`, {
           method: "PATCH",

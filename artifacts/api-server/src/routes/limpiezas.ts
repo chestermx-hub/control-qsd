@@ -598,8 +598,8 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
   const checklistPhotos = hasChecklistPhotos
     ? (Array.isArray(req.body.checklist_photos) ? req.body.checklist_photos.filter((photo: unknown): photo is string => typeof photo === "string" && photo.trim().length > 0) : [])
     : (execution.checklistPhotos || []);
-  if (hasChecklistPhotos && checklistPhotos.length < 5) {
-    res.status(400).json({ error: "Agrega mínimo 5 fotos de checklist antes de guardar la evidencia" });
+  if (hasChecklistPhotos && checklistPhotos.length < 1) {
+    res.status(400).json({ error: "Agrega mínimo 1 foto de checklist antes de guardar la evidencia" });
     return;
   }
   const requestedDate = typeof req.body.execution_date === "string" ? req.body.execution_date.trim() : undefined;
@@ -624,8 +624,8 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
     res.json(await executionJson(executionId));
     return;
   }
-  if (checklistPhotos.length < 5) {
-    res.status(400).json({ error: "Agrega mínimo 5 fotos de checklist antes de firmar el reporte" });
+  if (checklistPhotos.length < 1) {
+    res.status(400).json({ error: "Agrega mínimo 1 foto de checklist antes de firmar el reporte" });
     return;
   }
   const [activities, areas] = await Promise.all([
