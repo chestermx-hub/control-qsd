@@ -176,7 +176,7 @@ function PhotoFrame({
       <div
         className={cn(
           "report-photo-frame flex h-full min-h-0 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
-          compact ? "min-h-16" : gallery ? "min-h-52 sm:min-h-64" : "min-h-28",
+          compact ? "min-h-16" : gallery ? "min-h-28 sm:min-h-36" : "min-h-28",
         )}
       >
         <div className="space-y-1">
@@ -195,7 +195,7 @@ function PhotoFrame({
         className={cn(
           "report-photo-frame flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]",
           compact && "report-photo-compact",
-          gallery && "report-photo-gallery min-h-52 sm:min-h-64",
+          gallery && "report-photo-gallery min-h-28 sm:min-h-36",
         )}
       >
         <button
@@ -214,7 +214,7 @@ function PhotoFrame({
             data-print-max-edge="1000"
             className={cn(
               "block w-full bg-white object-contain object-center",
-              compact ? "h-56 sm:h-72" : gallery ? "h-52 sm:h-64" : "h-full min-h-0",
+              compact ? "h-56 sm:h-72" : gallery ? "h-28 sm:h-36" : "h-full min-h-0",
             )}
           />
         </button>
@@ -903,8 +903,8 @@ export function CleaningReport({
                gap: 3mm !important;
              }
              .cleaning-report .report-photo-gallery {
-               height: 48mm !important;
-               min-height: 48mm !important;
+               height: 32mm !important;
+               min-height: 32mm !important;
              }
              .cleaning-report .report-photo-gallery button {
                display: flex !important;
@@ -960,13 +960,13 @@ export function CleaningReport({
               gap: 12px !important;
               padding: 12px !important;
             }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) {
+            .cleaning-report .report-photo-frame:not(.report-photo-compact):not(.report-photo-gallery) {
               display: flex !important;
               height: 100% !important;
               min-height: 0 !important;
               flex-direction: column !important;
             }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) button {
+            .cleaning-report .report-photo-frame:not(.report-photo-compact):not(.report-photo-gallery) button {
               display: flex !important;
               min-height: 0 !important;
               flex: 1 1 auto !important;
@@ -974,7 +974,7 @@ export function CleaningReport({
               justify-content: center !important;
               padding: 4px !important;
             }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) img {
+            .cleaning-report .report-photo-frame:not(.report-photo-compact):not(.report-photo-gallery) img {
               width: 100% !important;
               height: 100% !important;
               max-width: 100% !important;
