@@ -7,4 +7,4 @@ The configured activities for an area, client, and selected line are the source 
 
 **Why:** A flow snapshot can outlive an area configuration change and otherwise reintroduce old activities when a new execution is created.
 
-**How to apply:** When changing capture activity behavior, resolve the assignment by client and line first, prefer line-specific activities over generic activities, then update both the flow rows used for future captures and the open execution rows used by the current capture.
+**How to apply:** When changing capture activity behavior, resolve the assignment by client and line first, prefer line-specific activities over generic activities, then update both the flow rows used for future captures and the open execution rows used by the current capture. If no applicable area activity list exists, preserve the flow snapshot instead of treating the absence as an instruction to delete it.
