@@ -719,9 +719,13 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
   const [openReports, setOpenReports] = useState<Execution[]>([]);
   const { toast } = useToast();
   const selectedClient = catalogs.clients.find((client) => client.id === Number(clientId));
+  const activeLineReport = openReports.find((report) =>
+    report.client?.id === Number(clientId) &&
+    report.line_number?.trim() === lineNumber.trim(),
+  );
+  const hasActiveFolio = Boolean(activeLineReport);
   const availableFlows = catalogs.types.filter((flow) =>
-    (!clientId || flow.client_id === Number(clientId)) &&
-    openReports.some((report) => report.client?.id === flow.client_id && report.cleaning_type?.id === flow.id),
+    !clientId || flow.client_id === Number(clientId),
   );
 
   useEffect(() => {
@@ -731,6 +735,10 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
   }, []);
 
   const start = async () => {
+    if (hasActiveFolio) {
+      toast({ title: "No se puede iniciar el folio", description: "Esta línea del cliente ya tiene un folio activo.", variant: "destructive" });
+      return;
+    }
     setLoading(true);
     try {
       onStarted(await api("/limpiezas/ejecuciones", {
@@ -802,8 +810,9 @@ function StartExecutionModern({ catalogs, onStarted, onHistory }: { catalogs: Ca
                   : <SelectItem value="__no-lines" disabled>Sin líneas configuradas</SelectItem>}
               </SelectContent>
             </Select>
+            {hasActiveFolio && <p className="text-xs font-medium text-destructive">Esta línea del cliente ya tiene un folio activo.</p>}
           </label>
-           <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || !lineNumber.trim() || loading || !availableFlows.length} onClick={start}>
+           <Button className="h-12 w-full lg:w-auto" disabled={!clientId || !flowId || !lineNumber.trim() || loading || !availableFlows.length || hasActiveFolio} onClick={start}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ClipboardCheck className="mr-2 h-4 w-4" />}
             Iniciar reporte
           </Button>

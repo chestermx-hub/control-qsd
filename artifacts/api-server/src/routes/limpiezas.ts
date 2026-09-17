@@ -578,13 +578,23 @@ router.get("/limpiezas/ejecuciones", async (req, res) => {
 });
 router.post("/limpiezas/ejecuciones", async (req, res) => {
   const { client_id, cleaning_type_id, execution_date } = req.body;
+  const clientId = Number(client_id);
   const lineNumber = typeof req.body.line_number === "string" ? req.body.line_number.trim() : String(req.body.line_number ?? "").trim();
+  if (!Number.isInteger(clientId) || clientId <= 0) { res.status(400).json({ error: "Selecciona un cliente válido" }); return; }
   if (!lineNumber) { res.status(400).json({ error: "Indica el número de línea" }); return; }
+  const existingExecutions = await db
+    .select({ id: cleaningExecutionsTable.id, signature: cleaningExecutionsTable.signature })
+    .from(cleaningExecutionsTable)
+    .where(and(eq(cleaningExecutionsTable.clientId, clientId), eq(cleaningExecutionsTable.lineNumber, lineNumber)));
+  if (existingExecutions.some((execution) => !execution.signature)) {
+    res.status(409).json({ error: "Esta línea del cliente ya tiene un folio activo" });
+    return;
+  }
   const [type] = await db.select().from(cleaningTypesTable).where(eq(cleaningTypesTable.id, Number(cleaning_type_id)));
   if (!type) { res.status(404).json({ error: "Flujo no encontrado" }); return; }
   const activities = await db.select().from(cleaningTypeActivitiesTable).where(eq(cleaningTypeActivitiesTable.cleaningTypeId, type.id)).orderBy(asc(cleaningTypeActivitiesTable.sortOrder));
   if (!activities.length) { res.status(400).json({ error: "El flujo no tiene actividades" }); return; }
-  const [execution] = await db.insert(cleaningExecutionsTable).values({ clientId: Number(client_id), cleaningTypeId: type.id, lineNumber, executionDate: execution_date || new Date().toISOString().slice(0, 10) }).returning();
+  const [execution] = await db.insert(cleaningExecutionsTable).values({ clientId, cleaningTypeId: type.id, lineNumber, executionDate: execution_date || new Date().toISOString().slice(0, 10) }).returning();
   for (const activity of activities) await db.insert(cleaningExecutionActivitiesTable).values({ executionId: execution.id, description: activity.description, activityDescription: activity.activityDescription, areaName: activity.areaName, sortOrder: activity.sortOrder, requiresPhoto: activity.requiresPhoto });
   const areaNames = Array.from(new Set(activities.map((activity) => activity.areaName || "Área general")));
   for (const [index, areaName] of areaNames.entries()) await db.insert(cleaningExecutionAreasTable).values({ executionId: execution.id, areaName, sortOrder: index });
