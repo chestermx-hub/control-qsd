@@ -161,11 +161,13 @@ function PhotoFrame({
   alt,
   label,
   compact = false,
+  gallery = false,
 }: {
   src?: string;
   alt: string;
   label: string;
   compact?: boolean;
+  gallery?: boolean;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
 
@@ -174,7 +176,7 @@ function PhotoFrame({
       <div
         className={cn(
           "report-photo-frame flex h-full min-h-0 items-center justify-center border border-dashed border-[#cfd3ce] bg-[#eeeee8] px-3 text-center",
-          compact ? "min-h-16" : "min-h-28",
+          compact ? "min-h-16" : gallery ? "min-h-52 sm:min-h-64" : "min-h-28",
         )}
       >
         <div className="space-y-1">
@@ -189,7 +191,13 @@ function PhotoFrame({
 
   return (
     <>
-      <figure className={cn("report-photo-frame flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]", compact && "report-photo-compact")}>
+      <figure
+        className={cn(
+          "report-photo-frame flex h-full min-h-0 flex-col overflow-hidden border border-[#d8d9d3] bg-[#eeeee8]",
+          compact && "report-photo-compact",
+          gallery && "report-photo-gallery min-h-52 sm:min-h-64",
+        )}
+      >
         <button
           type="button"
           className={cn(
@@ -206,8 +214,7 @@ function PhotoFrame({
             data-print-max-edge="1000"
             className={cn(
               "block w-full bg-white object-contain object-center",
-              !compact && "h-full min-h-0",
-              compact ? "h-56 sm:h-72" : "h-64 sm:h-80",
+              compact ? "h-56 sm:h-72" : gallery ? "h-52 sm:h-64" : "h-full min-h-0",
             )}
           />
         </button>
@@ -295,7 +302,15 @@ function AreaHeader({
   );
 }
 
-function ActivityRow({ activity, index }: { activity: CleaningReportActivity; index: number }) {
+function ActivityRow({
+  activity,
+  index,
+  showPhotos = true,
+}: {
+  activity: CleaningReportActivity;
+  index: number;
+  showPhotos?: boolean;
+}) {
   const state = activityStatus(activity);
   return (
     <div className="report-activity-row grid gap-3 border-b border-[#e4e3dd] px-4 py-4 last:border-b-0 sm:grid-cols-[30px_minmax(0,1fr)_auto] sm:items-start">
@@ -311,7 +326,7 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
           {activity.activity_description && <span className="mt-1 block text-xs text-[#69736d]">{activity.activity_description}</span>}
         </p>
         {activity.note && <p className="mt-1 text-xs italic text-[#78827b]">{activity.note}</p>}
-        {activity.requires_photo && (
+        {showPhotos && activity.requires_photo && (
           <div className="mt-2 grid max-w-4xl grid-cols-2 gap-2">
             <PhotoFrame
               src={activity.initial_photo}
@@ -340,6 +355,43 @@ function ActivityRow({ activity, index }: { activity: CleaningReportActivity; in
         {state.label}
       </span>
     </div>
+  );
+}
+
+function ActivityEvidenceGallery({ activities }: { activities: CleaningReportActivity[] }) {
+  const evidence = activities.flatMap((activity, index) => [
+    activity.initial_photo
+      ? {
+          src: activity.initial_photo,
+          alt: `Evidencia inicial: ${activity.description}`,
+          label: `Actividad ${String(index + 1).padStart(2, "0")} · Inicio`,
+        }
+      : null,
+    activity.final_photo
+      ? {
+          src: activity.final_photo,
+          alt: `Evidencia final: ${activity.description}`,
+          label: `Actividad ${String(index + 1).padStart(2, "0")} · Cierre`,
+        }
+      : null,
+  ].filter((item): item is { src: string; alt: string; label: string } => Boolean(item)));
+
+  if (!evidence.length) return null;
+
+  return (
+    <section className="report-activity-evidence border border-[#d8d9d3] bg-white p-3">
+      <div className="mb-2 flex items-center justify-between gap-3 border-b border-[#e4e3dd] pb-2">
+        <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#758079]">
+          Evidencias fotográficas de actividades
+        </p>
+        <span className="font-mono text-[9px] text-[#8a918c]">{evidence.length} foto{evidence.length === 1 ? "" : "s"}</span>
+      </div>
+      <div className="report-activity-evidence-grid grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {evidence.map((item) => (
+          <PhotoFrame key={`${item.label}-${item.src}`} src={item.src} alt={item.alt} label={item.label} gallery />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -382,7 +434,12 @@ function ActivitySheet({
           {activities.length ? (
             <div className="report-activity-list min-h-0" data-activity-density={activityDensity}>
               {activities.map((activity, activityIndex) => (
-                <ActivityRow key={`${activity.id}-${activityIndex}`} activity={activity} index={activityIndex} />
+                <ActivityRow
+                  key={`${activity.id}-${activityIndex}`}
+                  activity={activity}
+                  index={activityIndex}
+                  showPhotos={false}
+                />
               ))}
             </div>
           ) : (
@@ -392,6 +449,7 @@ function ActivitySheet({
           )}
         </div>
       </div>
+      <ActivityEvidenceGallery activities={activities} />
     </section>
   );
 }
@@ -833,6 +891,36 @@ export function CleaningReport({
              .cleaning-report .report-activity-list[data-activity-density="ultra"] {
                zoom: 0.68;
                width: 147.06%;
+             }
+             .cleaning-report .report-activity-evidence {
+               break-inside: avoid;
+               page-break-inside: avoid;
+               margin-top: 3mm !important;
+               padding: 3mm !important;
+             }
+             .cleaning-report .report-activity-evidence-grid {
+               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+               gap: 3mm !important;
+             }
+             .cleaning-report .report-photo-gallery {
+               height: 48mm !important;
+               min-height: 48mm !important;
+             }
+             .cleaning-report .report-photo-gallery button {
+               display: flex !important;
+               min-height: 0 !important;
+               flex: 1 1 auto !important;
+               align-items: center !important;
+               justify-content: center !important;
+               padding: 2mm !important;
+             }
+             .cleaning-report .report-photo-gallery img {
+               width: 100% !important;
+               height: 100% !important;
+               max-width: 100% !important;
+               max-height: 100% !important;
+               object-fit: contain !important;
+               object-position: center !important;
              }
             .cleaning-report .report-area-page-content > * {
               margin-block: 0 !important;
