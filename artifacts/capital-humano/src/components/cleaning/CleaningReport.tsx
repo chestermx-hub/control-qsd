@@ -796,9 +796,13 @@ export function CleaningReport({
            .cleaning-report .report-area-header h3 { font-size: 18px !important; }
            .cleaning-report .report-area-header p { font-size: 8px !important; }
            .cleaning-report .report-area-photos { break-inside: avoid; page-break-inside: avoid; }
-            .cleaning-report .report-area-photos { gap: 8px !important; padding: 8px !important; }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 135px !important; }
-            .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 135px; }
+            .cleaning-report .report-area-photos {
+              grid-template-columns: 1fr !important;
+              gap: 12px !important;
+              padding: 12px !important;
+            }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) img { height: 230px !important; }
+            .cleaning-report .report-photo-frame:not(.report-photo-compact) { min-height: 230px; }
             .cleaning-report .report-photo-frame:not(.report-photo-compact) button { padding: 4px !important; }
             .cleaning-report .report-photo-frame figcaption { padding: 3px 5px !important; font-size: 7px !important; }
             .cleaning-report .report-activity-row {
@@ -813,14 +817,14 @@ export function CleaningReport({
            .cleaning-report .report-activity-row > span:first-child { font-size: 8px !important; }
            .cleaning-report .report-activity-row > span:last-child { padding: 2px 6px !important; font-size: 7px !important; }
             .cleaning-report .report-activity-row .mt-3 { margin-top: 3px !important; }
-            .cleaning-report .report-photo-frame.report-photo-compact img { height: 90px !important; }
+            .cleaning-report .report-photo-frame.report-photo-compact img { height: 160px !important; }
            .cleaning-report .report-photo-frame.report-photo-compact button { padding: 3px !important; }
            .cleaning-report .report-photo-frame.report-photo-compact figcaption { padding: 2px 4px !important; font-size: 7px !important; }
            .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) img {
-             height: 115px !important;
+             height: 200px !important;
            }
            .cleaning-report .report-area-viewport[data-density="compact"] .report-photo-frame:not(.report-photo-compact) {
-             min-height: 115px !important;
+             min-height: 200px !important;
            }
            .cleaning-report .report-area-viewport[data-density="dense"] .report-area-header,
            .cleaning-report .report-area-viewport[data-density="ultra"] .report-area-header {
@@ -828,11 +832,11 @@ export function CleaningReport({
            }
            .cleaning-report .report-area-viewport[data-density="dense"] .report-photo-frame:not(.report-photo-compact) img,
            .cleaning-report .report-area-viewport[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) img {
-             height: 95px !important;
+             height: 170px !important;
            }
            .cleaning-report .report-area-viewport[data-density="dense"] .report-photo-frame:not(.report-photo-compact),
            .cleaning-report .report-area-viewport[data-density="ultra"] .report-photo-frame:not(.report-photo-compact) {
-             min-height: 95px !important;
+             min-height: 170px !important;
            }
            .cleaning-report .report-area-viewport[data-density="dense"] .report-activity-row,
            .cleaning-report .report-area-viewport[data-density="ultra"] .report-activity-row {
