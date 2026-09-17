@@ -631,9 +631,38 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const { toast } = useToast();
-  useEffect(() => { api("/limpiezas/ejecuciones?status=open").then(setReports).finally(() => setLoading(false)); }, []);
+  useEffect(() => { api("/limpiezas/ejecuciones").then(setReports).finally(() => setLoading(false)); }, []);
   const remove = async (id: number) => { if (!window.confirm("¿Eliminar este reporte del histórico? Esta acción no se puede deshacer.")) return; try { await api(`/limpiezas/ejecuciones/${id}`, { method: "DELETE" }); setReports((current) => current.filter((report) => report.id !== id)); toast({ title: "Reporte eliminado" }); } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo eliminar el reporte", variant: "destructive" }); } };
-  return <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Folios activos</CardTitle></CardHeader><CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : !reports.length ? <p className="p-4 text-center text-sm text-muted-foreground">No hay folios activos.</p> : <div className="divide-y rounded-md border">{reports.map((report) => <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"><button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left"><span className="block truncate text-sm font-medium">{executionFolioName(report)}</span><span className="block text-xs text-muted-foreground">{report.cleaning_type?.name || "Reporte de limpieza"}</span></button><div className="flex items-center justify-between gap-2"><Badge variant="secondary">En progreso</Badge>{isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}</div></div>)}</div>}</CardContent></Card>;
+  const activeReports = reports.filter((report) => !report.signature);
+  const historicalReports = reports.filter((report) => Boolean(report.signature));
+  const reportList = (items: Execution[], completed: boolean) => items.length ? (
+    <div className="divide-y rounded-md border">
+      {items.map((report) => (
+        <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between">
+          <button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left">
+            <span className="block truncate text-sm font-medium">{executionFolioName(report)}</span>
+            <span className="block text-xs text-muted-foreground">{report.cleaning_type?.name || "Reporte de limpieza"} · Línea {report.line_number || "sin indicar"}</span>
+          </button>
+          <div className="flex items-center justify-between gap-2">
+            <Badge variant={completed ? "default" : "secondary"}>{completed ? "Completado" : "En progreso"}</Badge>
+            {!completed && isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : <p className="p-4 text-center text-sm text-muted-foreground">{completed ? "No hay folios completados." : "No hay folios activos."}</p>;
+  return (
+    <div className="space-y-5">
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><History className="h-5 w-5 text-primary" />Folios activos</CardTitle></CardHeader>
+        <CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : reportList(activeReports, false)}</CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" />Histórico de folios</CardTitle></CardHeader>
+        <CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : reportList(historicalReports, true)}</CardContent>
+      </Card>
+    </div>
+  );
 }
 
 function LegacyStartExecution({ catalogs, onStarted }: { catalogs: Catalogs; onStarted: (execution: Execution) => void }) {
@@ -1243,8 +1272,8 @@ function HistoryPage({ catalogs, reload }: { catalogs: Catalogs; reload: () => v
       <div className="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Archivo operativo</p>
-          <h2 className="mt-1 text-2xl font-bold tracking-tight">Folios activos</h2>
-           <p className="mt-1 text-sm text-muted-foreground">Consulta y continúa los reportes que siguen abiertos.</p>
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">Folios e histórico</h2>
+           <p className="mt-1 text-sm text-muted-foreground">Consulta reportes activos y revisa los folios completados.</p>
         </div>
         <Button type="button" variant="outline" onClick={() => setLocation("/limpiezas-icmx")}>
           <ArrowLeft className="mr-2 h-4 w-4" />
