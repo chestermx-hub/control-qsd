@@ -989,7 +989,9 @@ export default function AnalisisZonasAuditadas() {
   const { user } = useAuth();
   const canDeleteCaptures = Boolean(user);
   const canDeleteHistoricalCaptures =
-    user?.email?.toLowerCase() === "sistemas@qis-servicio.com";
+    user?.role === "superadmin"
+    || user?.permissions?.includes("capturas_auditoria")
+    || user?.permissions?.includes("analisis_defectos");
   const showZoneColumn = filterZoneId === "all";
 
   const params = {

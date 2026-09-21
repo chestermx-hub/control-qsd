@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, auditCapturesTable, defectZonesTable, panelsTable, usersTable } from "@workspace/db";
+import { db, auditCapturesTable, defectZonesTable, panelsTable, usersTable, profilesTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import type { Request, Response } from "express";
 
@@ -25,10 +25,31 @@ async function getCurrentUser(req: Request) {
   const userId = Number(rawUserId);
   if (!Number.isInteger(userId) || userId <= 0) return undefined;
   const [user] = await db
-    .select({ role: usersTable.role, email: usersTable.email })
+    .select({
+      role: usersTable.role,
+      email: usersTable.email,
+      profileId: usersTable.profileId,
+    })
     .from(usersTable)
     .where(eq(usersTable.id, userId));
-  return user;
+  if (!user) return undefined;
+  const [profile] = user.profileId
+    ? await db
+        .select({ permissions: profilesTable.permissions })
+        .from(profilesTable)
+        .where(eq(profilesTable.id, user.profileId))
+    : [];
+  return {
+    ...user,
+    permissions: Array.isArray(profile?.permissions) ? profile.permissions : [],
+  };
+}
+
+function canDeleteHistoricalCaptures(user: Awaited<ReturnType<typeof getCurrentUser>>) {
+  if (!user) return false;
+  if (user.role === "superadmin" || user.email.toLowerCase() === CAPTURE_DELETE_EMAIL) return true;
+  return user.permissions.includes("capturas_auditoria")
+    || user.permissions.includes("analisis_defectos");
 }
 
 async function getPanelContext(panelId?: number) {
@@ -250,7 +271,6 @@ router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
   const [existing] = await db.select().from(auditCapturesTable).where(eq(auditCapturesTable.id, id));
   if (!existing) { res.status(404).json({ error: "Not found" }); return; }
   const user = await getCurrentUser(req);
-  const isSpecialDeleteUser = user?.email.toLowerCase() === CAPTURE_DELETE_EMAIL;
   const isAuthenticatedUser = Boolean(user);
   if (
     !isAuthenticatedUser
@@ -258,8 +278,8 @@ router.delete("/audit-captures/:id", async (req: Request, res: Response) => {
     res.status(403).json({ error: "Debes iniciar sesión para eliminar registros" });
     return;
   }
-  if (existing.date !== currentMexicoDate() && !isSpecialDeleteUser) {
-    res.status(409).json({ error: "Las capturas de días anteriores están bloqueadas" });
+  if (existing.date !== currentMexicoDate() && !canDeleteHistoricalCaptures(user)) {
+    res.status(403).json({ error: "Sólo el perfil de analista puede eliminar registros de días anteriores" });
     return;
   }
   await db.delete(auditCapturesTable).where(eq(auditCapturesTable.id, id));
