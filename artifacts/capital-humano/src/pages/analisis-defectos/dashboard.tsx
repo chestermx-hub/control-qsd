@@ -89,6 +89,8 @@ const ZONE_PROCESS_ORDER: Record<string, number> = {
   salidade3wet: 4,
 };
 
+const DPU_MULTIPLIER = 2;
+
 function zoneProcessOrder(name: string, fallback = Number.MAX_SAFE_INTEGER) {
   const normalized = name
     .trim()
@@ -997,7 +999,7 @@ export default function AnalisisDashboard() {
             value,
             historicalValue: historicalRows.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0),
             units,
-            dpu: units ? value / units : 0,
+            dpu: units ? (value / units) * DPU_MULTIPLIER : 0,
             captures: rows.length,
           };
         })
@@ -1015,7 +1017,7 @@ export default function AnalisisDashboard() {
           0,
         ),
         units,
-        dpu: units ? value / units : 0,
+        dpu: units ? (value / units) * DPU_MULTIPLIER : 0,
         captures: zoneBaseCaptures.length,
       };
     },
@@ -1204,7 +1206,7 @@ export default function AnalisisDashboard() {
           .map(([date, day]) => ({
             date,
             label: dateLabel(date),
-            dpu: day.total / day.units.size,
+            dpu: (day.total / day.units.size) * DPU_MULTIPLIER,
             defects: day.total,
             units: day.units.size,
           }));

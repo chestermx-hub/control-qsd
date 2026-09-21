@@ -36,6 +36,8 @@ function todayStr() {
   }).format(new Date());
 }
 
+const DPU_MULTIPLIER = 2;
+
 function isCurrentDay(date: string) {
   return date === todayStr();
 }
@@ -1241,7 +1243,7 @@ export default function AnalisisZonasAuditadas() {
       for (const [date, capturesForDate] of groupedByDate) {
         const total = capturesForDate.reduce((sum, capture) => sum + (capture.quantity ?? 1), 0);
         const uniqueUnits = new Set(capturesForDate.map((capture) => capture.unit_number)).size;
-        const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
+        const dpuDia = uniqueUnits > 0 ? (total / uniqueUnits) * DPU_MULTIPLIER : 0;
         statsByDate.set(date, { total, dpuDia, r1000: dpuDia * 1000 });
       }
 
@@ -1304,7 +1306,7 @@ export default function AnalisisZonasAuditadas() {
     const dayCaptures = captures as AuditCapture[];
     const total = dayCaptures.reduce((sum, c) => sum + (c.quantity ?? 1), 0);
       const uniqueUnits = new Set(dayCaptures.map((c) => `${c.zone_id ?? "none"}__${c.unit_number}`)).size;
-    const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
+    const dpuDia = uniqueUnits > 0 ? (total / uniqueUnits) * DPU_MULTIPLIER : 0;
     const r1000 = dpuDia * 1000;
     return { total, uniqueUnits, dpuDia, r1000 };
   }, [captures]);
@@ -1367,7 +1369,7 @@ export default function AnalisisZonasAuditadas() {
     const uniqueUnits = new Set(
       visibleCaptures.map((capture) => `${capture.zone_id ?? "none"}__${capture.unit_number}`),
     ).size;
-    const dpuDia = uniqueUnits > 0 ? total / uniqueUnits : 0;
+    const dpuDia = uniqueUnits > 0 ? (total / uniqueUnits) * DPU_MULTIPLIER : 0;
     return { total, uniqueUnits, dpuDia, r1000: dpuDia * 1000 };
   }, [filteredDetailRows]);
 
