@@ -27,6 +27,7 @@ import Limpiezas from "@/pages/control/limpiezas";
 
 import PanelFormPage from "@/pages/control/panel-form";
 import Apariencia from "@/pages/control/apariencia";
+import Respaldo from "@/pages/control/respaldo";
 import { useEffect } from "react";
 import { restoreAppearancePalette } from "@/lib/appearance";
 
@@ -34,13 +35,16 @@ import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
-function ProtectedRoute({ component: Component, permission, ...rest }: any) {
+function ProtectedRoute({ component: Component, permission, superadminOnly = false, ...rest }: any) {
   const { user, isLoading, can } = useAuth();
   if (isLoading) return null;
   if (!user) {
     return <Login />;
   }
   if (permission && !can(permission)) {
+    return <NotFound />;
+  }
+  if (superadminOnly && user.role !== "superadmin") {
     return <NotFound />;
   }
   return <Component {...rest} />;
@@ -67,6 +71,7 @@ function AppRouter() {
       <Route path="/control/paneles/nuevo" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
       <Route path="/control/paneles/editar" component={() => <ProtectedRoute component={PanelFormPage} permission="paneles" />} />
       <Route path="/control/apariencia" component={() => <ProtectedRoute component={Apariencia} permission="apariencia" />} />
+      <Route path="/control/respaldo" component={() => <ProtectedRoute component={Respaldo} permission="perfiles" superadminOnly />} />
 
       {/* Analisis Defectos Module */}
       <Route path="/analisis-defectos/dashboard" component={() => <ProtectedRoute component={AnalisisDashboard} permission="analisis_dashboard" />} />

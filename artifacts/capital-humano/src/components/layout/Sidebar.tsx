@@ -22,6 +22,7 @@ import {
   Sparkles,
   Palette,
   History as HistoryIcon,
+  Archive,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
@@ -31,6 +32,7 @@ type NavItem = {
   label: string;
   icon: LucideIcon;
   permission: string;
+  superadminOnly?: boolean;
 };
 
 type NavSection = {
@@ -92,6 +94,7 @@ const navigation: NavSection[] = [
       { href: "/control/perfiles", label: "Perfiles", icon: ShieldCheck, permission: "perfiles" },
       { href: "/control/usuarios", label: "Usuarios", icon: Users, permission: "usuarios" },
       { href: "/control/udns", label: "UDN", icon: Building2, permission: "udns" },
+      { href: "/control/respaldo", label: "Respaldo completo", icon: Archive, permission: "perfiles", superadminOnly: true },
     ],
   },
 ];
@@ -102,13 +105,14 @@ function allHrefs(section: NavSection) {
   return hrefs;
 }
 
-function filterItems(items: NavItem[], can: (p: string) => boolean): NavItem[] {
-  return items.filter((item) => can(item.permission));
+function filterItems(items: NavItem[], can: (p: string) => boolean, isSuperadmin: boolean): NavItem[] {
+  return items.filter((item) => can(item.permission) && (!item.superadminOnly || isSuperadmin));
 }
 
 function SidebarContent({ onClose }: { onClose?: () => void }) {
   const [location] = useLocation();
   const { user, logout, can } = useAuth();
+  const isSuperadmin = user?.role === "superadmin";
 
   const [openSections, setOpenSections] = useState<Record<string, boolean>>(() => {
     const initial: Record<string, boolean> = {};
@@ -166,8 +170,8 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
 
         {/* Top-level sections */}
         {navigation.map((section) => {
-          const filteredItems = filterItems(section.items, can);
-          const filteredSubItems = section.subSection ? filterItems(section.subSection.items, can) : [];
+          const filteredItems = filterItems(section.items, can, isSuperadmin);
+          const filteredSubItems = section.subSection ? filterItems(section.subSection.items, can, isSuperadmin) : [];
           const hasVisible = filteredItems.length > 0 || filteredSubItems.length > 0;
           if (!hasVisible) return null;
 

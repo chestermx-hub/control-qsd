@@ -15,6 +15,7 @@ import dashboardRouter from "./dashboard";
 import uploadRouter from "./upload";
 import storageRouter from "./storage";
 import limpiezasRouter from "./limpiezas";
+import backupsRouter from "./backups";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(dashboardRouter);
 router.use(uploadRouter);
 router.use(storageRouter);
 router.use(limpiezasRouter);
+router.use(backupsRouter);
 
 export default router;
