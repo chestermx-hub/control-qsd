@@ -575,6 +575,38 @@ function PanelAxisTick({
   );
 }
 
+function DefectAxisTick({
+  x = 0,
+  y = 0,
+  payload,
+  index = 0,
+  fill,
+}: {
+  x?: number;
+  y?: number;
+  payload?: { value?: string };
+  index?: number;
+  fill: string;
+}) {
+  const label = String(payload?.value ?? "");
+  if (!label.trim()) return null;
+  const displayLabel = label.length > 20 ? `${label.slice(0, 19).trimEnd()}…` : label;
+  const rowOffset = index % 2 === 0 ? 0 : 38;
+
+  return (
+    <g transform={`translate(${x},${y + rowOffset})`}>
+      <text
+        transform="rotate(-55)"
+        textAnchor="end"
+        fill={fill}
+        fontSize={9}
+      >
+        {displayLabel}
+      </text>
+    </g>
+  );
+}
+
 function ChartExportButton({
   ariaLabel,
   filename,
@@ -1992,7 +2024,7 @@ export default function AnalisisDashboard() {
                 </div>
               </section>
 
-              <div className="order-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div className="order-6 grid grid-cols-1 gap-4">
                 <Card>
                   <CardHeader className="flex-row items-start justify-between space-y-0 px-4 pb-2 pt-4">
                     <div>
@@ -2152,8 +2184,8 @@ export default function AnalisisDashboard() {
                               <XAxis
                                 dataKey="name"
                                 interval={0}
-                                height={110}
-                                tick={<PanelAxisTick fill={tickColor} />}
+                                height={145}
+                                tick={<DefectAxisTick fill={tickColor} />}
                                 stroke={tickColor}
                               />
                               <YAxis
