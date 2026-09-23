@@ -615,8 +615,9 @@ function downloadChartImage(targetId: string, title: string) {
         )
         .filter((row) => row.length)
     : [];
+  const titleHeight = title.trim() ? 34 : 0;
   const legendHeight = legendRows.length ? legendRows.length * 24 + 8 : 0;
-  const exportHeight = height + legendHeight;
+  const exportHeight = titleHeight + legendHeight + height;
   const scale = Math.max(2, Math.min(window.devicePixelRatio || 1, 3));
   const svg = sourceSvg.cloneNode(true) as SVGSVGElement;
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
@@ -629,9 +630,20 @@ function downloadChartImage(targetId: string, title: string) {
   exportSvg.setAttribute("width", String(width));
   exportSvg.setAttribute("height", String(exportHeight));
   exportSvg.setAttribute("viewBox", `0 0 ${width} ${exportHeight}`);
+  if (title.trim()) {
+    const titleText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    titleText.setAttribute("x", "12");
+    titleText.setAttribute("y", "22");
+    titleText.setAttribute("fill", "#1f2937");
+    titleText.setAttribute("font-size", "16");
+    titleText.setAttribute("font-family", "Arial, sans-serif");
+    titleText.setAttribute("font-weight", "700");
+    titleText.textContent = title.trim();
+    exportSvg.appendChild(titleText);
+  }
   if (legendRows.length) {
     const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-    legendGroup.setAttribute("transform", "translate(0 20)");
+    legendGroup.setAttribute("transform", `translate(0 ${titleHeight + 20})`);
     for (const [rowIndex, row] of legendRows.entries()) {
       let cursorX = 12;
       const rowY = rowIndex * 24;
@@ -661,7 +673,7 @@ function downloadChartImage(targetId: string, title: string) {
     exportSvg.appendChild(legendGroup);
   }
   svg.setAttribute("x", "0");
-  svg.setAttribute("y", String(legendHeight));
+  svg.setAttribute("y", String(titleHeight + legendHeight));
   exportSvg.appendChild(svg);
 
   const svgBlob = new Blob([new XMLSerializer().serializeToString(exportSvg)], {
