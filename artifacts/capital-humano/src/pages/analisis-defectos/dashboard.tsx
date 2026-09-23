@@ -352,7 +352,7 @@ function ZonePieLabel({
   const elbowRadius = outerRadius + 30;
   const startX = cx + startRadius * Math.cos(angle);
   const startY = cy + startRadius * Math.sin(angle);
-  const isRight = labelSide ?? (Math.cos(angle) >= 0);
+  const isRight = labelSide ? labelSide === "right" : Math.cos(angle) >= 0;
   const elbowX = cx + (isRight ? elbowRadius : -elbowRadius);
   const elbowY = labelY ?? cy + elbowRadius * Math.sin(angle);
   const textX = cx + (isRight ? outerRadius + 62 : -(outerRadius + 62));
@@ -461,10 +461,10 @@ function buildZonePieLabelLayouts(
     sideCandidates.forEach((candidate, index) => layouts.set(candidate.index, positionedY[index]));
   }
 
-  return candidates.map(({ index }) => ({
+  return candidates.map(({ index, side }) => ({
     index,
     y: Math.max(minY, Math.min(maxY, layouts.get(index) ?? cy)),
-    side: candidates.find((candidate) => candidate.index === index)?.side ?? "right",
+    side,
   }));
 }
 
@@ -1781,11 +1781,17 @@ export default function AnalisisDashboard() {
                                         Number(labelProps.outerRadius),
                                         440,
                                       );
-                                      const labelY = layouts.find((layout) => layout.index === labelProps.index)?.y;
+                                      const requestedIndex = Number(labelProps.index);
+                                      const layout = Number.isInteger(requestedIndex)
+                                        ? layouts.find((item) => item.index === requestedIndex)
+                                        : layouts.find(
+                                            (item) => zone.pieData[item.index]?.name === labelProps.name,
+                                          );
                                       return (
                                         <ZonePieLabel
                                           {...labelProps}
-                                          labelY={labelY}
+                                          labelY={layout?.y}
+                                          labelSide={layout?.side}
                                           total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
                                           fill={isDark ? "#f8fafc" : "#334155"}
                                         />
