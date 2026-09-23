@@ -328,7 +328,6 @@ function ZonePieLabel({
   isRemainder,
   fill,
   labelY,
-  labelSide,
 }: {
   cx?: number;
   cy?: number;
@@ -343,7 +342,6 @@ function ZonePieLabel({
   isRemainder?: boolean;
   fill: string;
   labelY?: number;
-  labelSide?: "left" | "right";
 }) {
   const numericValue = Number(value ?? 0);
   if (!numericValue || !total || isRemainder || name === "No seleccionado") return null;
@@ -352,7 +350,7 @@ function ZonePieLabel({
   const elbowRadius = outerRadius + 30;
   const startX = cx + startRadius * Math.cos(angle);
   const startY = cy + startRadius * Math.sin(angle);
-  const isRight = labelSide ? labelSide === "right" : Math.cos(angle) >= 0;
+  const isRight = Math.cos(angle) >= 0;
   const elbowX = cx + (isRight ? elbowRadius : -elbowRadius);
   const elbowY = labelY ?? cy + elbowRadius * Math.sin(angle);
   const textX = cx + (isRight ? outerRadius + 62 : -(outerRadius + 62));
@@ -1823,7 +1821,6 @@ export default function AnalisisDashboard() {
                                         <ZonePieLabel
                                           {...labelProps}
                                           labelY={layout?.y}
-                                          labelSide={layout?.side}
                                           total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
                                           fill={isDark ? "#f8fafc" : "#334155"}
                                         />
