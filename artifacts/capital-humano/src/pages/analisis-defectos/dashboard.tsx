@@ -328,6 +328,8 @@ function ZonePieLabel({
   isRemainder,
   fill,
   labelY,
+  chartWidth = 512,
+  chartHeight = 440,
 }: {
   cx?: number;
   cy?: number;
@@ -342,6 +344,8 @@ function ZonePieLabel({
   isRemainder?: boolean;
   fill: string;
   labelY?: number;
+  chartWidth?: number;
+  chartHeight?: number;
 }) {
   const numericValue = Number(value ?? 0);
   if (!numericValue || !total || isRemainder || name === "No seleccionado") return null;
@@ -351,10 +355,14 @@ function ZonePieLabel({
   const startX = cx + startRadius * Math.cos(angle);
   const startY = cy + startRadius * Math.sin(angle);
   const isRight = Math.cos(angle) >= 0;
-  const elbowX = cx + (isRight ? elbowRadius : -elbowRadius);
-  const elbowY = labelY ?? cy + elbowRadius * Math.sin(angle);
-  const textX = cx + (isRight ? outerRadius + 62 : -(outerRadius + 62));
-  const textAnchor = isRight ? "start" : "end";
+  const boxWidth = Math.min(124, Math.max(96, (chartWidth - outerRadius * 2 - 30) / 2));
+  const boxHeight = 32;
+  const boxX = isRight ? chartWidth - boxWidth - 6 : 6;
+  const desiredY = labelY ?? cy + elbowRadius * Math.sin(angle);
+  const boxY = Math.max(4, Math.min(chartHeight - boxHeight - 4, desiredY - boxHeight / 2));
+  const anchorY = boxY + boxHeight / 2;
+  const elbowX = isRight ? boxX - 12 : boxX + boxWidth + 12;
+  const edgeX = isRight ? boxX : boxX + boxWidth;
   const actualPercentage =
     typeof percentage === "number"
       ? percentage
@@ -362,30 +370,41 @@ function ZonePieLabel({
         ? percent * 100
         : (numericValue / total) * 100;
   const displayName =
-    name.length > 26 ? `${name.slice(0, 25).trimEnd()}…` : name;
+    name.length > 20 ? `${name.slice(0, 19).trimEnd()}…` : name;
 
   return (
     <g>
       <polyline
-        points={`${startX},${startY} ${elbowX},${elbowY} ${textX},${elbowY}`}
+        points={`${startX},${startY} ${elbowX},${anchorY} ${edgeX},${anchorY}`}
         fill="none"
-        stroke={fill}
-        strokeOpacity={0.7}
+        stroke="#64748b"
+        strokeOpacity={0.85}
         strokeWidth={1}
       />
       <circle cx={startX} cy={startY} r={2} fill={fill} />
+      <rect
+        x={boxX}
+        y={boxY}
+        width={boxWidth}
+        height={boxHeight}
+        rx={3}
+        fill="#ffffff"
+        fillOpacity={0.96}
+        stroke="#64748b"
+        strokeWidth={1}
+      />
       <text
-        x={textX}
-        y={elbowY - 4}
-        textAnchor={textAnchor}
-        fill={fill}
+        x={boxX + 7}
+        y={boxY + 12}
+        textAnchor="start"
+        fill="#1f2937"
         fontSize={9}
         fontWeight={600}
       >
-        <tspan x={textX} dy="0">
+        <tspan x={boxX + 7} dy="0">
           {displayName}
         </tspan>
-        <tspan x={textX} dy="12" fontWeight={700}>
+        <tspan x={boxX + 7} dy="11" fontWeight={700}>
           {formatNumber(numericValue)} · {formatDecimal(actualPercentage)}%
         </tspan>
       </text>
@@ -425,9 +444,9 @@ function buildZonePieLabelLayouts(
     currentAngle += sweep;
   }
 
-  const minY = 26;
-  const maxY = chartHeight - 30;
-  const minimumGap = 34;
+  const minY = 20;
+  const maxY = chartHeight - 20;
+  const minimumGap = 36;
   const layouts = new Map<number, number>();
 
   for (const side of ["left", "right"] as const) {
@@ -1804,6 +1823,7 @@ export default function AnalisisDashboard() {
                                     strokeWidth={2}
                                     labelLine={false}
                                     label={(labelProps) => {
+                                      const chartWidth = Number(labelProps.viewBox?.width) || 512;
                                       const layouts = buildZonePieLabelLayouts(
                                         zone.pieData,
                                         Number(labelProps.cx),
@@ -1821,6 +1841,8 @@ export default function AnalisisDashboard() {
                                         <ZonePieLabel
                                           {...labelProps}
                                           labelY={layout?.y}
+                                          chartWidth={chartWidth}
+                                          chartHeight={440}
                                           total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
                                           fill={isDark ? "#f8fafc" : "#334155"}
                                         />
