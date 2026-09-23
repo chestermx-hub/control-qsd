@@ -7,6 +7,7 @@ import {
   useListZones,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import * as XLSX from "xlsx";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -244,24 +245,12 @@ function aggregateBy(
   return Array.from(groups.values()).sort((a, b) => b.value - a.value);
 }
 
-function downloadCsv(filename: string, rows: Array<Record<string, string | number>>) {
+function downloadExcel(filename: string, rows: Array<Record<string, string | number>>) {
   if (!rows.length) return;
-  const headers = Object.keys(rows[0]);
-  const csv = [
-    headers.join(","),
-    ...rows.map((row) =>
-      headers
-        .map((header) => `"${String(row[header] ?? "").replaceAll('"', '""')}"`)
-        .join(","),
-    ),
-  ].join("\n");
-  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
+  XLSX.writeFile(workbook, filename.replace(/\.csv$/i, ".xlsx"));
 }
 
 function ChartTooltip({
@@ -594,13 +583,14 @@ function ChartExportButton({
   return (
     <button
       type="button"
-      onClick={() => downloadCsv(filename, rows)}
+      onClick={() => downloadExcel(filename, rows)}
       disabled={!rows.length}
-      className="print:hidden flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#F0F1F2] text-[#4b5563] transition-colors hover:opacity-80 disabled:opacity-40"
+      className="print:hidden flex h-8 items-center gap-1.5 rounded-[6px] bg-[#F0F1F2] px-2.5 text-xs font-medium text-[#4b5563] transition-colors hover:opacity-80 disabled:opacity-40"
       aria-label={ariaLabel}
-      title="Descargar datos CSV"
+      title="Descargar Excel"
     >
       <Download className="h-3.5 w-3.5" />
+      <span>Excel</span>
     </button>
   );
 }
@@ -613,14 +603,68 @@ function downloadChartImage(targetId: string, title: string) {
   const bounds = sourceSvg.getBoundingClientRect();
   const width = Math.max(1, Math.ceil(sourceSvg.clientWidth || bounds.width));
   const height = Math.max(1, Math.ceil(sourceSvg.clientHeight || bounds.height));
-  const scale = Math.min(window.devicePixelRatio || 1, 2);
+  const legendRows = target
+    ? Array.from(target.querySelectorAll<HTMLElement>("[data-chart-legend]"))
+        .map((row) =>
+          Array.from(row.children)
+            .map((item) => ({
+              label: item.textContent?.trim() ?? "",
+              color: item.querySelector<HTMLElement>("[data-export-color]")?.style.backgroundColor,
+            }))
+            .filter((item) => item.label),
+        )
+        .filter((row) => row.length)
+    : [];
+  const legendHeight = legendRows.length ? legendRows.length * 24 + 8 : 0;
+  const exportHeight = height + legendHeight;
+  const scale = Math.max(2, Math.min(window.devicePixelRatio || 1, 3));
   const svg = sourceSvg.cloneNode(true) as SVGSVGElement;
   svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
 
-  const svgBlob = new Blob([new XMLSerializer().serializeToString(svg)], {
+  const exportSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  exportSvg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  exportSvg.setAttribute("width", String(width));
+  exportSvg.setAttribute("height", String(exportHeight));
+  exportSvg.setAttribute("viewBox", `0 0 ${width} ${exportHeight}`);
+  if (legendRows.length) {
+    const legendGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    legendGroup.setAttribute("transform", "translate(0 20)");
+    for (const [rowIndex, row] of legendRows.entries()) {
+      let cursorX = 12;
+      const rowY = rowIndex * 24;
+      for (const item of row) {
+        if (item.color) {
+          const marker = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+          marker.setAttribute("x", String(cursorX));
+          marker.setAttribute("y", String(rowY - 8));
+          marker.setAttribute("width", "10");
+          marker.setAttribute("height", "10");
+          marker.setAttribute("rx", "2");
+          marker.setAttribute("fill", item.color);
+          legendGroup.appendChild(marker);
+        }
+
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", String(cursorX + (item.color ? 15 : 0)));
+        text.setAttribute("y", String(rowY + 1));
+        text.setAttribute("fill", "#475569");
+        text.setAttribute("font-size", "11");
+        text.setAttribute("font-family", "Arial, sans-serif");
+        text.textContent = item.label;
+        legendGroup.appendChild(text);
+        cursorX += Math.max(86, item.label.length * 6.3 + (item.color ? 30 : 12));
+      }
+    }
+    exportSvg.appendChild(legendGroup);
+  }
+  svg.setAttribute("x", "0");
+  svg.setAttribute("y", String(legendHeight));
+  exportSvg.appendChild(svg);
+
+  const svgBlob = new Blob([new XMLSerializer().serializeToString(exportSvg)], {
     type: "image/svg+xml;charset=utf-8",
   });
   const svgUrl = URL.createObjectURL(svgBlob);
@@ -630,7 +674,7 @@ function downloadChartImage(targetId: string, title: string) {
     image.onload = () => {
       const canvas = document.createElement("canvas");
       canvas.width = Math.ceil(width * scale);
-      canvas.height = Math.ceil(height * scale);
+      canvas.height = Math.ceil(exportHeight * scale);
       const context = canvas.getContext("2d");
       if (!context) {
         URL.revokeObjectURL(svgUrl);
@@ -639,8 +683,8 @@ function downloadChartImage(targetId: string, title: string) {
       }
       context.scale(scale, scale);
       context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, width, height);
-      context.drawImage(image, 0, 0, width, height);
+      context.fillRect(0, 0, width, exportHeight);
+      context.drawImage(image, 0, 0, width, exportHeight);
       URL.revokeObjectURL(svgUrl);
       canvas.toBlob((blob) => {
         if (!blob) {
@@ -700,11 +744,12 @@ function ChartImageDownloadButton({
       type="button"
       onClick={handleDownload}
       disabled={isDownloading}
-      className="print:hidden flex h-[26px] w-[26px] items-center justify-center rounded-[6px] bg-[#F0F1F2] text-[#4b5563] transition-colors hover:opacity-80 disabled:opacity-40"
-      aria-label={`Descargar imagen de ${title}`}
-      title={`Descargar imagen: ${title}`}
+      className="print:hidden flex h-8 items-center gap-1.5 rounded-[6px] bg-[#F0F1F2] px-2.5 text-xs font-medium text-[#4b5563] transition-colors hover:opacity-80 disabled:opacity-40"
+      aria-label={`Descargar Imagen de ${title}`}
+      title={`Descargar Imagen: ${title}`}
     >
       <Download className="h-3.5 w-3.5" />
+      <span>Imagen</span>
     </button>
   );
 }
@@ -1431,7 +1476,7 @@ export default function AnalisisDashboard() {
                     <Badge variant="outline">{activeZoneName}</Badge>
                     <ChartExportButton
                       ariaLabel="Exportar resumen por zona"
-                      filename="resumen-por-zona.csv"
+                      filename="resumen-por-zona.xlsx"
                       rows={zoneSummary.map((item) => ({
                         Zona: item.name,
                         "Defectos del mes": item.value,
@@ -1571,7 +1616,7 @@ export default function AnalisisDashboard() {
                       />
                       <ChartExportButton
                         ariaLabel="Exportar defectos por zona"
-                        filename="defectos-por-zona.csv"
+                        filename="defectos-por-zona.xlsx"
                         rows={visibleZoneData.map((item) => ({
                           Zona: item.name,
                           Defectos: item.value,
@@ -1940,8 +1985,8 @@ export default function AnalisisDashboard() {
                       </CardDescription>
                     </div>
                     <ChartExportButton
-                      ariaLabel="Exportar defectos por panel"
-                      filename="defectos-por-panel.csv"
+                      ariaLabel="Descargar Excel de defectos por panel"
+                      filename="defectos-por-panel.xlsx"
                       rows={panelData.map((item) => ({
                         Panel: item.name,
                         Defectos: item.value,
@@ -1958,8 +2003,11 @@ export default function AnalisisDashboard() {
                   </CardHeader>
                   <CardContent>
                     {panelData.length ? (
-                      <div className="space-y-1">
-                        <div className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground">
+                      <div id="chart-panel-side" className="space-y-1">
+                        <div
+                          data-chart-legend
+                          className="flex flex-wrap justify-center gap-x-5 gap-y-1 text-[11px] text-muted-foreground"
+                        >
                           {[
                             { label: "RH · Derecho", color: CHART_COLORS.red },
                             { label: "LH · Izquierdo", color: CHART_COLORS.green },
@@ -1971,6 +2019,7 @@ export default function AnalisisDashboard() {
                             .map((side) => (
                               <span key={side.label} className="flex items-center gap-1.5">
                                 <span
+                                  data-export-color
                                   className="h-2.5 w-2.5 rounded-sm"
                                   style={{ backgroundColor: side.color }}
                                 />
@@ -1978,8 +2027,7 @@ export default function AnalisisDashboard() {
                               </span>
                             ))}
                         </div>
-                        <div id="chart-panel-side">
-                          <ResponsiveContainer width="100%" height={330} debounce={0}>
+                        <ResponsiveContainer width="100%" height={330} debounce={0}>
                             <BarChart
                               data={panelSideChartData}
                               margin={{ top: 22, right: 12, left: 0, bottom: 78 }}
@@ -2020,9 +2068,11 @@ export default function AnalisisDashboard() {
                               />
                             </Bar>
                             </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <div className="flex justify-around px-8 text-[11px] font-semibold italic text-muted-foreground">
+                        </ResponsiveContainer>
+                        <div
+                          data-chart-legend
+                          className="flex justify-around px-8 text-[11px] font-semibold italic text-muted-foreground"
+                        >
                           {Array.from(
                             new Set(
                               panelSideChartData
@@ -2051,7 +2101,7 @@ export default function AnalisisDashboard() {
                     </div>
                     <ChartExportButton
                       ariaLabel="Exportar principales defectos"
-                      filename="principales-defectos.csv"
+                      filename="principales-defectos.xlsx"
                       rows={defectData.map((item) => ({
                         Defecto: item.name,
                         Cantidad: item.value,
