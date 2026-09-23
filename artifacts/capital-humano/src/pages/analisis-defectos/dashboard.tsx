@@ -328,6 +328,7 @@ function ZonePieLabel({
   isRemainder,
   fill,
   labelY,
+  labelSide,
 }: {
   cx?: number;
   cy?: number;
@@ -342,6 +343,7 @@ function ZonePieLabel({
   isRemainder?: boolean;
   fill: string;
   labelY?: number;
+  labelSide?: "left" | "right";
 }) {
   const numericValue = Number(value ?? 0);
   if (!numericValue || !total || isRemainder || name === "No seleccionado") return null;
@@ -350,10 +352,10 @@ function ZonePieLabel({
   const elbowRadius = outerRadius + 30;
   const startX = cx + startRadius * Math.cos(angle);
   const startY = cy + startRadius * Math.sin(angle);
-  const elbowX = cx + elbowRadius * Math.cos(angle);
+  const isRight = labelSide ?? (Math.cos(angle) >= 0);
+  const elbowX = cx + (isRight ? elbowRadius : -elbowRadius);
   const elbowY = labelY ?? cy + elbowRadius * Math.sin(angle);
-  const isRight = Math.cos(angle) >= 0;
-  const textX = elbowX + (isRight ? 8 : -8);
+  const textX = cx + (isRight ? outerRadius + 62 : -(outerRadius + 62));
   const textAnchor = isRight ? "start" : "end";
   const actualPercentage =
     typeof percentage === "number"
@@ -396,6 +398,7 @@ function ZonePieLabel({
 type ZonePieLabelLayout = {
   index: number;
   y: number;
+  side: "left" | "right";
 };
 
 function buildZonePieLabelLayouts(
@@ -461,6 +464,7 @@ function buildZonePieLabelLayouts(
   return candidates.map(({ index }) => ({
     index,
     y: Math.max(minY, Math.min(maxY, layouts.get(index) ?? cy)),
+    side: candidates.find((candidate) => candidate.index === index)?.side ?? "right",
   }));
 }
 
