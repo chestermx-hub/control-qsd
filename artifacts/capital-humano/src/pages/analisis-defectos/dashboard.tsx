@@ -589,14 +589,14 @@ function DefectAxisTick({
   const label = String(payload?.value ?? "");
   if (!label.trim()) return null;
   const displayLabel = label.length > 20 ? `${label.slice(0, 19).trimEnd()}…` : label;
-  const rowOffset = index % 2 === 0 ? 0 : 38;
+  const labelColor = index % 2 === 0 ? "#111111" : "#36454F";
 
   return (
-    <g transform={`translate(${x},${y + rowOffset})`}>
+    <g transform={`translate(${x},${y})`}>
       <text
-        transform="rotate(-55)"
+        transform="rotate(-90)"
         textAnchor="end"
-        fill={fill}
+        fill={labelColor}
         fontSize={9}
       >
         {displayLabel}
