@@ -330,6 +330,7 @@ function ZonePieLabel({
   cy = 0,
   midAngle = 0,
   outerRadius = 0,
+  index = 0,
   value = 0,
   name = "",
   percentage,
@@ -337,11 +338,13 @@ function ZonePieLabel({
   total,
   isRemainder,
   fill,
+  labelY,
 }: {
   cx?: number;
   cy?: number;
   midAngle?: number;
   outerRadius?: number;
+  index?: number;
   value?: number | string;
   name?: string;
   percentage?: number;
@@ -349,18 +352,19 @@ function ZonePieLabel({
   total?: number;
   isRemainder?: boolean;
   fill: string;
+  labelY?: number;
 }) {
   const numericValue = Number(value ?? 0);
   if (!numericValue || !total || isRemainder || name === "No seleccionado") return null;
   const angle = (-midAngle * Math.PI) / 180;
   const startRadius = outerRadius + 2;
-  const elbowRadius = outerRadius + 22;
+  const elbowRadius = outerRadius + 30;
   const startX = cx + startRadius * Math.cos(angle);
   const startY = cy + startRadius * Math.sin(angle);
   const elbowX = cx + elbowRadius * Math.cos(angle);
-  const elbowY = cy + elbowRadius * Math.sin(angle);
+  const elbowY = labelY ?? cy + elbowRadius * Math.sin(angle);
   const isRight = Math.cos(angle) >= 0;
-  const textX = elbowX + (isRight ? 6 : -6);
+  const textX = elbowX + (isRight ? 8 : -8);
   const textAnchor = isRight ? "start" : "end";
   const actualPercentage =
     typeof percentage === "number"
@@ -369,7 +373,7 @@ function ZonePieLabel({
         ? percent * 100
         : (numericValue / total) * 100;
   const displayName =
-    name.length > 30 ? `${name.slice(0, 29).trimEnd()}…` : name;
+    name.length > 26 ? `${name.slice(0, 25).trimEnd()}…` : name;
 
   return (
     <g>
@@ -398,6 +402,77 @@ function ZonePieLabel({
       </text>
     </g>
   );
+}
+
+type ZonePieLabelLayout = {
+  index: number;
+  y: number;
+};
+
+function buildZonePieLabelLayouts(
+  data: Array<{ value: number; isRemainder?: boolean; name: string }>,
+  cx: number,
+  cy: number,
+  outerRadius: number,
+  chartHeight: number,
+): ZonePieLabelLayout[] {
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  if (!total || !outerRadius) return [];
+
+  const candidates: Array<ZonePieLabelLayout & { side: "left" | "right"; desiredY: number }> = [];
+  let currentAngle = 90;
+  for (const [index, item] of data.entries()) {
+    const sweep = (item.value / total) * -360;
+    const midAngle = currentAngle + sweep / 2;
+    const angle = (-midAngle * Math.PI) / 180;
+    const side = Math.cos(angle) >= 0 ? "right" : "left";
+    candidates.push({
+      index,
+      side,
+      desiredY: cy + (outerRadius + 42) * Math.sin(angle),
+      y: 0,
+    });
+    currentAngle += sweep;
+  }
+
+  const minY = 26;
+  const maxY = chartHeight - 30;
+  const minimumGap = 34;
+  const layouts = new Map<number, number>();
+
+  for (const side of ["left", "right"] as const) {
+    const sideCandidates = candidates
+      .filter((candidate) => candidate.side === side)
+      .sort((a, b) => a.desiredY - b.desiredY);
+    const positionedY: number[] = [];
+    for (const candidate of sideCandidates) {
+      positionedY.push(
+        Math.max(
+          candidate.desiredY,
+          (positionedY[positionedY.length - 1] ?? minY - minimumGap) + minimumGap,
+        ),
+      );
+    }
+
+    if (positionedY.length && positionedY[positionedY.length - 1] > maxY) {
+      positionedY[positionedY.length - 1] = maxY;
+      for (let index = positionedY.length - 2; index >= 0; index -= 1) {
+        positionedY[index] = Math.min(positionedY[index], positionedY[index + 1] - minimumGap);
+      }
+    }
+    if (positionedY.length && positionedY[0] < minY) {
+      positionedY[0] = minY;
+      for (let index = 1; index < positionedY.length; index += 1) {
+        positionedY[index] = Math.max(positionedY[index], positionedY[index - 1] + minimumGap);
+      }
+    }
+    sideCandidates.forEach((candidate, index) => layouts.set(candidate.index, positionedY[index]));
+  }
+
+  return candidates.map(({ index }) => ({
+    index,
+    y: Math.max(minY, Math.min(maxY, layouts.get(index) ?? cy)),
+  }));
 }
 
 function EmptyChart({ message }: { message: string }) {
@@ -1623,26 +1698,38 @@ export default function AnalisisDashboard() {
                           <CardContent className="px-4 pb-4 pt-0">
                           {zone.pieData.length ? (
                               <div id={`chart-zone-${zone.id}-pie`}>
-                                <ResponsiveContainer width="100%" height={340}>
+                                <ResponsiveContainer width="100%" height={440}>
                                   <PieChart>
                                   <Pie
                                     data={zone.pieData}
                                     dataKey="value"
                                     nameKey="name"
                                     cx="50%"
-                                    cy="43%"
-                                    innerRadius={62}
-                                    outerRadius={98}
+                                    cy="50%"
+                                    innerRadius={78}
+                                    outerRadius={126}
                                     paddingAngle={2}
                                     stroke={isDark ? "#1f2937" : "#ffffff"}
                                     strokeWidth={2}
                                     labelLine={false}
-                                    label={
-                                      <ZonePieLabel
-                                        total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
-                                        fill={isDark ? "#f8fafc" : "#334155"}
-                                      />
-                                    }
+                                    label={(labelProps) => {
+                                      const layouts = buildZonePieLabelLayouts(
+                                        zone.pieData,
+                                        Number(labelProps.cx),
+                                        Number(labelProps.cy),
+                                        Number(labelProps.outerRadius),
+                                        440,
+                                      );
+                                      const labelY = layouts.find((layout) => layout.index === labelProps.index)?.y;
+                                      return (
+                                        <ZonePieLabel
+                                          {...labelProps}
+                                          labelY={labelY}
+                                          total={zone.pieData.reduce((sum, item) => sum + item.value, 0)}
+                                          fill={isDark ? "#f8fafc" : "#334155"}
+                                        />
+                                      );
+                                    }}
                                     isAnimationActive={false}
                                   >
                                     {zone.pieData.map((entry, index) => (
