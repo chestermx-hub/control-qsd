@@ -2137,44 +2137,49 @@ export default function AnalisisDashboard() {
                   </CardHeader>
                   <CardContent>
                     {defectData.length ? (
-                      <div id="chart-defect-detail">
-                        <ResponsiveContainer
-                          width="100%"
-                          height={Math.max(280, 90 + defectData.length * 34)}
-                          debounce={0}
-                        >
-                          <BarChart
-                            data={defectData}
-                            layout="vertical"
-                            margin={{ top: 8, right: 28, left: 12, bottom: 0 }}
-                          >
-                          <CartesianGrid strokeDasharray="3 3" stroke={gridColor} horizontal={false} />
-                          <XAxis type="number" tick={{ fontSize: 11, fill: tickColor }} stroke={tickColor} allowDecimals={false} />
-                          <YAxis
-                            type="category"
-                            dataKey="name"
-                            width={180}
-                            tick={{ fontSize: 11, fill: tickColor }}
-                            stroke={tickColor}
-                          />
-                          <Tooltip content={<ChartTooltip />} cursor={false} />
-                          <Bar
-                            dataKey="value"
-                            name="Defectos"
-                            fill={CHART_COLORS.red}
-                            fillOpacity={0.8}
-                            radius={[0, 4, 4, 0]}
-                            isAnimationActive={false}
+                      <div className="overflow-x-auto">
+                        <div id="chart-defect-detail" className="min-w-[900px]">
+                          <ResponsiveContainer width="100%" height={420} debounce={0}>
+                            <BarChart
+                              data={defectData}
+                              margin={{ top: 22, right: 18, left: 0, bottom: 108 }}
                             >
-                              <LabelList
-                                dataKey="value"
-                                position="right"
-                                formatter={(value: number) => formatNumber(value)}
-                                style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke={gridColor}
+                                vertical={false}
                               />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
+                              <XAxis
+                                dataKey="name"
+                                interval={0}
+                                height={110}
+                                tick={<PanelAxisTick fill={tickColor} />}
+                                stroke={tickColor}
+                              />
+                              <YAxis
+                                tick={{ fontSize: 11, fill: tickColor }}
+                                stroke={tickColor}
+                                allowDecimals={false}
+                              />
+                              <Tooltip content={<ChartTooltip />} cursor={false} />
+                              <Bar
+                                dataKey="value"
+                                name="Defectos"
+                                fill={CHART_COLORS.red}
+                                fillOpacity={0.8}
+                                radius={[4, 4, 0, 0]}
+                                isAnimationActive={false}
+                              >
+                                <LabelList
+                                  dataKey="value"
+                                  position="top"
+                                  formatter={(value: number) => formatNumber(value)}
+                                  style={{ fill: tickColor, fontSize: 10, fontWeight: 600 }}
+                                />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
                       </div>
                     ) : (
                       <EmptyChart message="No hay defectos para los controles seleccionados." />
