@@ -91,6 +91,11 @@ const ZONE_PROCESS_ORDER: Record<string, number> = {
 };
 
 const DPU_MULTIPLIER = 2;
+const ZONE_PIE_START_ANGLE = 0;
+const ZONE_PIE_END_ANGLE = 360;
+const ZONE_PIE_PADDING_ANGLE = 2;
+const ZONE_PIE_LABEL_BOX_HEIGHT = 32;
+const ZONE_PIE_LABEL_GAP = 40;
 
 function zoneProcessOrder(name: string, fallback = Number.MAX_SAFE_INTEGER) {
   const normalized = name
@@ -361,13 +366,16 @@ function ZonePieLabel({
   if (!numericValue || !total || isRemainder || name === "No seleccionado") return null;
   const angle = (-midAngle * Math.PI) / 180;
   const startRadius = outerRadius + 2;
-  const elbowRadius = outerRadius + 30;
+  const elbowRadius = outerRadius + 24;
   const startX = cx + startRadius * Math.cos(angle);
   const startY = cy + startRadius * Math.sin(angle);
   const isRight = Math.cos(angle) >= 0;
   const boxWidth = Math.min(124, Math.max(96, (chartWidth - outerRadius * 2 - 30) / 2));
-  const boxHeight = 32;
-  const boxX = isRight ? chartWidth - boxWidth - 6 : 6;
+  const boxHeight = ZONE_PIE_LABEL_BOX_HEIGHT;
+  const preferredBoxX = isRight
+    ? cx + outerRadius + 8
+    : cx - outerRadius - boxWidth - 8;
+  const boxX = Math.max(4, Math.min(chartWidth - boxWidth - 4, preferredBoxX));
   const desiredY = labelY ?? cy + elbowRadius * Math.sin(angle);
   const boxY = Math.max(4, Math.min(chartHeight - boxHeight - 4, desiredY - boxHeight / 2));
   const anchorY = boxY + boxHeight / 2;
@@ -439,24 +447,36 @@ function buildZonePieLabelLayouts(
   if (!total || !outerRadius) return [];
 
   const candidates: Array<ZonePieLabelLayout & { side: "left" | "right"; desiredY: number }> = [];
-  let currentAngle = 90;
+  const nonZeroCount = data.filter((item) => item.value !== 0).length;
+  const availableSweep =
+    ZONE_PIE_END_ANGLE -
+    ZONE_PIE_START_ANGLE -
+    nonZeroCount * ZONE_PIE_PADDING_ANGLE;
+  let previousEndAngle = ZONE_PIE_START_ANGLE;
   for (const [index, item] of data.entries()) {
-    const sweep = (item.value / total) * -360;
-    const midAngle = currentAngle + sweep / 2;
+    const value = Math.max(0, item.value);
+    const startAngle =
+      index === 0
+        ? ZONE_PIE_START_ANGLE
+        : previousEndAngle + (value !== 0 ? ZONE_PIE_PADDING_ANGLE : 0);
+    const endAngle =
+      startAngle + (value !== 0 ? (value / total) * availableSweep : 0);
+    const midAngle = (startAngle + endAngle) / 2;
+    previousEndAngle = endAngle;
+    if (value === 0 || item.isRemainder || item.name === "No seleccionado") continue;
+
     const angle = (-midAngle * Math.PI) / 180;
     const side = Math.cos(angle) >= 0 ? "right" : "left";
     candidates.push({
       index,
       side,
-      desiredY: cy + (outerRadius + 42) * Math.sin(angle),
+      desiredY: cy + (outerRadius + 24) * Math.sin(angle),
       y: 0,
     });
-    currentAngle += sweep;
   }
 
-  const minY = 20;
-  const maxY = chartHeight - 20;
-  const minimumGap = 36;
+  const minY = ZONE_PIE_LABEL_BOX_HEIGHT / 2 + 4;
+  const maxY = chartHeight - ZONE_PIE_LABEL_BOX_HEIGHT / 2 - 4;
   const layouts = new Map<number, number>();
 
   for (const side of ["left", "right"] as const) {
@@ -464,6 +484,12 @@ function buildZonePieLabelLayouts(
       .filter((candidate) => candidate.side === side)
       .sort((a, b) => a.desiredY - b.desiredY);
     const positionedY: number[] = [];
+    const minimumGap = Math.min(
+      ZONE_PIE_LABEL_GAP,
+      sideCandidates.length > 1
+        ? (maxY - minY) / (sideCandidates.length - 1)
+        : ZONE_PIE_LABEL_GAP,
+    );
     for (const candidate of sideCandidates) {
       positionedY.push(
         Math.max(
@@ -474,15 +500,15 @@ function buildZonePieLabelLayouts(
     }
 
     if (positionedY.length && positionedY[positionedY.length - 1] > maxY) {
-      positionedY[positionedY.length - 1] = maxY;
-      for (let index = positionedY.length - 2; index >= 0; index -= 1) {
-        positionedY[index] = Math.min(positionedY[index], positionedY[index + 1] - minimumGap);
+      const overflow = positionedY[positionedY.length - 1] - maxY;
+      for (let index = 0; index < positionedY.length; index += 1) {
+        positionedY[index] -= overflow;
       }
     }
     if (positionedY.length && positionedY[0] < minY) {
-      positionedY[0] = minY;
-      for (let index = 1; index < positionedY.length; index += 1) {
-        positionedY[index] = Math.max(positionedY[index], positionedY[index - 1] + minimumGap);
+      const underflow = minY - positionedY[0];
+      for (let index = 0; index < positionedY.length; index += 1) {
+        positionedY[index] += underflow;
       }
     }
     sideCandidates.forEach((candidate, index) => layouts.set(candidate.index, positionedY[index]));
@@ -1830,9 +1856,11 @@ export default function AnalisisDashboard() {
                                     nameKey="name"
                                     cx="50%"
                                     cy="50%"
+                                    startAngle={ZONE_PIE_START_ANGLE}
+                                    endAngle={ZONE_PIE_END_ANGLE}
                                     innerRadius={78}
                                     outerRadius={126}
-                                    paddingAngle={2}
+                                    paddingAngle={ZONE_PIE_PADDING_ANGLE}
                                     stroke={isDark ? "#1f2937" : "#ffffff"}
                                     strokeWidth={2}
                                     labelLine={false}
