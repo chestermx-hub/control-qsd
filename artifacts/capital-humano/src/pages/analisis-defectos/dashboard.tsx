@@ -7,7 +7,7 @@ import {
   useListZones,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -245,12 +245,22 @@ function aggregateBy(
   return Array.from(groups.values()).sort((a, b) => b.value - a.value);
 }
 
-function downloadExcel(filename: string, rows: Array<Record<string, string | number>>) {
+async function downloadExcel(filename: string, rows: Array<Record<string, string | number>>) {
   if (!rows.length) return;
-  const workbook = XLSX.utils.book_new();
-  const worksheet = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
-  XLSX.writeFile(workbook, filename.replace(/\.csv$/i, ".xlsx"));
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Datos");
+  worksheet.columns = Object.keys(rows[0]).map((key) => ({ header: key, key }));
+  worksheet.addRows(rows);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([new Uint8Array(buffer).buffer as ArrayBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename.replace(/\.csv$/i, ".xlsx");
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function ChartTooltip({
@@ -636,7 +646,11 @@ function ChartExportButton({
   return (
     <button
       type="button"
-      onClick={() => downloadExcel(filename, rows)}
+      onClick={() => {
+        void downloadExcel(filename, rows).catch((error) =>
+          console.error("No se pudo exportar a Excel.", error),
+        );
+      }}
       disabled={!rows.length}
       className="print:hidden flex h-8 items-center gap-1.5 rounded-[6px] bg-[#F0F1F2] px-2.5 text-xs font-medium text-[#4b5563] transition-colors hover:opacity-80 disabled:opacity-40"
       aria-label={ariaLabel}

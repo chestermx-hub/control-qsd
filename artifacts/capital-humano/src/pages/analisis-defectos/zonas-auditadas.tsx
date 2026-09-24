@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 import {
   useListAuditCaptures, useDeleteAuditCapture, useUpdateAuditCapture,
   useCreateAuditCapture, getListAuditCapturesQueryKey,
@@ -1197,7 +1197,7 @@ export default function AnalisisZonasAuditadas() {
   const getPanel = (id: number | null | undefined) => panels?.find((p) => p.id === id) as Panel | undefined;
   const getVisualZone = (id: number | null | undefined) => visualZones?.find((v) => v.id === id);
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     const all = (historicalCaptures as AuditCapture[] | undefined) ?? [];
     if (!all.length) { toast({ title: "Sin datos para exportar", variant: "destructive" }); return; }
 
@@ -1208,7 +1208,7 @@ export default function AnalisisZonasAuditadas() {
       return a.id - b.id;
     });
 
-    const wb = XLSX.utils.book_new();
+    const wb = new ExcelJS.Workbook();
     const exportHeaders = [
       "Unidad",
       "Semana",
@@ -1279,10 +1279,9 @@ export default function AnalisisZonasAuditadas() {
     };
 
     const appendSheet = (name: string, rows: ReturnType<typeof rowsForSheet>) => {
-      const sheet = rows.length
-        ? XLSX.utils.json_to_sheet(rows)
-        : XLSX.utils.json_to_sheet([], { header: exportHeaders });
-      XLSX.utils.book_append_sheet(wb, sheet, name);
+      const sheet = wb.addWorksheet(name);
+      sheet.columns = exportHeaders.map((header) => ({ header, key: header }));
+      sheet.addRows(rows);
     };
 
     const usedSheetNames = new Set<string>();
@@ -1299,7 +1298,20 @@ export default function AnalisisZonasAuditadas() {
     }
 
     const year = new Date().getFullYear();
-    XLSX.writeFile(wb, `capturas_auditoria_${year}.xlsx`);
+    try {
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([new Uint8Array(buffer).buffer as ArrayBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `capturas_auditoria_${year}.xlsx`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      toast({ title: "Error al exportar a Excel", variant: "destructive" });
+    }
   };
 
   /* ── Estadísticas para Mostrar Detalle ── */
