@@ -71,6 +71,23 @@ paths:
                 $ref: "#/components/schemas/AuthResponse"
         "401":
           description: Invalid credentials
+        "423":
+          description: Account locked after too many failed login attempts
+          headers:
+            Retry-After:
+              description: Number of seconds until another login attempt is allowed
+              schema:
+                type: integer
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error, retryAfterSeconds]
+                properties:
+                  error:
+                    type: string
+                  retryAfterSeconds:
+                    type: integer
 
   /auth/logout:
     post:

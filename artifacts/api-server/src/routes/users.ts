@@ -67,7 +67,11 @@ router.patch("/users/:id", async (req: Request, res: Response) => {
   if (profile_id !== undefined) updates.profileId = profile_id;
   if (udn_id !== undefined) updates.udnId = udn_id;
   if (role !== undefined) updates.role = role as "superadmin" | "admin" | "user";
-  if (password) updates.passwordHash = await bcrypt.hash(password, 10);
+  if (password) {
+    updates.passwordHash = await bcrypt.hash(password, 10);
+    updates.failedLoginAttempts = 0;
+    updates.loginLockedUntil = null;
+  }
 
   const [user] = await db.update(usersTable).set(updates).where(eq(usersTable.id, id)).returning();
   if (!user) { res.status(404).json({ error: "Not found" }); return; }

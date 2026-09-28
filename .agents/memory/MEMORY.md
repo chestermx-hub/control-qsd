@@ -21,3 +21,4 @@
 - [PNG chart export checks](png-chart-export-e2e.md) — validate download names and PNG signatures; SVG chart labels may concatenate adjacent text nodes in browser assertions.
 - [Catastrophic backup policy](catastrophic-backup-policy.md) — full backups are downloaded outside Replit and never include environment secrets; restoration reconfigures secrets manually.
 - [Chart image exports](chart-image-exports.md) — SVG-only downloads omit visible HTML legends; export wrappers must compose those legend rows into the PNG.
+- [OpenAPI generator and Zod compatibility](orval-zod-compatibility.md) — keep generated Zod helpers aligned with the runtime Zod major version before regenerating API contracts.

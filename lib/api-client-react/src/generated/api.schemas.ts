@@ -517,6 +517,11 @@ export interface DashboardStats {
   recentUsers: User[];
 }
 
+export type Login423 = {
+  error: string;
+  retryAfterSeconds: number;
+};
+
 export type ListAuditCapturesParams = {
 /**
  * Filter by date (YYYY-MM-DD)

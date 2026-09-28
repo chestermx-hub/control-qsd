@@ -11,6 +11,8 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
+  failedLoginAttempts: integer("failed_login_attempts").notNull().default(0),
+  loginLockedUntil: timestamp("login_locked_until", { withTimezone: true }),
   puesto: text("puesto").notNull().default(""),
   area: text("area").notNull().default(""),
   profileId: integer("profile_id").references(() => profilesTable.id, { onDelete: "set null" }),

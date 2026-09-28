@@ -24,6 +24,7 @@ export * from './defectUpdate';
 export * from './getAuditDailyCounterParams';
 export * from './healthStatus';
 export * from './listAuditCapturesParams';
+export * from './login423';
 export * from './loginInput';
 export * from './panel';
 export * from './panelInput';

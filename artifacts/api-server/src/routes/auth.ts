@@ -3,6 +3,10 @@ import bcrypt from "bcryptjs";
 import { db, usersTable, profilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { Request, Response } from "express";
+import {
+  getNextFailedLoginState,
+  getRemainingLockoutSeconds,
+} from "../auth-lockout.js";
 
 const router = Router();
 
@@ -46,6 +50,15 @@ async function ensureSuperadmin(plainPassword: string) {
   return user;
 }
 
+function respondWithLoginLockout(res: Response, retryAfterSeconds: number) {
+  const minutes = Math.ceil(retryAfterSeconds / 60);
+  res.set("Retry-After", String(retryAfterSeconds));
+  res.status(423).json({
+    error: `Acceso bloqueado por intentos fallidos. Intenta de nuevo en ${minutes} minuto${minutes === 1 ? "" : "s"}.`,
+    retryAfterSeconds,
+  });
+}
+
 router.post("/auth/login", async (req: Request, res: Response) => {
   const { email, password } = req.body as { email: string; password: string };
   if (!email || !password) {
@@ -72,27 +85,62 @@ router.post("/auth/login", async (req: Request, res: Response) => {
     return;
   }
 
-  const valid = await bcrypt.compare(password, user.passwordHash);
+  const userId = user.id;
+  const loginResult = await db.transaction(async (tx) => {
+    // Lock the user row so simultaneous requests cannot lose failed-attempt increments.
+    const [currentUser] = await tx
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .for("update");
 
-  // Emergency override: si el superadmin existe pero la contraseña no coincide,
-  // aceptar "QIS2025!" como respaldo y actualizar el hash automáticamente
-  if (!valid && user.email === SUPERADMIN_EMAIL && password === "QIS2025!") {
-    const newHash = await bcrypt.hash("QIS2025!", 10);
-    await db.update(usersTable).set({ passwordHash: newHash }).where(eq(usersTable.id, user.id));
-    req.log?.info("Emergency password reset applied for superadmin");
-    (req.session as unknown as Record<string, unknown>).userId = user.id;
-    res.json({ user: await enrichUser(user) });
+    if (!currentUser) return { type: "invalid" } as const;
+
+    const now = new Date();
+    const retryAfterSeconds = getRemainingLockoutSeconds(currentUser.loginLockedUntil, now);
+    if (retryAfterSeconds !== null) {
+      return { type: "locked", retryAfterSeconds } as const;
+    }
+
+    const valid = await bcrypt.compare(password, currentUser.passwordHash);
+    if (!valid) {
+      const failedState = getNextFailedLoginState(
+        currentUser.failedLoginAttempts,
+        currentUser.loginLockedUntil,
+        now,
+      );
+      await tx
+        .update(usersTable)
+        .set(failedState)
+        .where(eq(usersTable.id, userId));
+
+      const retryAfterSeconds = getRemainingLockoutSeconds(failedState.loginLockedUntil, now);
+      if (retryAfterSeconds !== null) {
+        return { type: "locked", retryAfterSeconds } as const;
+      }
+      return { type: "invalid" } as const;
+    }
+
+    await tx
+      .update(usersTable)
+      .set({ failedLoginAttempts: 0, loginLockedUntil: null })
+      .where(eq(usersTable.id, userId));
+    return { type: "success", user: currentUser } as const;
+  });
+
+  if (loginResult.type === "locked") {
+    respondWithLoginLockout(res, loginResult.retryAfterSeconds);
     return;
   }
 
-  if (!valid) {
-    req.log?.warn({ email: user.email }, "Login failed: invalid password");
+  if (loginResult.type !== "success") {
+    req.log?.warn({ userId }, "Login failed: invalid password");
     res.status(401).json({ error: "Credenciales incorrectas" });
     return;
   }
 
-  (req.session as unknown as Record<string, unknown>).userId = user.id;
-  res.json({ user: await enrichUser(user) });
+  (req.session as unknown as Record<string, unknown>).userId = loginResult.user.id;
+  res.json({ user: await enrichUser(loginResult.user) });
 });
 
 router.get("/auth/debug/users", async (_req: Request, res: Response) => {
@@ -145,7 +193,11 @@ router.post("/auth/reset-superadmin", async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, 10);
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, SUPERADMIN_EMAIL));
     if (existing.length > 0) {
-      await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.email, SUPERADMIN_EMAIL));
+      await db.update(usersTable).set({
+        passwordHash,
+        failedLoginAttempts: 0,
+        loginLockedUntil: null,
+      }).where(eq(usersTable.email, SUPERADMIN_EMAIL));
       res.json({ message: "Contrasena actualizada" });
     } else {
       const [user] = await db.insert(usersTable).values({
