@@ -1847,7 +1847,10 @@ export default function AnalisisDashboard() {
                           </CardHeader>
                           <CardContent className="px-4 pb-4 pt-0">
                           {zone.pieData.length ? (
-                              <div id={`chart-zone-${zone.id}-pie`}>
+                              <div
+                                id={`chart-zone-${zone.id}-pie`}
+                                className="mx-auto w-full max-w-[512px]"
+                              >
                                 <ResponsiveContainer width="100%" height={440}>
                                   <PieChart>
                                   <Pie

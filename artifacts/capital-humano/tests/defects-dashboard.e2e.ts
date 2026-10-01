@@ -86,7 +86,7 @@ test("descarga todas las gráficas del dashboard como PNG con nombre y fecha", a
   const assertPngDownload = async (title: string, target: Locator) => {
     await expect(target).toBeVisible();
     const downloadPromise = page.waitForEvent("download");
-    await page.getByRole("button", { name: `Descargar imagen de ${title}`, exact: true }).click();
+    await page.getByRole("button", { name: `Descargar Imagen de ${title}`, exact: true }).click();
     const download = await downloadPromise;
     const expectedFilename = `${chartFilenameSlug(title)}_${await browserDate(page)}.png`;
     expect(download.suggestedFilename()).toBe(expectedFilename);
@@ -195,6 +195,36 @@ test("descarga todas las gráficas del dashboard como PNG con nombre y fecha", a
     await expect(distribution).toContainText("Defecto Beta");
     await expect(distribution).toContainText("2");
     await expect(distribution).toContainText("6");
+    const pieSvg = distribution.locator("svg.recharts-surface").first();
+    for (const viewport of [
+      { width: 1024, height: 768 },
+      { width: 768, height: 1024 },
+    ]) {
+      await page.setViewportSize(viewport);
+      await expect.poll(async () =>
+        pieSvg.evaluate((element) => {
+          const svg = element as SVGSVGElement;
+          const width = svg.viewBox.baseVal.width || svg.clientWidth;
+          return width > 0 && width <= 512;
+        }),
+      ).toBe(true);
+      const geometry = await pieSvg.evaluate((element) => {
+        const svg = element as SVGSVGElement;
+        const width = svg.viewBox.baseVal.width || svg.clientWidth;
+        const labelBoxes = Array.from(
+          svg.querySelectorAll<SVGRectElement>('rect[rx="3"]'),
+        ).map((rect) => ({
+          left: Number(rect.getAttribute("x")),
+          right: Number(rect.getAttribute("x")) + Number(rect.getAttribute("width")),
+        }));
+        return { width, labelBoxes };
+      });
+      expect(geometry.width).toBeLessThanOrEqual(512);
+      expect(geometry.labelBoxes.length).toBeGreaterThan(0);
+      expect(
+        geometry.labelBoxes.every((box) => box.left >= 0 && box.right <= geometry.width + 0.5),
+      ).toBe(true);
+    }
     await assertPngDownload(`Distribución de defectos Zona Norte ${suffix}`, distribution);
 
     const zoneDetail = page.locator(`#chart-zone-${zoneId}-bar`);
@@ -342,6 +372,7 @@ test("muestra porcentajes reales en la dona y en su tooltip", async ({ page }) =
     await page.goto("/analisis-defectos/dashboard");
     const pieChart = page.getByTestId(`zone-pie-chart-${zoneId}`);
     await expect(pieChart).toBeVisible();
+
     const assertPiePercentages = async (expectedByDefect: Map<string, string>) => {
       for (const expected of expectedByDefect.values()) {
         await expect(pieChart).toContainText(expected);
