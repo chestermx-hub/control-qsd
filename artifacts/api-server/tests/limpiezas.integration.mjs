@@ -220,7 +220,7 @@ test("flujo completo de Limpiezas ICMX", async (t) => {
   assert.ok(completed.areas.every((area) => area.ready && area.initial_photo && area.final_photo));
   assert.ok(completed.activities.every((activity) => activity.completed || activity.not_applicable));
 
-  await t.test("sincroniza un área nueva sólo al reporte abierto y conserva fecha y evidencias", async () => {
+  await t.test("sincroniza renombres y retiros de áreas sólo en reportes abiertos", async () => {
     const originalActivities = created.type.activities.map((activity) => ({
       description: activity.description,
       activity_description: activity.activity_description,
@@ -371,11 +371,117 @@ test("flujo completo de Limpiezas ICMX", async (t) => {
     assert.equal(reopenedAreaB.intermediate_photo, "storage://test/open-intermediate-b.jpg");
     assert.equal(reopenedAreaB.final_photo, null);
 
+    const closedReportBeforeChanges = await expectStatus(
+      `/limpiezas/ejecuciones/${created.execution.id}`,
+      200,
+    );
+    assert.equal(closedReportBeforeChanges.status, "completed");
+    const closedAreasBeforeChanges = closedReportBeforeChanges.areas.map((area) => ({
+      id: area.id,
+      area_name: area.area_name,
+      initial_photo: area.initial_photo,
+      intermediate_photo: area.intermediate_photo,
+      final_photo: area.final_photo,
+      ready: area.ready,
+    }));
+    const closedActivitiesBeforeChanges = closedReportBeforeChanges.activities.map((activity) => ({
+      id: activity.id,
+      description: activity.description,
+      area_name: activity.area_name,
+      initial_photo: activity.initial_photo,
+      final_photo: activity.final_photo,
+      completed: activity.completed,
+      not_applicable: activity.not_applicable,
+    }));
+
+    const renamedAreaName = `Recepción renombrada ${suffix}`;
+    const renamedArea = await expectStatus(`/limpiezas/areas/${areaA.id}`, 200, {
+      method: "PATCH",
+      body: JSON.stringify({
+        name: renamedAreaName,
+        description: "Área renombrada durante la ejecución",
+        area_type: "normal",
+        activities: ["Barrer", "Desinfectar"],
+      }),
+    });
+    assert.equal(renamedArea.name, renamedAreaName);
+
+    const typesAfterRename = await expectStatus("/limpiezas/tipos", 200);
+    const configuredTypeAfterRename = typesAfterRename.find((type) => type.id === created.type.id);
+    assert.ok(configuredTypeAfterRename.activities.some((activity) => activity.area_name === renamedAreaName));
+    assert.equal(configuredTypeAfterRename.activities.some((activity) => activity.area_name === areaA.name), false);
+
+    const reportAfterRename = await expectStatus(
+      `/limpiezas/ejecuciones/${created.openExecution.id}`,
+      200,
+    );
+    assert.ok(reportAfterRename.areas.some((area) => area.area_name === renamedAreaName));
+    assert.equal(reportAfterRename.areas.some((area) => area.area_name === areaA.name), false);
+    const renamedExecutionArea = reportAfterRename.areas.find((area) => area.area_name === renamedAreaName);
+    assert.equal(renamedExecutionArea.initial_photo, "storage://test/open-initial-a.jpg");
+    assert.equal(renamedExecutionArea.intermediate_photo, "storage://test/open-intermediate-a.jpg");
+    assert.equal(renamedExecutionArea.final_photo, "storage://test/open-final-a.jpg");
+    assert.equal(renamedExecutionArea.ready, true);
+    const renamedAreaActivities = reportAfterRename.activities.filter(
+      (activity) => activity.area_name === renamedAreaName,
+    );
+    assert.equal(renamedAreaActivities.length, 2);
+    assert.equal(renamedAreaActivities[0].initial_photo, "storage://test/open-activity-initial-a.jpg");
+    assert.equal(renamedAreaActivities[0].final_photo, "storage://test/open-activity-final-a.jpg");
+    assert.equal(renamedAreaActivities[0].completed, true);
+    assert.equal(renamedAreaActivities[1].completed, true);
+
+    const remainingTypeActivities = originalActivities
+      .filter((activity) => activity.area_name !== areaB.name)
+      .map((activity) => ({
+        ...activity,
+        area_name: activity.area_name === areaA.name ? renamedAreaName : activity.area_name,
+      }));
+    remainingTypeActivities.push({
+      description: "Aspirar",
+      activity_description: null,
+      area_name: created.addedArea.name,
+      requires_photo: false,
+    });
+    const updatedType = await expectStatus(`/limpiezas/tipos/${created.type.id}`, 200, {
+      method: "PATCH",
+      body: JSON.stringify({
+        client_id: created.client.id,
+        line_number: "L2",
+        name: created.type.name,
+        description: created.type.description,
+        activities: remainingTypeActivities,
+      }),
+    });
+    assert.equal(updatedType.activities.some((activity) => activity.area_name === areaB.name), false);
+    assert.ok(updatedType.activities.some((activity) => activity.area_name === renamedAreaName));
+
+    const reportAfterAreaRemoval = await expectStatus(
+      `/limpiezas/ejecuciones/${created.openExecution.id}`,
+      200,
+    );
+    assert.equal(reportAfterAreaRemoval.areas.some((area) => area.area_name === areaB.name), false);
+    assert.equal(reportAfterAreaRemoval.activities.some((activity) => activity.area_name === areaB.name), false);
+    const retainedArea = reportAfterAreaRemoval.areas.find((area) => area.area_name === renamedAreaName);
+    assert.equal(retainedArea.initial_photo, "storage://test/open-initial-a.jpg");
+    assert.equal(retainedArea.intermediate_photo, "storage://test/open-intermediate-a.jpg");
+    assert.equal(retainedArea.final_photo, "storage://test/open-final-a.jpg");
+    assert.equal(retainedArea.ready, true);
+    const retainedActivities = reportAfterAreaRemoval.activities.filter(
+      (activity) => activity.area_name === renamedAreaName,
+    );
+    assert.equal(retainedActivities.length, 2);
+    assert.equal(retainedActivities[0].initial_photo, "storage://test/open-activity-initial-a.jpg");
+    assert.equal(retainedActivities[0].final_photo, "storage://test/open-activity-final-a.jpg");
+    assert.equal(retainedActivities[0].completed, true);
+    assert.equal(retainedActivities[1].completed, true);
+
     const reopenedClosedReport = await expectStatus(
       `/limpiezas/ejecuciones/${created.execution.id}`,
       200,
     );
     assert.equal(reopenedClosedReport.status, "completed");
+    assert.equal(reopenedClosedReport.signature, closedReportBeforeChanges.signature);
     assert.equal(reopenedClosedReport.execution_date, "2026-08-25");
     assert.deepEqual(
       reopenedClosedReport.areas.map((area) => area.area_name),
@@ -387,6 +493,23 @@ test("flujo completo de Limpiezas ICMX", async (t) => {
       ),
       false,
     );
+    assert.deepEqual(reopenedClosedReport.areas.map((area) => ({
+      id: area.id,
+      area_name: area.area_name,
+      initial_photo: area.initial_photo,
+      intermediate_photo: area.intermediate_photo,
+      final_photo: area.final_photo,
+      ready: area.ready,
+    })), closedAreasBeforeChanges);
+    assert.deepEqual(reopenedClosedReport.activities.map((activity) => ({
+      id: activity.id,
+      description: activity.description,
+      area_name: activity.area_name,
+      initial_photo: activity.initial_photo,
+      final_photo: activity.final_photo,
+      completed: activity.completed,
+      not_applicable: activity.not_applicable,
+    })), closedActivitiesBeforeChanges);
 
     const history = await expectStatus("/limpiezas/ejecuciones", 200);
     assert.equal(
