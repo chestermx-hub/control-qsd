@@ -113,14 +113,27 @@ async function preparePrintImages(report: HTMLElement): Promise<PreparedPrintIma
   const images = Array.from(
     report.querySelectorAll<HTMLImageElement>("img[data-print-compress]"),
   );
+  const prepared: PreparedPrintImage[] = [];
+  const printSourceByOriginal = new Map<string, string | null>();
 
-  const prepared = await Promise.all(images.map(async (image) => {
+  for (const image of images) {
     try {
       if (!image.complete) await image.decode();
-      if (!image.naturalWidth || !image.naturalHeight) return null;
+      if (!image.naturalWidth || !image.naturalHeight) continue;
       const originalSrc = image.src;
+      if (printSourceByOriginal.has(originalSrc)) {
+        const printSrc = printSourceByOriginal.get(originalSrc);
+        if (!printSrc) continue;
+        image.src = printSrc;
+        await image.decode().catch(() => undefined);
+        prepared.push({ image, originalSrc, printSrc });
+        continue;
+      }
       const originalResponse = await fetch(originalSrc, { credentials: "include" });
-      if (!originalResponse.ok) return null;
+      if (!originalResponse.ok) {
+        printSourceByOriginal.set(originalSrc, null);
+        continue;
+      }
       const originalBlob = await originalResponse.blob();
 
       const maxEdge = Number(image.dataset.printMaxEdge || 1000);
@@ -132,24 +145,37 @@ async function preparePrintImages(report: HTMLElement): Promise<PreparedPrintIma
       canvas.height = height;
 
       const context = canvas.getContext("2d");
-      if (!context) return null;
+      if (!context) {
+        printSourceByOriginal.set(originalSrc, null);
+        continue;
+      }
+      const format = image.dataset.printFormat === "image/png" ? "image/png" : "image/jpeg";
+      if (format === "image/jpeg") {
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, width, height);
+      }
       context.drawImage(image, 0, 0, width, height);
 
       const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", 0.68);
+        const quality = Number(image.dataset.printQuality || 0.68);
+        canvas.toBlob(resolve, format, quality);
       });
-      if (!blob || blob.size >= originalBlob.size) return null;
+      if (!blob || blob.size >= originalBlob.size) {
+        printSourceByOriginal.set(originalSrc, null);
+        continue;
+      }
 
       const printSrc = URL.createObjectURL(blob);
+      printSourceByOriginal.set(originalSrc, printSrc);
       image.src = printSrc;
       await image.decode().catch(() => undefined);
-      return { image, originalSrc, printSrc };
+      prepared.push({ image, originalSrc, printSrc });
     } catch {
-      return null;
+      continue;
     }
-  }));
+  }
 
-  return prepared.filter((item): item is PreparedPrintImage => item !== null);
+  return prepared;
 }
 
 function restorePrintImages(images: PreparedPrintImage[]) {
@@ -493,6 +519,9 @@ function SignatureBlock({
           <img
             src={signature.dataUrl}
             alt={`Firma de ${signature.signerName}`}
+            data-print-compress
+            data-print-quality="0.75"
+            data-print-max-edge="600"
             className="h-20 max-w-full object-contain object-left"
           />
         ) : (
@@ -521,7 +550,7 @@ function PrintPageHeader({
   return (
     <div className="report-print-header hidden items-center justify-between border-b border-[#9fc5dc] bg-[#123b66] px-6 text-[#f5f2e9]">
       {logoSrc ? (
-        <img src={logoSrc} alt={companyName} className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
+        <img src={logoSrc} alt={companyName} data-print-compress data-print-format="image/png" data-print-max-edge="400" className="h-8 w-auto max-w-[8rem] object-contain brightness-0 invert" />
       ) : (
         <span className="font-mono text-[10px] uppercase tracking-[0.2em]">{companyName}</span>
       )}
@@ -1060,7 +1089,7 @@ export function CleaningReport({
           <div className="max-w-xl">
             <div className="mb-7 flex items-center gap-3">
               {logoSrc && (
-                <img src={logoSrc} alt="Identidad del servicio" className="h-14 w-auto max-w-[14rem] object-contain brightness-0 invert" />
+                <img src={logoSrc} alt="Identidad del servicio" data-print-compress data-print-format="image/png" data-print-max-edge="600" className="h-14 w-auto max-w-[14rem] object-contain brightness-0 invert" />
               )}
               {!logoSrc && (
                 <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-[#b9ddeb]">
@@ -1248,6 +1277,10 @@ export function CleaningReport({
                   <img
                     src={photo}
                     alt={`Captura de checklist, hoja ${index + 1}`}
+                    data-print-compress
+                    data-print-format="image/jpeg"
+                    data-print-max-edge="1200"
+                    data-print-quality="0.62"
                     className="max-h-[34rem] w-full object-contain"
                   />
                 </div>
