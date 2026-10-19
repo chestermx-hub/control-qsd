@@ -127,8 +127,10 @@ test("bloquea completar y No aplica hasta guardar la foto inicial", async ({ pag
     }));
 
     let uploadNumber = 0;
+    const uploadMetadata: Array<{ name: string; size: number; contentType: string }> = [];
     await page.route("**/api/storage/uploads/request-url", async (route) => {
       uploadNumber += 1;
+      uploadMetadata.push(route.request().postDataJSON());
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -236,6 +238,54 @@ test("bloquea completar y No aplica hasta guardar la foto inicial", async ({ pag
         completed: true,
       }),
     ]));
+
+    const originalChecklistPhotoDataUrl = await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 2400;
+      canvas.height = 1600;
+      const context = canvas.getContext("2d");
+      if (!context) throw new Error("No se pudo preparar la foto de prueba");
+
+      const image = context.createImageData(canvas.width, canvas.height);
+      let seed = 123456789;
+      for (let index = 0; index < image.data.length; index += 4) {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        const grain = seed & 0xff;
+        image.data[index] = grain;
+        image.data[index + 1] = grain;
+        image.data[index + 2] = grain;
+        image.data[index + 3] = 255;
+      }
+      context.putImageData(image, 0, 0);
+      return canvas.toDataURL("image/jpeg", 0.98);
+    });
+    const originalChecklistPhoto = Buffer.from(
+      originalChecklistPhotoDataUrl.split(",")[1],
+      "base64",
+    );
+
+    await page.getByRole("button", { name: "Reporte ejecutivo" }).click();
+    await page.getByRole("button", { name: "Cargar checklist" }).click();
+    const checklistDialog = page.getByRole("dialog");
+    const checklistGalleryInput = checklistDialog.locator('input[type="file"]').nth(1);
+    const checklistUploadRequest = page.waitForRequest((request) =>
+      request.url().includes("/api/storage/uploads/request-url") &&
+      request.method() === "POST" &&
+      request.postDataJSON()?.name === "checklist.jpg",
+    );
+    await checklistGalleryInput.setInputFiles({
+      name: "checklist.jpg",
+      mimeType: "image/jpeg",
+      buffer: originalChecklistPhoto,
+    });
+    await checklistUploadRequest;
+    const optimizedChecklistPhoto = (await checklistUploadRequest).postDataJSON();
+    expect(optimizedChecklistPhoto).toEqual(expect.objectContaining({
+      contentType: "image/jpeg",
+      name: "checklist.jpg",
+    }));
+    expect(optimizedChecklistPhoto!.size).toBeLessThan(originalChecklistPhoto.length);
+    await expect(checklistDialog.getByRole("button", { name: "Ver foto de checklist 1" })).toBeVisible();
   } finally {
     if (fixture) {
       if (fixture.execution) await api.delete(`/api/limpiezas/ejecuciones/${fixture.execution.id}`).catch(() => {});

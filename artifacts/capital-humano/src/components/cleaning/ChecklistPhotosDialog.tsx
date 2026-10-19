@@ -13,16 +13,59 @@ type ChecklistPhotosDialogProps = {
   saving?: boolean;
 };
 
+async function optimizeChecklistPhoto(file: File) {
+  if (!file.type.startsWith("image/")) throw new Error("Selecciona una imagen válida");
+  const bitmap = await createImageBitmap(file);
+  try {
+    const maxEdge = 1800;
+    const scale = Math.min(1, maxEdge / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("No se pudo procesar la foto");
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, width, height);
+    context.drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, "image/jpeg", 0.68);
+    });
+    if (!blob) throw new Error("No se pudo comprimir la foto");
+    if (blob.size >= file.size) return file;
+
+    const baseName = file.name.replace(/\.[^.]+$/, "") || "checklist";
+    return new File([blob], `${baseName}.jpg`, {
+      type: "image/jpeg",
+      lastModified: file.lastModified || Date.now(),
+    });
+  } finally {
+    bitmap.close();
+  }
+}
+
 async function uploadChecklistPhoto(file: File) {
+  const optimizedFile = await optimizeChecklistPhoto(file);
   const response = await fetch("/api/storage/uploads/request-url", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    body: JSON.stringify({
+      name: optimizedFile.name,
+      size: optimizedFile.size,
+      contentType: optimizedFile.type,
+    }),
   });
   if (!response.ok) throw new Error("No se pudo preparar la foto");
   const upload = await response.json();
-  const put = await fetch(upload.uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+  const put = await fetch(upload.uploadURL, {
+    method: "PUT",
+    body: optimizedFile,
+    headers: { "Content-Type": optimizedFile.type },
+  });
   if (!put.ok) throw new Error("No se pudo subir la foto");
   return `/api/storage${upload.objectPath}`;
 }
@@ -61,7 +104,7 @@ export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChan
           <DialogHeader>
             <DialogTitle>Captura de checklist</DialogTitle>
             <DialogDescription>
-              Después de la firma, agrega mínimo 1 foto del checklist. Cada foto se colocará en una hoja independiente del reporte.
+              Después de la firma, agrega mínimo 1 foto del checklist. Las imágenes se reducen antes de subirlas y cada una se coloca en una hoja independiente del reporte.
             </DialogDescription>
           </DialogHeader>
           <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" disabled={uploading || saving} onChange={(event) => addPhotos(Array.from(event.target.files || []))} />
