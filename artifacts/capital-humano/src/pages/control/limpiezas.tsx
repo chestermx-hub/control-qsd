@@ -12,7 +12,7 @@ import { ArrowLeft, Check, ChevronRight, ClipboardCheck, Download, FileText, His
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
-import { ChecklistPhotosDialog, CleaningReport, SignatureDialog, type CleaningReportSignature } from "@/components/cleaning";
+import { ChecklistPhotosDialog, CleaningReport, SignatureDialog, optimizeChecklistPhoto, uploadOptimizedChecklistPhoto, type CleaningReportSignature } from "@/components/cleaning";
 import qisLogo from "@assets/Logo_Qis_Oficial_1789504832796.gif";
 import qsdLogo from "@assets/QSD_Logotipo_1788387675876.png";
 
@@ -661,6 +661,8 @@ function CustomFlowDialog({ catalogs, open, onOpenChange, onCreated }: { catalog
 function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const [reports, setReports] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
+  const [optimizing, setOptimizing] = useState(false);
+  const [optimizationProgress, setOptimizationProgress] = useState("");
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const { toast } = useToast();
@@ -668,6 +670,71 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const remove = async (id: number) => { if (!window.confirm("¿Eliminar este reporte del histórico? Esta acción no se puede deshacer.")) return; try { await api(`/limpiezas/ejecuciones/${id}`, { method: "DELETE" }); setReports((current) => current.filter((report) => report.id !== id)); toast({ title: "Reporte eliminado" }); } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo eliminar el reporte", variant: "destructive" }); } };
   const activeReports = reports.filter((report) => !report.signature);
   const historicalReports = reports.filter((report) => Boolean(report.signature));
+  const historicalWithChecklistPhotos = historicalReports.filter((report) => report.checklist_photos?.length);
+  const optimizeHistoricalPhotos = async () => {
+    if (!window.confirm(`Se optimizarán las fotos de ${historicalWithChecklistPhotos.length} reportes cerrados. Las imágenes se recomprimirán con pérdida y los originales se borrarán después de guardar cada reemplazo. Esta acción no se puede deshacer. ¿Continuar?`)) return;
+    setOptimizing(true);
+    let optimizedCount = 0;
+    let failedCount = 0;
+    let deletedCount = 0;
+    const originalsToDelete = new Map<string, { executionId: number; replacementUrl: string }>();
+    try {
+      for (const [reportIndex, report] of historicalWithChecklistPhotos.entries()) {
+        setOptimizationProgress(`Reporte ${reportIndex + 1} de ${historicalWithChecklistPhotos.length}`);
+        const oldPhotos = report.checklist_photos || [];
+        const nextPhotos = [...oldPhotos];
+        const replacements: { oldUrl: string; newUrl: string }[] = [];
+        try {
+          for (let photoIndex = 0; photoIndex < oldPhotos.length; photoIndex += 1) {
+            const originalUrl = oldPhotos[photoIndex];
+            const response = await fetch(originalUrl, { credentials: "include" });
+            if (!response.ok) throw new Error("No se pudo descargar una foto guardada");
+            const blob = await response.blob();
+            const sourceFile = new File([blob], `checklist-${report.id}-${photoIndex + 1}`, { type: blob.type || "image/jpeg" });
+            const compressedFile = await optimizeChecklistPhoto(sourceFile);
+            if (compressedFile.size >= sourceFile.size) continue;
+            const newUrl = await uploadOptimizedChecklistPhoto(compressedFile);
+            nextPhotos[photoIndex] = newUrl;
+            replacements.push({ oldUrl: originalUrl, newUrl });
+          }
+          if (!replacements.length) continue;
+          await api(`/limpiezas/ejecuciones/${report.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ checklist_photos: nextPhotos }),
+          });
+          setReports((current) => current.map((item) => item.id === report.id ? { ...item, checklist_photos: nextPhotos } : item));
+          optimizedCount += replacements.length;
+          for (const replacement of replacements) {
+            originalsToDelete.set(replacement.oldUrl, { executionId: report.id, replacementUrl: replacement.newUrl });
+          }
+        } catch {
+          failedCount += 1;
+        }
+      }
+      for (const [photoUrl, replacement] of originalsToDelete) {
+        try {
+          await api("/limpiezas/admin/checklist-photo-original", {
+            method: "POST",
+            body: JSON.stringify({
+              execution_id: replacement.executionId,
+              photo_url: photoUrl,
+              replacement_url: replacement.replacementUrl,
+            }),
+          });
+          deletedCount += 1;
+        } catch {
+          failedCount += 1;
+        }
+      }
+      toast({
+        title: "Optimización de checklists finalizada",
+        description: `${optimizedCount} fotos reemplazadas; ${deletedCount} originales borrados${failedCount ? `; ${failedCount} operaciones requieren revisión` : ""}.`,
+      });
+    } finally {
+      setOptimizing(false);
+      setOptimizationProgress("");
+    }
+  };
   const reportList = (items: Execution[], completed: boolean) => items.length ? (
     <div className="divide-y rounded-md border">
       {items.map((report) => (
@@ -691,7 +758,14 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
         <CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : reportList(activeReports, false)}</CardContent>
       </Card>
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" />Histórico de folios</CardTitle></CardHeader>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <CardTitle className="flex items-center gap-2"><FileText className="h-5 w-5 text-primary" />Histórico de folios</CardTitle>
+          {isAdmin && historicalWithChecklistPhotos.length > 0 && <Button type="button" variant="outline" size="sm" disabled={optimizing} onClick={optimizeHistoricalPhotos}>
+            {optimizing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+            {optimizing ? optimizationProgress : `Optimizar checklists cerrados (${historicalWithChecklistPhotos.length})`}
+          </Button>}
+        </CardHeader>
+        {optimizing && <CardContent className="pt-0 text-sm text-muted-foreground">Mantén esta pantalla abierta durante la optimización. {optimizationProgress}</CardContent>}
         <CardContent>{loading ? <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div> : reportList(historicalReports, true)}</CardContent>
       </Card>
     </div>

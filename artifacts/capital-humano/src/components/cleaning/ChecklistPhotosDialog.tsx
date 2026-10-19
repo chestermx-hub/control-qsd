@@ -13,7 +13,7 @@ type ChecklistPhotosDialogProps = {
   saving?: boolean;
 };
 
-async function optimizeChecklistPhoto(file: File) {
+export async function optimizeChecklistPhoto(file: File) {
   if (!file.type.startsWith("image/")) throw new Error("Selecciona una imagen válida");
   const bitmap = await createImageBitmap(file);
   try {
@@ -47,8 +47,7 @@ async function optimizeChecklistPhoto(file: File) {
   }
 }
 
-async function uploadChecklistPhoto(file: File) {
-  const optimizedFile = await optimizeChecklistPhoto(file);
+export async function uploadOptimizedChecklistPhoto(optimizedFile: File) {
   const response = await fetch("/api/storage/uploads/request-url", {
     method: "POST",
     credentials: "include",
@@ -68,6 +67,10 @@ async function uploadChecklistPhoto(file: File) {
   });
   if (!put.ok) throw new Error("No se pudo subir la foto");
   return `/api/storage${upload.objectPath}`;
+}
+
+async function uploadChecklistPhoto(file: File) {
+  return uploadOptimizedChecklistPhoto(await optimizeChecklistPhoto(file));
 }
 
 export function ChecklistPhotosDialog({ open, onOpenChange, photos, onPhotosChange, onConfirm, saving = false }: ChecklistPhotosDialogProps) {

@@ -2,8 +2,10 @@ import { Router } from "express";
 import { and, asc, eq } from "drizzle-orm";
 import { db, udnsTable, usersTable, cleaningClientsTable, cleaningClientLinesTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningAreaClientsTable, cleaningAreaClientLinesTable, cleaningAreaClientActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
 import type { Request, Response } from "express";
+import { ObjectStorageService } from "../lib/objectStorage";
 
 const router = Router();
+const objectStorageService = new ObjectStorageService();
 const json = (row: any) => row ? { id: row.id, name: row.name, plant_number: row.plantNumber, line_number: row.lineNumber, periodicity: row.periodicity, contact_name: row.contactName, contact_email: row.contactEmail, contact_phone: row.contactPhone, udn_id: row.udnId, code: row.code, description: row.description, activity_description: row.activityDescription, area_type: row.areaType, client_id: row.clientId, cleaning_type_id: row.cleaningTypeId, execution_date: row.executionDate, status: row.status, started_at: row.startedAt, completed_at: row.completedAt, signature: row.signature, signature_user_name: row.signatureUserName, signed_at: row.signedAt, checklist_photos: row.checklistPhotos, initial_photo: row.initialPhoto, intermediate_photo: row.intermediatePhoto, final_photo: row.finalPhoto, completed: row.completed, not_applicable: row.notApplicable, ready: row.ready, excluded: row.excluded, requires_photo: row.requiresPhoto, completed_at_activity: row.completedAt, sort_order: row.sortOrder, area_name: row.areaName } : row;
 
 async function isAdmin(req: Request) {
@@ -575,6 +577,40 @@ router.get("/limpiezas/ejecuciones", async (req, res) => {
     ? rows.filter((row) => !row.signature)
     : rows;
   res.json(await Promise.all(filteredRows.map((r) => executionJson(r.id))));
+});
+router.post("/limpiezas/admin/checklist-photo-original", async (req, res) => {
+  if (!await isAdmin(req)) { res.status(403).json({ error: "Sólo un administrador puede eliminar fotos originales" }); return; }
+  const executionId = Number(req.body.execution_id);
+  const photoUrl = typeof req.body.photo_url === "string" ? req.body.photo_url : "";
+  const replacementUrl = typeof req.body.replacement_url === "string" ? req.body.replacement_url : "";
+  let objectPath = "";
+  try {
+    if (!Number.isInteger(executionId) || executionId <= 0) throw new Error("Reporte no válido");
+    const parsedUrl = new URL(photoUrl, "http://localhost");
+    const prefix = "/api/storage/objects/";
+    if (!parsedUrl.pathname.startsWith(prefix)) throw new Error("Ruta no válida");
+    objectPath = `/objects/${parsedUrl.pathname.slice(prefix.length)}`;
+  } catch {
+    res.status(400).json({ error: "La ruta de la foto no es válida" });
+    return;
+  }
+  const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
+  if (!execution?.signature || !execution.checklistPhotos?.includes(replacementUrl)) {
+    res.status(409).json({ error: "El reemplazo no está guardado en un reporte cerrado" });
+    return;
+  }
+  const rows = await db.select({ photos: cleaningExecutionsTable.checklistPhotos }).from(cleaningExecutionsTable);
+  if (rows.some((row) => row.photos?.includes(photoUrl))) {
+    res.status(409).json({ error: "La foto todavía está asociada a un reporte" });
+    return;
+  }
+  try {
+    await objectStorageService.deleteObjectEntity(objectPath);
+    res.json({ deleted: true });
+  } catch (error) {
+    req.log.error({ err: error }, "Error deleting replaced checklist photo");
+    res.status(500).json({ error: "No se pudo borrar la foto original" });
+  }
 });
 router.post("/limpiezas/ejecuciones", async (req, res) => {
   const { client_id, cleaning_type_id, execution_date } = req.body;
