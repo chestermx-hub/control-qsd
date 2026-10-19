@@ -118,6 +118,10 @@ async function preparePrintImages(report: HTMLElement): Promise<PreparedPrintIma
     try {
       if (!image.complete) await image.decode();
       if (!image.naturalWidth || !image.naturalHeight) return null;
+      const originalSrc = image.src;
+      const originalResponse = await fetch(originalSrc, { credentials: "include" });
+      if (!originalResponse.ok) return null;
+      const originalBlob = await originalResponse.blob();
 
       const maxEdge = Number(image.dataset.printMaxEdge || 1000);
       const scale = Math.min(1, maxEdge / Math.max(image.naturalWidth, image.naturalHeight));
@@ -134,9 +138,8 @@ async function preparePrintImages(report: HTMLElement): Promise<PreparedPrintIma
       const blob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, "image/jpeg", 0.68);
       });
-      if (!blob) return null;
+      if (!blob || blob.size >= originalBlob.size) return null;
 
-      const originalSrc = image.src;
       const printSrc = URL.createObjectURL(blob);
       image.src = printSrc;
       await image.decode().catch(() => undefined);
