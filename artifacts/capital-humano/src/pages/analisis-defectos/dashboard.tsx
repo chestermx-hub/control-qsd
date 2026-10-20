@@ -24,10 +24,10 @@ import {
   LabelList,
   Line,
   LineChart,
-  Pie,
-  PieChart,
   ReferenceLine,
   ResponsiveContainer,
+  Pie,
+  PieChart,
   Tooltip,
   XAxis,
   YAxis,
@@ -125,6 +125,15 @@ type Capture = {
   defect_id?: number | null;
   defect_other?: string | null;
   side_position?: "right" | "left" | "center" | null;
+  grid_row?: string | null;
+  grid_col?: number | null;
+  grid_col_label?: string | null;
+};
+
+type DrilldownDonutRow = {
+  key: string;
+  name: string;
+  value: number;
 };
 
 type Aggregate = {
@@ -248,6 +257,147 @@ function aggregateBy(
     });
   }
   return Array.from(groups.values()).sort((a, b) => b.value - a.value);
+}
+
+function aggregateDonut(
+  captures: Capture[],
+  getKey: (capture: Capture) => string,
+  getName: (capture: Capture) => string,
+) {
+  const groups = new Map<string, DrilldownDonutRow>();
+  for (const capture of captures) {
+    const key = getKey(capture);
+    const previous = groups.get(key);
+    groups.set(key, {
+      key,
+      name: previous?.name ?? getName(capture),
+      value: (previous?.value ?? 0) + (capture.quantity ?? 1),
+    });
+  }
+  return Array.from(groups.values()).sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, "es"));
+}
+
+function DrilldownDonut({
+  title,
+  description,
+  rows,
+  selectedKey,
+  onSelect,
+  showPercentages,
+  selectable = true,
+  testId,
+}: {
+  title: string;
+  description: string;
+  rows: DrilldownDonutRow[];
+  selectedKey: string | null;
+  onSelect: (key: string) => void;
+  showPercentages: boolean;
+  selectable?: boolean;
+  testId: string;
+}) {
+  const total = rows.reduce((sum, row) => sum + row.value, 0);
+  return (
+    <Card data-testid={testId} className="min-w-0">
+      <CardHeader className="px-4 pb-1 pt-4">
+        <CardTitle className="text-sm">{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="px-3 pb-4 pt-0">
+        {rows.length ? (
+          <>
+            <div className="relative h-[250px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={rows}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={88}
+                    paddingAngle={2}
+                    stroke="var(--card)"
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                    onClick={selectable ? (entry) => onSelect(String(entry.key)) : undefined}
+                    style={{ cursor: selectable ? "pointer" : "default" }}
+                  >
+                    {rows.map((row, index) => (
+                      <Cell
+                        key={row.key}
+                        fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
+                        opacity={selectedKey && row.key !== selectedKey ? 0.35 : 1}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number, _name: string, item) => {
+                      const amount = Number(value);
+                      const percentage = total ? (amount / total) * 100 : 0;
+                      return [
+                        showPercentages ? `${formatDecimal(percentage)}% (${formatNumber(amount)})` : formatNumber(amount),
+                        item.payload.name,
+                      ];
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold">
+                  {showPercentages ? (total ? "100%" : "0%") : formatNumber(total)}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  {showPercentages ? "participación" : "defectos"}
+                </span>
+              </div>
+            </div>
+            <div className="max-h-40 space-y-1 overflow-y-auto border-t pt-2">
+              {rows.map((row, index) => {
+                const percentage = total ? (row.value / total) * 100 : 0;
+                const rowContent = (
+                  <>
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ backgroundColor: ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length] }}
+                    />
+                    <span className="min-w-0 flex-1 truncate" title={row.name}>{row.name}</span>
+                    <span className="shrink-0 tabular-nums">
+                      {showPercentages ? `${formatDecimal(percentage)}%` : formatNumber(row.value)}
+                    </span>
+                  </>
+                );
+                const rowClassName = "flex w-full items-center gap-2 rounded px-1.5 py-1 text-left text-xs";
+                return (
+                  selectable ? (
+                    <button
+                      key={row.key}
+                      type="button"
+                      data-testid={`${testId}-item-${index}`}
+                      aria-pressed={selectedKey === row.key}
+                      onClick={() => onSelect(row.key)}
+                      className={`${rowClassName} hover:bg-muted/60 ${
+                        selectedKey === row.key ? "bg-primary/10 font-semibold" : ""
+                      }`}
+                    >
+                      {rowContent}
+                    </button>
+                  ) : (
+                    <div key={row.key} data-testid={`${testId}-item-${index}`} className={rowClassName}>
+                      {rowContent}
+                    </div>
+                  )
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <EmptyChart message="Sin defectos para mostrar." />
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 async function downloadExcel(filename: string, rows: Array<Record<string, string | number>>) {
@@ -958,6 +1108,10 @@ export default function AnalisisDashboard() {
   const [selectedPanels, setSelectedPanels] = useState<string[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [showZoneDpu, setShowZoneDpu] = useState(false);
+  const [showDrilldownPercentages, setShowDrilldownPercentages] = useState(false);
+  const [selectedDrilldownZone, setSelectedDrilldownZone] = useState<string | null>(null);
+  const [selectedDrilldownPanel, setSelectedDrilldownPanel] = useState<string | null>(null);
+  const [selectedDrilldownQuadrant, setSelectedDrilldownQuadrant] = useState<string | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
   const capturesQuery = useListAuditCaptures();
@@ -1208,6 +1362,78 @@ export default function AnalisisDashboard() {
       selectedSides,
       selectedWeeks,
     ],
+  );
+
+  const drilldownBaseCaptures = useMemo(
+    () => applyFilters(captures, { zone: false, panel: false, defect: false }),
+    [
+      auditedZoneIds,
+      captures,
+      effectiveMonth,
+      selectedDays,
+      selectedSides,
+      selectedWeeks,
+    ],
+  );
+  const drilldownZoneCaptures = useMemo(
+    () =>
+      selectedDrilldownZone
+        ? drilldownBaseCaptures.filter((capture) => String(capture.zone_id ?? "none") === selectedDrilldownZone)
+        : drilldownBaseCaptures,
+    [drilldownBaseCaptures, selectedDrilldownZone],
+  );
+  const drilldownPanelCaptures = useMemo(
+    () =>
+      selectedDrilldownPanel
+        ? drilldownZoneCaptures.filter((capture) => String(capture.panel_id ?? "none") === selectedDrilldownPanel)
+        : drilldownZoneCaptures,
+    [drilldownZoneCaptures, selectedDrilldownPanel],
+  );
+  const drilldownQuadrantCaptures = useMemo(
+    () =>
+      selectedDrilldownQuadrant
+        ? drilldownPanelCaptures.filter((capture) => {
+            const cell = `${capture.grid_row ?? "?"}${capture.grid_col_label ?? capture.grid_col ?? "?"}`;
+            const key = `${capture.side_position ?? "center"}|${cell}`;
+            return key === selectedDrilldownQuadrant;
+          })
+        : drilldownPanelCaptures,
+    [drilldownPanelCaptures, selectedDrilldownQuadrant],
+  );
+  const drilldownZoneData = useMemo(
+    () => aggregateDonut(
+      drilldownBaseCaptures,
+      (capture) => String(capture.zone_id ?? "none"),
+      (capture) => zoneName(capture.zone_id ?? null),
+    ),
+    [drilldownBaseCaptures, zones],
+  );
+  const drilldownPanelData = useMemo(
+    () => aggregateDonut(
+      drilldownZoneCaptures,
+      (capture) => String(capture.panel_id ?? "none"),
+      (capture) => panelName(capture.panel_id ?? null),
+    ),
+    [drilldownZoneCaptures, panels],
+  );
+  const drilldownQuadrantData = useMemo(
+    () => aggregateDonut(
+      drilldownPanelCaptures,
+      (capture) => `${capture.side_position ?? "center"}|${capture.grid_row ?? "?"}${capture.grid_col_label ?? capture.grid_col ?? "?"}`,
+      (capture) => {
+        const side = SIDE_OPTIONS.find((option) => option.value === (capture.side_position ?? "center"))?.label ?? "Centro";
+        return `${side} · ${capture.grid_row ?? "?"}${capture.grid_col_label ?? capture.grid_col ?? "?"}`;
+      },
+    ),
+    [drilldownPanelCaptures],
+  );
+  const drilldownDefectData = useMemo(
+    () => aggregateDonut(
+      drilldownQuadrantCaptures,
+      defectKey,
+      (capture) => defectNameForCapture(capture),
+    ),
+    [defects, drilldownQuadrantCaptures],
   );
 
   const zoneSummary = useMemo(
@@ -1502,6 +1728,19 @@ export default function AnalisisDashboard() {
   const handleZoneChange = (zoneId: number | null) => {
     setActiveZoneId(zoneId);
     resetSecondaryFilters();
+  };
+
+  const handleDrilldownZoneSelect = (key: string) => {
+    setSelectedDrilldownZone((current) => current === key ? null : key);
+    setSelectedDrilldownPanel(null);
+    setSelectedDrilldownQuadrant(null);
+  };
+  const handleDrilldownPanelSelect = (key: string) => {
+    setSelectedDrilldownPanel((current) => current === key ? null : key);
+    setSelectedDrilldownQuadrant(null);
+  };
+  const handleDrilldownQuadrantSelect = (key: string) => {
+    setSelectedDrilldownQuadrant((current) => current === key ? null : key);
   };
 
   const clearFilters = () => {
@@ -2283,6 +2522,71 @@ export default function AnalisisDashboard() {
                   </CardContent>
                 </Card>
               </div>
+              <section className="order-7 space-y-4" data-testid="section-defect-drilldown">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold">Defectos por cuadrante</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Explora los defectos de forma jerárquica: zona, panel, cuadrante y tipo de defecto.
+                    </p>
+                  </div>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                    <span>Cantidades</span>
+                    <Switch
+                      data-testid="switch-drilldown-percentages"
+                      checked={showDrilldownPercentages}
+                      onCheckedChange={setShowDrilldownPercentages}
+                      aria-label="Cambiar donas entre cantidades y porcentajes"
+                    />
+                    <span>Porcentajes</span>
+                  </label>
+                </div>
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                  <DrilldownDonut
+                    title="N1 · Zona auditada"
+                    description="Defectos acumulados por zona"
+                    rows={drilldownZoneData}
+                    selectedKey={selectedDrilldownZone}
+                    onSelect={handleDrilldownZoneSelect}
+                    showPercentages={showDrilldownPercentages}
+                    testId="donut-audited-zones"
+                  />
+                  <DrilldownDonut
+                    title="N2 · Panel"
+                    description={selectedDrilldownZone
+                      ? `Paneles de ${zoneName(Number(selectedDrilldownZone))}`
+                      : "Defectos acumulados por panel"}
+                    rows={drilldownPanelData}
+                    selectedKey={selectedDrilldownPanel}
+                    onSelect={handleDrilldownPanelSelect}
+                    showPercentages={showDrilldownPercentages}
+                    testId="donut-panels"
+                  />
+                  <DrilldownDonut
+                    title="N3 · Cuadrante"
+                    description={selectedDrilldownPanel
+                      ? `Cuadrantes de ${panelName(Number(selectedDrilldownPanel))}`
+                      : "Cuadrantes con más defectos"}
+                    rows={drilldownQuadrantData}
+                    selectedKey={selectedDrilldownQuadrant}
+                    onSelect={handleDrilldownQuadrantSelect}
+                    showPercentages={showDrilldownPercentages}
+                    testId="donut-quadrants"
+                  />
+                  <DrilldownDonut
+                    title="N4 · Tipo de defecto"
+                    description={selectedDrilldownQuadrant
+                      ? "Tipos encontrados en el cuadrante seleccionado"
+                      : "Defectos acumulados"}
+                    rows={drilldownDefectData}
+                    selectedKey={null}
+                    onSelect={() => undefined}
+                    showPercentages={showDrilldownPercentages}
+                    selectable={false}
+                    testId="donut-defect-types"
+                  />
+                </div>
+              </section>
             </>
           )}
             </main>
