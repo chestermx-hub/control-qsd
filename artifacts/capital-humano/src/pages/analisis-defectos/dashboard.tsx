@@ -303,7 +303,7 @@ function DrilldownDonut({
     ? (focusedRow.value / total) * 100
     : total ? 100 : 0;
   return (
-    <Card data-testid={testId} className="min-w-0">
+    <Card id={testId} data-testid={testId} className="min-w-0">
       <CardHeader className="px-4 pb-1 pt-4">
         <CardTitle className="text-sm">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
@@ -423,6 +423,189 @@ async function downloadExcel(filename: string, rows: Array<Record<string, string
   const link = document.createElement("a");
   link.href = url;
   link.download = filename.replace(/\.csv$/i, ".xlsx");
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadDrilldownWorkbook(
+  month: string,
+  sheets: Array<{ title: string; rows: DrilldownDonutRow[] }>,
+) {
+  const workbook = new ExcelJS.Workbook();
+  for (const sheet of sheets) {
+    const worksheet = workbook.addWorksheet(sheet.title.slice(0, 31));
+    worksheet.addRow(["Periodo consultado", month]);
+    worksheet.addRow([]);
+    worksheet.addRow(["Elemento", "Defectos", "Porcentaje"]);
+    const total = sheet.rows.reduce((sum, row) => sum + row.value, 0);
+    sheet.rows.forEach((row) => {
+      worksheet.addRow([
+        row.name,
+        row.value,
+        total ? row.value / total : 0,
+      ]);
+    });
+    worksheet.getRow(1).font = { bold: true };
+    worksheet.getRow(3).font = { bold: true };
+    worksheet.getColumn(1).width = 36;
+    worksheet.getColumn(2).width = 16;
+    worksheet.getColumn(3).width = 16;
+    worksheet.getColumn(3).numFmt = "0.0%";
+    worksheet.views = [{ state: "frozen", ySplit: 3 }];
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([new Uint8Array(buffer).buffer as ArrayBuffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `defectos-por-cuadrante-${month.toLocaleLowerCase().replace(/\s+/g, "-")}.xlsx`;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadDrilldownImage(
+  month: string,
+  showPercentages: boolean,
+  charts: Array<{ id: string; title: string; rows: DrilldownDonutRow[]; selectedKey: string | null }>,
+) {
+  const columnWidth = 720;
+  const chartHeight = 280;
+  const headerHeight = 72;
+  const legendLineHeight = 21;
+  const rowGap = 28;
+  const rowHeights = [0, 1].map((rowIndex) => {
+    const maxLegendCount = Math.max(
+      ...charts.slice(rowIndex * 2, rowIndex * 2 + 2).map((chart) => chart.rows.length),
+      1,
+    );
+    return headerHeight + chartHeight + maxLegendCount * legendLineHeight + rowGap;
+  });
+  const canvas = document.createElement("canvas");
+  const scale = 2;
+  const width = columnWidth * 2;
+  const height = 76 + rowHeights.reduce((sum, rowHeight) => sum + rowHeight, 0);
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("No se pudo preparar la imagen.");
+  context.scale(scale, scale);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.fillStyle = "#111827";
+  context.font = "bold 22px Arial, sans-serif";
+  context.fillText("Defectos por cuadrante", 24, 32);
+  context.fillStyle = "#475569";
+  context.font = "14px Arial, sans-serif";
+  context.fillText(`Periodo consultado: ${month}`, 24, 56);
+
+  const cardTop = (rowIndex: number) =>
+    76 + rowHeights.slice(0, rowIndex).reduce((sum, rowHeight) => sum + rowHeight, 0);
+  await Promise.all(charts.map(async (chart, index) => {
+    const col = index % 2;
+    const row = Math.floor(index / 2);
+    const x = col * columnWidth + 16;
+    const y = cardTop(row);
+    const innerWidth = columnWidth - 32;
+    context.fillStyle = "#ffffff";
+    context.strokeStyle = "#d1d5db";
+    context.lineWidth = 1;
+    context.beginPath();
+    context.roundRect(x, y, innerWidth, rowHeights[row] - rowGap, 8);
+    context.fill();
+    context.stroke();
+    context.fillStyle = "#111827";
+    context.font = "bold 16px Arial, sans-serif";
+    context.fillText(chart.title, x + 16, y + 25);
+
+    const sourceSvg = document.querySelector(`#${chart.id} svg`);
+    if (sourceSvg) {
+      const clone = sourceSvg.cloneNode(true) as SVGSVGElement;
+      const bounds = sourceSvg.getBoundingClientRect();
+      const svgWidth = Math.max(1, sourceSvg.clientWidth || bounds.width);
+      const svgHeight = Math.max(1, sourceSvg.clientHeight || bounds.height);
+      clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+      clone.setAttribute("width", String(svgWidth));
+      clone.setAttribute("height", String(svgHeight));
+      clone.setAttribute("viewBox", `0 0 ${svgWidth} ${svgHeight}`);
+      const svgImage = new Image();
+      const svgUrl = URL.createObjectURL(new Blob(
+        [new XMLSerializer().serializeToString(clone)],
+        { type: "image/svg+xml;charset=utf-8" },
+      ));
+      await new Promise<void>((resolve, reject) => {
+        svgImage.onload = () => {
+          const scaleToFit = Math.min(innerWidth / svgWidth, chartHeight / svgHeight);
+          const drawWidth = svgWidth * scaleToFit;
+          const drawHeight = svgHeight * scaleToFit;
+          context.drawImage(
+            svgImage,
+            x + (innerWidth - drawWidth) / 2,
+            y + 36 + (chartHeight - drawHeight) / 2,
+            drawWidth,
+            drawHeight,
+          );
+          const total = chart.rows.reduce((sum, item) => sum + item.value, 0);
+          const selected = chart.rows.find((item) => item.key === chart.selectedKey);
+          const centerText = showPercentages
+            ? `${selected && total ? formatDecimal((selected.value / total) * 100) : total ? "100.0" : "0.0"}%`
+            : formatNumber(total);
+          context.fillStyle = "#111827";
+          context.font = "bold 20px Arial, sans-serif";
+          context.textAlign = "center";
+          context.fillText(centerText, x + innerWidth / 2, y + 36 + chartHeight / 2 + 4);
+          context.fillStyle = "#64748b";
+          context.font = "10px Arial, sans-serif";
+          context.fillText(showPercentages ? (selected ? "del total" : "participación") : "defectos", x + innerWidth / 2, y + 36 + chartHeight / 2 + 20);
+          context.textAlign = "left";
+          URL.revokeObjectURL(svgUrl);
+          resolve();
+        };
+        svgImage.onerror = () => {
+          URL.revokeObjectURL(svgUrl);
+          reject(new Error(`No se pudo exportar la gráfica ${chart.title}.`));
+        };
+        svgImage.src = svgUrl;
+      });
+    }
+
+    const legendTop = y + headerHeight + chartHeight;
+    const total = chart.rows.reduce((sum, item) => sum + item.value, 0);
+    chart.rows.forEach((item, itemIndex) => {
+      const itemY = legendTop + itemIndex * legendLineHeight;
+      context.fillStyle = ZONE_CHART_COLORS[itemIndex % ZONE_CHART_COLORS.length];
+      context.beginPath();
+      context.arc(x + 22, itemY + 5, 5, 0, Math.PI * 2);
+      context.fill();
+      context.fillStyle = "#1f2937";
+      context.font = "12px Arial, sans-serif";
+      const availableNameWidth = innerWidth - 150;
+      let label = item.name;
+      while (label.length > 4 && context.measureText(label).width > availableNameWidth) {
+        label = `${label.slice(0, -2).trimEnd()}…`;
+      }
+      context.fillText(label, x + 36, itemY + 9);
+      const value = showPercentages
+        ? `${total ? formatDecimal((item.value / total) * 100) : "0.0"}%`
+        : formatNumber(item.value);
+      context.textAlign = "right";
+      context.fillText(value, x + innerWidth - 16, itemY + 9);
+      context.textAlign = "left";
+    });
+  }));
+
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error("No se pudo generar el archivo de imagen."));
+    }, "image/png");
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `defectos-por-cuadrante-${month.toLocaleLowerCase().replace(/\s+/g, "-")}.png`;
   link.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
@@ -1122,6 +1305,7 @@ export default function AnalisisDashboard() {
   const [selectedDrilldownPanel, setSelectedDrilldownPanel] = useState<string | null>(null);
   const [selectedDrilldownQuadrant, setSelectedDrilldownQuadrant] = useState<string | null>(null);
   const [selectedDrilldownDefect, setSelectedDrilldownDefect] = useState<string | null>(null);
+  const [isExportingDrilldown, setIsExportingDrilldown] = useState<"image" | "excel" | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
   const capturesQuery = useListAuditCaptures();
@@ -1766,6 +1950,28 @@ export default function AnalisisDashboard() {
 
   const handleRefresh = async () => {
     await queryClient.invalidateQueries({ queryKey: getListAuditCapturesQueryKey() });
+  };
+
+  const exportDrilldown = async (format: "image" | "excel") => {
+    setIsExportingDrilldown(format);
+    try {
+      const month = effectiveMonth ? monthLabel(effectiveMonth) : "Sin periodo";
+      const charts = [
+        { id: "donut-audited-zones", title: "N1 · Zona auditada", rows: drilldownZoneData, selectedKey: selectedDrilldownZone },
+        { id: "donut-panels", title: "N2 · Panel", rows: drilldownPanelData, selectedKey: selectedDrilldownPanel },
+        { id: "donut-quadrants", title: "N3 · Cuadrante", rows: drilldownQuadrantData, selectedKey: selectedDrilldownQuadrant },
+        { id: "donut-defect-types", title: "N4 · Tipo de defecto", rows: drilldownDefectData, selectedKey: selectedDrilldownDefect },
+      ];
+      if (format === "image") {
+        await downloadDrilldownImage(month, showDrilldownPercentages, charts);
+      } else {
+        await downloadDrilldownWorkbook(month, charts.map(({ title, rows }) => ({ title, rows })));
+      }
+    } catch (error) {
+      console.error(`No se pudo exportar el resumen de donas como ${format}.`, error);
+    } finally {
+      setIsExportingDrilldown(null);
+    }
   };
 
   return (
@@ -2545,17 +2751,44 @@ export default function AnalisisDashboard() {
                     <p className="text-sm text-muted-foreground">
                       Explora los defectos de forma jerárquica: zona, panel, cuadrante y tipo de defecto.
                     </p>
+                    <Badge variant="secondary" className="mt-2" data-testid="label-drilldown-month">
+                      Periodo consultado · {effectiveMonth ? monthLabel(effectiveMonth) : "Sin periodo"}
+                    </Badge>
                   </div>
-                  <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
-                    <span>Cantidades</span>
-                    <Switch
-                      data-testid="switch-drilldown-percentages"
-                      checked={showDrilldownPercentages}
-                      onCheckedChange={setShowDrilldownPercentages}
-                      aria-label="Cambiar donas entre cantidades y porcentajes"
-                    />
-                    <span>Porcentajes</span>
-                  </label>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                      <span>Cantidades</span>
+                      <Switch
+                        data-testid="switch-drilldown-percentages"
+                        checked={showDrilldownPercentages}
+                        onCheckedChange={setShowDrilldownPercentages}
+                        aria-label="Cambiar donas entre cantidades y porcentajes"
+                      />
+                      <span>Porcentajes</span>
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      data-testid="button-export-drilldown-image"
+                      onClick={() => void exportDrilldown("image")}
+                      disabled={loading || isExportingDrilldown !== null || !drilldownZoneData.length}
+                    >
+                      <Download className="mr-1.5 h-4 w-4" />
+                      {isExportingDrilldown === "image" ? "Preparando PNG…" : "Descargar PNG"}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      data-testid="button-export-drilldown-excel"
+                      onClick={() => void exportDrilldown("excel")}
+                      disabled={loading || isExportingDrilldown !== null || !drilldownZoneData.length}
+                    >
+                      <Download className="mr-1.5 h-4 w-4" />
+                      {isExportingDrilldown === "excel" ? "Preparando Excel…" : "Descargar Excel"}
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                   <DrilldownDonut
