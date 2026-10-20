@@ -136,6 +136,8 @@ type DrilldownDonutRow = {
   value: number;
 };
 
+type QuadrantSideFilter = "all" | "left" | "right";
+
 type Aggregate = {
   id: number | null;
   name: string;
@@ -285,6 +287,7 @@ function DrilldownDonut({
   onSelect,
   showPercentages,
   selectable = true,
+  quadrantSideFilter,
   testId,
 }: {
   title: string;
@@ -294,6 +297,11 @@ function DrilldownDonut({
   onSelect: (key: string) => void;
   showPercentages: boolean;
   selectable?: boolean;
+  quadrantSideFilter?: {
+    value: QuadrantSideFilter;
+    onChange: (value: QuadrantSideFilter) => void;
+    availableSides: Array<"left" | "right">;
+  };
   testId: string;
 }) {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
@@ -307,6 +315,35 @@ function DrilldownDonut({
       <CardHeader className="px-4 pb-1 pt-4">
         <CardTitle className="text-sm">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
+        {quadrantSideFilter && (
+          <div
+            className="mt-2 inline-flex w-fit rounded-md border bg-muted/30 p-0.5"
+            role="group"
+            aria-label="Filtrar cuadrantes por lado"
+          >
+            {([
+              { value: "all", label: "Todos" },
+              { value: "left", label: "Izquierdo" },
+              { value: "right", label: "Derecho" },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                data-testid={`button-quadrant-side-${option.value}`}
+                aria-pressed={quadrantSideFilter.value === option.value}
+                disabled={option.value !== "all" && !quadrantSideFilter.availableSides.includes(option.value)}
+                onClick={() => quadrantSideFilter.onChange(option.value)}
+                className={`rounded px-2 py-1 text-[11px] font-medium transition-colors ${
+                  quadrantSideFilter.value === option.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                } disabled:cursor-not-allowed disabled:opacity-40`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="px-3 pb-4 pt-0">
         {rows.length ? (
@@ -1305,6 +1342,7 @@ export default function AnalisisDashboard() {
   const [selectedDrilldownPanel, setSelectedDrilldownPanel] = useState<string | null>(null);
   const [selectedDrilldownQuadrant, setSelectedDrilldownQuadrant] = useState<string | null>(null);
   const [selectedDrilldownDefect, setSelectedDrilldownDefect] = useState<string | null>(null);
+  const [quadrantSideFilter, setQuadrantSideFilter] = useState<QuadrantSideFilter>("all");
   const [isExportingDrilldown, setIsExportingDrilldown] = useState<"image" | "excel" | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
@@ -1583,16 +1621,37 @@ export default function AnalisisDashboard() {
         : drilldownZoneCaptures,
     [drilldownZoneCaptures, selectedDrilldownPanel],
   );
+  const availableQuadrantSides = useMemo(
+    () => new Set(
+      drilldownPanelCaptures
+        .map((capture) => capture.side_position ?? "center")
+        .filter((side): side is "left" | "right" => side === "left" || side === "right"),
+    ),
+    [drilldownPanelCaptures],
+  );
+  const showQuadrantSideFilter = availableQuadrantSides.size > 0;
+  const effectiveQuadrantSideFilter =
+    quadrantSideFilter !== "all" && availableQuadrantSides.has(quadrantSideFilter)
+      ? quadrantSideFilter
+      : "all";
+  const sideFilteredQuadrantCaptures = useMemo(
+    () => effectiveQuadrantSideFilter === "all"
+      ? drilldownPanelCaptures
+      : drilldownPanelCaptures.filter(
+          (capture) => (capture.side_position ?? "center") === effectiveQuadrantSideFilter,
+        ),
+    [drilldownPanelCaptures, effectiveQuadrantSideFilter],
+  );
   const drilldownQuadrantCaptures = useMemo(
     () =>
       selectedDrilldownQuadrant
-        ? drilldownPanelCaptures.filter((capture) => {
+        ? sideFilteredQuadrantCaptures.filter((capture) => {
             const cell = `${capture.grid_row ?? "?"}${capture.grid_col_label ?? capture.grid_col ?? "?"}`;
             const key = `${capture.side_position ?? "center"}|${cell}`;
             return key === selectedDrilldownQuadrant;
           })
-        : drilldownPanelCaptures,
-    [drilldownPanelCaptures, selectedDrilldownQuadrant],
+        : sideFilteredQuadrantCaptures,
+    [sideFilteredQuadrantCaptures, selectedDrilldownQuadrant],
   );
   const drilldownZoneData = useMemo(
     () => aggregateDonut(
@@ -1612,14 +1671,14 @@ export default function AnalisisDashboard() {
   );
   const drilldownQuadrantData = useMemo(
     () => aggregateDonut(
-      drilldownPanelCaptures,
+      sideFilteredQuadrantCaptures,
       (capture) => `${capture.side_position ?? "center"}|${capture.grid_row ?? "?"}${capture.grid_col_label ?? capture.grid_col ?? "?"}`,
       (capture) => {
         const side = SIDE_OPTIONS.find((option) => option.value === (capture.side_position ?? "center"))?.label ?? "Centro";
         return `${side} · ${capture.grid_row ?? "?"}${capture.grid_col_label ?? capture.grid_col ?? "?"}`;
       },
     ),
-    [drilldownPanelCaptures],
+    [sideFilteredQuadrantCaptures],
   );
   const drilldownDefectData = useMemo(
     () => aggregateDonut(
@@ -1929,11 +1988,13 @@ export default function AnalisisDashboard() {
     setSelectedDrilldownPanel(null);
     setSelectedDrilldownQuadrant(null);
     setSelectedDrilldownDefect(null);
+    setQuadrantSideFilter("all");
   };
   const handleDrilldownPanelSelect = (key: string) => {
     setSelectedDrilldownPanel((current) => current === key ? null : key);
     setSelectedDrilldownQuadrant(null);
     setSelectedDrilldownDefect(null);
+    setQuadrantSideFilter("all");
   };
   const handleDrilldownQuadrantSelect = (key: string) => {
     setSelectedDrilldownQuadrant((current) => current === key ? null : key);
@@ -1941,6 +2002,11 @@ export default function AnalisisDashboard() {
   };
   const handleDrilldownDefectSelect = (key: string) => {
     setSelectedDrilldownDefect((current) => current === key ? null : key);
+  };
+  const handleQuadrantSideFilterChange = (value: QuadrantSideFilter) => {
+    setQuadrantSideFilter(value);
+    setSelectedDrilldownQuadrant(null);
+    setSelectedDrilldownDefect(null);
   };
 
   const clearFilters = () => {
@@ -2820,6 +2886,13 @@ export default function AnalisisDashboard() {
                     selectedKey={selectedDrilldownQuadrant}
                     onSelect={handleDrilldownQuadrantSelect}
                     showPercentages={showDrilldownPercentages}
+                    quadrantSideFilter={showQuadrantSideFilter
+                      ? {
+                          value: effectiveQuadrantSideFilter,
+                          onChange: handleQuadrantSideFilterChange,
+                          availableSides: Array.from(availableQuadrantSides),
+                        }
+                      : undefined}
                     testId="donut-quadrants"
                   />
                   <DrilldownDonut
