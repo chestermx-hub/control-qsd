@@ -296,7 +296,12 @@ function DrilldownDonut({
   selectable?: boolean;
   testId: string;
 }) {
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const total = rows.reduce((sum, row) => sum + row.value, 0);
+  const focusedRow = rows.find((row) => row.key === (hoveredKey ?? selectedKey));
+  const centerPercentage = focusedRow && total
+    ? (focusedRow.value / total) * 100
+    : total ? 100 : 0;
   return (
     <Card data-testid={testId} className="min-w-0">
       <CardHeader className="px-4 pb-1 pt-4">
@@ -322,13 +327,15 @@ function DrilldownDonut({
                     strokeWidth={2}
                     isAnimationActive={false}
                     onClick={selectable ? (entry) => onSelect(String(entry.key)) : undefined}
+                    onMouseEnter={(entry) => setHoveredKey(String(entry.key))}
+                    onMouseLeave={() => setHoveredKey(null)}
                     style={{ cursor: selectable ? "pointer" : "default" }}
                   >
                     {rows.map((row, index) => (
                       <Cell
                         key={row.key}
                         fill={ZONE_CHART_COLORS[index % ZONE_CHART_COLORS.length]}
-                        opacity={selectedKey && row.key !== selectedKey ? 0.35 : 1}
+                        opacity={(hoveredKey ?? selectedKey) && row.key !== (hoveredKey ?? selectedKey) ? 0.35 : 1}
                       />
                     ))}
                   </Pie>
@@ -346,10 +353,10 @@ function DrilldownDonut({
               </ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-xl font-bold">
-                  {showPercentages ? (total ? "100%" : "0%") : formatNumber(total)}
+                  {showPercentages ? `${formatDecimal(centerPercentage)}%` : formatNumber(total)}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
-                  {showPercentages ? "participación" : "defectos"}
+                  {showPercentages ? (focusedRow ? "del total" : "participación") : "defectos"}
                 </span>
               </div>
             </div>
@@ -377,6 +384,8 @@ function DrilldownDonut({
                       data-testid={`${testId}-item-${index}`}
                       aria-pressed={selectedKey === row.key}
                       onClick={() => onSelect(row.key)}
+                      onMouseEnter={() => setHoveredKey(row.key)}
+                      onMouseLeave={() => setHoveredKey(null)}
                       className={`${rowClassName} hover:bg-muted/60 ${
                         selectedKey === row.key ? "bg-primary/10 font-semibold" : ""
                       }`}
@@ -1112,6 +1121,7 @@ export default function AnalisisDashboard() {
   const [selectedDrilldownZone, setSelectedDrilldownZone] = useState<string | null>(null);
   const [selectedDrilldownPanel, setSelectedDrilldownPanel] = useState<string | null>(null);
   const [selectedDrilldownQuadrant, setSelectedDrilldownQuadrant] = useState<string | null>(null);
+  const [selectedDrilldownDefect, setSelectedDrilldownDefect] = useState<string | null>(null);
   const [isSpinning, setIsSpinning] = useState(false);
 
   const capturesQuery = useListAuditCaptures();
@@ -1734,13 +1744,19 @@ export default function AnalisisDashboard() {
     setSelectedDrilldownZone((current) => current === key ? null : key);
     setSelectedDrilldownPanel(null);
     setSelectedDrilldownQuadrant(null);
+    setSelectedDrilldownDefect(null);
   };
   const handleDrilldownPanelSelect = (key: string) => {
     setSelectedDrilldownPanel((current) => current === key ? null : key);
     setSelectedDrilldownQuadrant(null);
+    setSelectedDrilldownDefect(null);
   };
   const handleDrilldownQuadrantSelect = (key: string) => {
     setSelectedDrilldownQuadrant((current) => current === key ? null : key);
+    setSelectedDrilldownDefect(null);
+  };
+  const handleDrilldownDefectSelect = (key: string) => {
+    setSelectedDrilldownDefect((current) => current === key ? null : key);
   };
 
   const clearFilters = () => {
@@ -2579,10 +2595,9 @@ export default function AnalisisDashboard() {
                       ? "Tipos encontrados en el cuadrante seleccionado"
                       : "Defectos acumulados"}
                     rows={drilldownDefectData}
-                    selectedKey={null}
-                    onSelect={() => undefined}
+                    selectedKey={selectedDrilldownDefect}
+                    onSelect={handleDrilldownDefectSelect}
                     showPercentages={showDrilldownPercentages}
-                    selectable={false}
                     testId="donut-defect-types"
                   />
                 </div>
