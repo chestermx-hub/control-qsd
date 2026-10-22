@@ -91,7 +91,7 @@ Este paquete fue generado desde la opción de respaldo del sistema.
 
 ## Contenido
 
-- \`source/\`: código fuente y configuración del proyecto, sin dependencias instaladas ni secretos.
+- \`source.tar.gz\`: código fuente y configuración del proyecto, sin dependencias instaladas ni secretos.
 - \`database.sql\`: esquema y datos completos de PostgreSQL.
 - \`uploads/\`: archivos locales que existan en el servidor.
 - \`object-storage/\`: archivos encontrados en las rutas de Object Storage configuradas.
@@ -101,7 +101,7 @@ Este paquete fue generado desde la opción de respaldo del sistema.
 ## Restauración en un workspace nuevo
 
 1. Cree un nuevo workspace con Node.js, pnpm y PostgreSQL.
-2. Copie el contenido de \`source/\` a la raíz del workspace.
+2. Extraiga \`source.tar.gz\` en la raíz del workspace.
 3. Configure manualmente los secretos y variables del nuevo workspace. Este respaldo nunca contiene contraseñas, tokens, SESSION_SECRET ni claves de integración.
 4. Instale dependencias con \`pnpm install\`.
 5. Cree o conecte la base PostgreSQL y restaure los datos:
@@ -137,16 +137,16 @@ router.get("/system/backups/download", async (req: Request, res: Response) => {
     return;
   }
 
-  backupInProgress = true;
   const backupId = `control-qsd-backup-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-  const temporaryRoot = await mkdir(join(tmpdir(), backupId), { recursive: true }).then(() => join(tmpdir(), backupId));
+  const temporaryRoot = join(tmpdir(), backupId);
   const stagingRoot = join(temporaryRoot, "backup");
-  const sourceTar = join(temporaryRoot, "source.tar");
+  const sourceTar = join(stagingRoot, "source.tar.gz");
   const databaseDump = join(stagingRoot, "database.sql");
   const archivePath = join(tmpdir(), `${backupId}.tar.gz`);
+  backupInProgress = true;
 
   try {
-    await mkdir(join(stagingRoot, "source"), { recursive: true });
+    await mkdir(temporaryRoot, { recursive: true });
     await mkdir(join(stagingRoot, "uploads"), { recursive: true });
     await mkdir(join(stagingRoot, "object-storage"), { recursive: true });
 
@@ -161,7 +161,7 @@ router.get("/system/backups/download", async (req: Request, res: Response) => {
     ], { env: process.env });
 
     await execFileAsync("tar", [
-      "-cf",
+      "-czf",
       sourceTar,
       "--exclude=node_modules",
       "--exclude=*/node_modules",
@@ -183,7 +183,6 @@ router.get("/system/backups/download", async (req: Request, res: Response) => {
       workspaceRoot,
       ".",
     ]);
-    await execFileAsync("tar", ["-xf", sourceTar, "-C", join(stagingRoot, "source")]);
 
     const localUploadDirectories = [
       join(workspaceRoot, "uploads"),
@@ -222,6 +221,7 @@ router.get("/system/backups/download", async (req: Request, res: Response) => {
       await rm(archivePath, { force: true }).catch(() => undefined);
       await rm(temporaryRoot, { recursive: true, force: true }).catch(() => undefined);
       if (error && !res.headersSent) {
+        req.log.error({ err: error }, "Full backup download failed");
         res.status(500).json({ error: "No se pudo descargar el respaldo completo" });
       }
       backupInProgress = false;
@@ -231,7 +231,11 @@ router.get("/system/backups/download", async (req: Request, res: Response) => {
     await rm(temporaryRoot, { recursive: true, force: true }).catch(() => undefined);
     backupInProgress = false;
     req.log.error({ err: error }, "Full backup generation failed");
-    res.status(500).json({ error: "No se pudo generar el respaldo completo" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "No se pudo generar el respaldo completo" });
+    } else {
+      res.destroy(error instanceof Error ? error : undefined);
+    }
   }
 });
 

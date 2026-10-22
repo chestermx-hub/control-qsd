@@ -6,6 +6,17 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Archive, CheckCircle2, Download, FileCode2, HardDrive, Loader2, ShieldAlert, Table2 } from "lucide-react";
 
+type BackupFileHandle = {
+  createWritable: () => Promise<WritableStream<Uint8Array>>;
+};
+
+type BackupFilePicker = (
+  options: {
+    suggestedName: string;
+    types: Array<{ description: string; accept: Record<string, string[]> }>;
+  },
+) => Promise<BackupFileHandle>;
+
 export default function Respaldo() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -15,22 +26,40 @@ export default function Respaldo() {
   const downloadBackup = async () => {
     setIsGenerating(true);
     try {
+      const filePicker = (window as Window & { showSaveFilePicker?: BackupFilePicker }).showSaveFilePicker;
+      const fileHandle = filePicker
+        ? await filePicker.call(window, {
+            suggestedName: `control-qsd-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.tar.gz`,
+            types: [{
+              description: "Respaldo comprimido",
+              accept: { "application/gzip": [".tar.gz"] },
+            }],
+          })
+        : null;
       const response = await fetch("/api/system/backups/download", { credentials: "include" });
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error || "No se pudo generar el respaldo");
       }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `control-qsd-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.tar.gz`;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      if (!response.body) throw new Error("El servidor no entregó el archivo de respaldo");
+
+      if (fileHandle) {
+        const writable = await fileHandle.createWritable();
+        await response.body.pipeTo(writable);
+      } else {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `control-qsd-backup-${new Date().toISOString().replace(/[:.]/g, "-")}.tar.gz`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
       toast({ title: "Respaldo generado", description: "Guarda el archivo fuera de Replit para tener una copia independiente." });
     } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") return;
       toast({
         title: "No se pudo generar el respaldo",
         description: error instanceof Error ? error.message : "Ocurrió un error inesperado",
