@@ -387,8 +387,10 @@ function ActivityRow({
   );
 }
 
-function ActivityEvidenceGallery({ activities }: { activities: CleaningReportActivity[] }) {
-  const evidence = activities.flatMap((activity, index) => [
+type ActivityEvidenceItem = { src: string; alt: string; label: string };
+
+function activityEvidenceFor(activities: CleaningReportActivity[]) {
+  return activities.flatMap((activity, index) => [
     activity.initial_photo
       ? {
           src: activity.initial_photo,
@@ -404,23 +406,44 @@ function ActivityEvidenceGallery({ activities }: { activities: CleaningReportAct
         }
       : null,
   ].filter((item): item is { src: string; alt: string; label: string } => Boolean(item)));
+}
 
-  if (!evidence.length) return null;
-
+function ActivityEvidencePage({
+  areaName,
+  areaNumber,
+  evidence,
+  pageNumber,
+  totalPages,
+  logoSrc,
+  companyName,
+}: {
+  areaName: string;
+  areaNumber: number;
+  evidence: ActivityEvidenceItem[];
+  pageNumber: number;
+  totalPages: number;
+  logoSrc?: string;
+  companyName: string;
+}) {
   return (
-    <section className="report-activity-evidence border border-[#d8d9d3] bg-white p-3">
-      <div className="mb-2 flex items-center justify-between gap-3 border-b border-[#e4e3dd] pb-2">
-        <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#758079]">
-          Evidencias fotográficas de actividades
-        </p>
-        <span className="font-mono text-[9px] text-[#8a918c]">{evidence.length} foto{evidence.length === 1 ? "" : "s"}</span>
-      </div>
-      <div className="report-activity-evidence-grid grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="report-evidence-page overflow-hidden border border-[#d8d9d3] bg-[#fbfaf6]">
+      <PrintPageHeader logoSrc={logoSrc} companyName={companyName} />
+      <div className="report-evidence-content">
+        <div className="flex items-end justify-between gap-3 border-b border-[#d8d9d3] pb-2">
+          <div>
+            <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-[#758079]">Evidencia fotográfica · Área {String(areaNumber).padStart(2, "0")}</p>
+            <h3 className="mt-1 font-serif text-lg text-[#123b66]">{areaName}</h3>
+          </div>
+          <span className="font-mono text-[9px] text-[#8a918c]">{evidence.length} foto{evidence.length === 1 ? "" : "s"}</span>
+        </div>
+        <div className="report-evidence-grid grid grid-cols-2 gap-3">
         {evidence.map((item) => (
-          <PhotoFrame key={`${item.label}-${item.src}`} src={item.src} alt={item.alt} label={item.label} gallery />
+            <PhotoFrame key={`${item.label}-${item.src}`} src={item.src} alt={item.alt} label={item.label} gallery />
         ))}
+        </div>
       </div>
-    </section>
+      <PrintPageFooter companyName={companyName} pageNumber={pageNumber} totalPages={totalPages} />
+    </div>
   );
 }
 
@@ -478,7 +501,6 @@ function ActivitySheet({
           )}
         </div>
       </div>
-      <ActivityEvidenceGallery activities={activities} />
     </section>
   );
 }
@@ -619,9 +641,18 @@ export function CleaningReport({
     });
     return sheets;
   }, []);
+  const activityEvidencePages = activitySheets.flatMap((sheet) => {
+    const evidence = activityEvidenceFor(sheet.activities);
+    const photosPerPage = 6;
+    return Array.from({ length: Math.ceil(evidence.length / photosPerPage) }, (_, pageIndex) => ({
+      area: sheet.area,
+      areaNumber: sheet.number,
+      evidence: evidence.slice(pageIndex * photosPerPage, (pageIndex + 1) * photosPerPage),
+    }));
+  });
   const checklistPageCount = execution.checklist_photos?.length || 0;
   const standaloneSignaturePages = 1;
-  const totalPrintPages = 1 + activitySheets.length + standaloneSignaturePages + checklistPageCount;
+  const totalPrintPages = 1 + activitySheets.length + activityEvidencePages.length + standaloneSignaturePages + checklistPageCount;
   const reportActivities = execution.activities.filter(
     (activity) => !activity.area_name || includedAreaNames.has(activity.area_name),
   );
@@ -882,6 +913,48 @@ export function CleaningReport({
               break-before: page;
               page-break-before: always;
             }
+            .cleaning-report .report-evidence-page {
+              display: grid !important;
+              grid-template-rows: 9mm minmax(0, 1fr) 7mm !important;
+              width: 100% !important;
+              height: 280mm !important;
+              min-height: 0 !important;
+              margin: 0 !important;
+              overflow: hidden !important;
+              break-before: page;
+              page-break-before: always;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            .cleaning-report .report-evidence-content {
+              display: grid !important;
+              grid-template-rows: auto minmax(0, 1fr) !important;
+              min-height: 0 !important;
+              gap: 3mm !important;
+              padding: 4mm !important;
+            }
+            .cleaning-report .report-evidence-grid {
+              display: grid !important;
+              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+              grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+              min-height: 0 !important;
+              gap: 3mm !important;
+            }
+            .cleaning-report .report-evidence-grid .report-photo-gallery {
+              height: auto !important;
+              min-height: 0 !important;
+              max-height: none !important;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            .cleaning-report .report-evidence-grid .report-photo-gallery img {
+              width: 100% !important;
+              height: 100% !important;
+              max-width: 100% !important;
+              max-height: 100% !important;
+              object-fit: contain !important;
+              object-position: center !important;
+            }
             .cleaning-report .report-signature-page {
               break-before: page;
               page-break-before: always;
@@ -990,7 +1063,7 @@ export function CleaningReport({
            .cleaning-report .report-area-header p { font-size: 8px !important; }
            .cleaning-report .report-area-photos { break-inside: avoid; page-break-inside: avoid; }
             .cleaning-report .report-area-photos {
-              grid-template-columns: 1fr !important;
+               grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
               gap: 12px !important;
               padding: 12px !important;
             }
@@ -1244,6 +1317,22 @@ export function CleaningReport({
              </div>
            ))}
         </div>
+          {activityEvidencePages.length > 0 && (
+            <div className="report-evidence-pages space-y-5">
+              {activityEvidencePages.map((page, pageIndex) => (
+                <ActivityEvidencePage
+                  key={`${page.area.id}-evidence-${pageIndex}`}
+                  areaName={page.area.area_name}
+                  areaNumber={page.areaNumber}
+                  evidence={page.evidence}
+                  pageNumber={activitySheets.length + pageIndex + 2}
+                  totalPages={totalPrintPages}
+                  logoSrc={logoSrc}
+                  companyName={companyName}
+                />
+              ))}
+            </div>
+          )}
       </section>
 
        <section className="report-signature-page">
@@ -1253,7 +1342,7 @@ export function CleaningReport({
            </div>
            <PrintPageFooter
              companyName={companyName}
-             pageNumber={activitySheets.length + 2}
+              pageNumber={activitySheets.length + activityEvidencePages.length + 2}
              totalPages={totalPrintPages}
            />
        </section>
@@ -1286,7 +1375,7 @@ export function CleaningReport({
                 </div>
                  <PrintPageFooter
                    companyName={companyName}
-                   pageNumber={activitySheets.length + standaloneSignaturePages + index + 2}
+                   pageNumber={activitySheets.length + activityEvidencePages.length + standaloneSignaturePages + index + 2}
                    totalPages={totalPrintPages}
                  />
               </div>
