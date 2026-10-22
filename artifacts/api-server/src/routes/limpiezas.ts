@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db, udnsTable, usersTable, cleaningClientsTable, cleaningClientLinesTable, cleaningAreasTable, cleaningAreaActivitiesTable, cleaningAreaClientsTable, cleaningAreaClientLinesTable, cleaningAreaClientActivitiesTable, cleaningTypesTable, cleaningTypeActivitiesTable, cleaningExecutionsTable, cleaningExecutionActivitiesTable, cleaningExecutionAreasTable } from "@workspace/db";
 import type { Request, Response } from "express";
 import { ObjectStorageService } from "../lib/objectStorage";
@@ -561,10 +561,12 @@ async function executionJson(id: number) {
 }
 
 async function maybeCompleteExecution(executionId: number) {
-  const [activities, areas] = await Promise.all([
+  const [[execution], activities, areas] = await Promise.all([
+    db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId)),
     db.select().from(cleaningExecutionActivitiesTable).where(eq(cleaningExecutionActivitiesTable.executionId, executionId)),
     db.select().from(cleaningExecutionAreasTable).where(eq(cleaningExecutionAreasTable.executionId, executionId)),
   ]);
+  if (!execution?.checklistPhotos?.length) return;
   const activeAreaNames = new Set(areas.filter((area) => !area.excluded).map((area) => area.areaName));
   const relevantActivities = activities.filter((activity) => !activity.areaName || activeAreaNames.has(activity.areaName));
   if (relevantActivities.every((activity) => (activity.completed || activity.notApplicable) && (!activity.requiresPhoto || (activity.initialPhoto && activity.finalPhoto))) && areas.every((area) => area.excluded || area.ready)) {
@@ -572,9 +574,10 @@ async function maybeCompleteExecution(executionId: number) {
   }
 }
 router.get("/limpiezas/ejecuciones", async (req, res) => {
-  const rows = await db.select().from(cleaningExecutionsTable).orderBy(asc(cleaningExecutionsTable.executionDate));
+  const rows = await db.select().from(cleaningExecutionsTable)
+    .orderBy(desc(cleaningExecutionsTable.executionDate), desc(cleaningExecutionsTable.id));
   const filteredRows = req.query.status === "open"
-    ? rows.filter((row) => !row.signature)
+    ? rows.filter((row) => row.status !== "completed" && !row.signature)
     : rows;
   res.json(await Promise.all(filteredRows.map((r) => executionJson(r.id))));
 });
@@ -595,7 +598,7 @@ router.post("/limpiezas/admin/checklist-photo-original", async (req, res) => {
     return;
   }
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
-  if (!execution?.signature || !execution.checklistPhotos?.includes(replacementUrl)) {
+  if (execution?.status !== "completed" || !execution.checklistPhotos?.includes(replacementUrl)) {
     res.status(409).json({ error: "El reemplazo no está guardado en un reporte cerrado" });
     return;
   }
@@ -619,10 +622,10 @@ router.post("/limpiezas/ejecuciones", async (req, res) => {
   if (!Number.isInteger(clientId) || clientId <= 0) { res.status(400).json({ error: "Selecciona un cliente válido" }); return; }
   if (!lineNumber) { res.status(400).json({ error: "Indica el número de línea" }); return; }
   const existingExecutions = await db
-    .select({ id: cleaningExecutionsTable.id, signature: cleaningExecutionsTable.signature })
+    .select({ id: cleaningExecutionsTable.id, status: cleaningExecutionsTable.status, signature: cleaningExecutionsTable.signature })
     .from(cleaningExecutionsTable)
     .where(and(eq(cleaningExecutionsTable.clientId, clientId), eq(cleaningExecutionsTable.lineNumber, lineNumber)));
-  if (existingExecutions.some((execution) => !execution.signature)) {
+  if (existingExecutions.some((execution) => execution.status !== "completed" && !execution.signature)) {
     res.status(409).json({ error: "Esta línea del cliente ya tiene un folio activo" });
     return;
   }
@@ -681,7 +684,10 @@ router.patch("/limpiezas/ejecuciones/:id", async (req, res) => {
       res.status(400).json({ error: "Indica una fecha o una firma para actualizar el reporte" });
       return;
     }
-    if (hasChecklistPhotos) await db.update(cleaningExecutionsTable).set({ checklistPhotos }).where(eq(cleaningExecutionsTable.id, executionId));
+    if (hasChecklistPhotos) {
+      await db.update(cleaningExecutionsTable).set({ checklistPhotos }).where(eq(cleaningExecutionsTable.id, executionId));
+      await maybeCompleteExecution(executionId);
+    }
     res.json(await executionJson(executionId));
     return;
   }
@@ -724,7 +730,7 @@ router.delete("/limpiezas/ejecuciones/:id", async (req, res) => {
   const [execution] = await db.select().from(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId));
   if (!execution) { res.status(404).json({ error: "Ejecución no encontrada" }); return; }
   if (!await isAdmin(req)) { res.status(403).json({ error: "Sólo un administrador puede eliminar reportes en proceso" }); return; }
-  if (execution.signature) { res.status(403).json({ error: "Los reportes completados no se pueden eliminar" }); return; }
+  if (execution.status === "completed" || execution.signature) { res.status(403).json({ error: "Los reportes completados no se pueden eliminar" }); return; }
   await db.delete(cleaningExecutionsTable).where(eq(cleaningExecutionsTable.id, executionId)); res.status(204).send();
 });
 router.patch("/limpiezas/ejecuciones/:id/areas/:areaId", async (req, res) => {

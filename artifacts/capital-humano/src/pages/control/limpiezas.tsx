@@ -50,6 +50,12 @@ function executionFolioName(execution: Pick<Execution, "client" | "line_number" 
   return `${folioPart(execution.client?.name || "Cliente")}_${folioPart(execution.line_number || "SinLinea")}_${day}${month}${year}`;
 }
 
+function formatExecutionDate(value: string) {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return value;
+  return new Date(year, month - 1, day).toLocaleDateString("es-MX");
+}
+
 function relevantExecutionActivities(execution: Execution) {
   const activeAreaNames = new Set(
     execution.areas.filter((area) => !area.excluded).map((area) => area.area_name),
@@ -668,8 +674,11 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
   const { toast } = useToast();
   useEffect(() => { api("/limpiezas/ejecuciones").then(setReports).finally(() => setLoading(false)); }, []);
   const remove = async (id: number) => { if (!window.confirm("¿Eliminar este reporte del histórico? Esta acción no se puede deshacer.")) return; try { await api(`/limpiezas/ejecuciones/${id}`, { method: "DELETE" }); setReports((current) => current.filter((report) => report.id !== id)); toast({ title: "Reporte eliminado" }); } catch (error) { toast({ title: error instanceof Error ? error.message : "No se pudo eliminar el reporte", variant: "destructive" }); } };
-  const activeReports = reports.filter((report) => !report.signature);
-  const historicalReports = reports.filter((report) => Boolean(report.signature));
+  const newestFirst = (items: Execution[]) => [...items].sort((a, b) =>
+    b.execution_date.localeCompare(a.execution_date) || b.id - a.id,
+  );
+  const activeReports = newestFirst(reports.filter((report) => report.status !== "completed" && !report.signature));
+  const historicalReports = newestFirst(reports.filter((report) => report.status === "completed" || Boolean(report.signature)));
   const historicalWithChecklistPhotos = historicalReports.filter((report) => report.checklist_photos?.length);
   const optimizeHistoricalPhotos = async () => {
     if (!window.confirm(`Se optimizarán las fotos de ${historicalWithChecklistPhotos.length} reportes cerrados. Las imágenes se recomprimirán con pérdida y los originales se borrarán después de guardar cada reemplazo. Esta acción no se puede deshacer. ¿Continuar?`)) return;
@@ -736,19 +745,30 @@ function ReportHistory({ onOpen }: { onOpen: (execution: Execution) => void }) {
     }
   };
   const reportList = (items: Execution[], completed: boolean) => items.length ? (
-    <div className="divide-y rounded-md border">
-      {items.map((report) => (
-        <div key={report.id} className="flex flex-col gap-2 p-3 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between">
-          <button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left">
-            <span className="block truncate text-sm font-medium">{executionFolioName(report)}</span>
-            <span className="block text-xs text-muted-foreground">{report.cleaning_type?.name || "Reporte de limpieza"} · Línea {report.line_number || "sin indicar"}</span>
-          </button>
-          <div className="flex items-center justify-between gap-2">
-            <Badge variant={completed ? "default" : "secondary"}>{completed ? "Completado" : "En progreso"}</Badge>
-            {!completed && isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}
+    <div className="overflow-hidden rounded-md border">
+      <div className="hidden grid-cols-[minmax(0,1fr)_9rem_auto] items-center gap-3 border-b bg-muted/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:grid">
+        <span>Folio</span>
+        <span>Fecha de ejecución</span>
+        <span className="text-right">Estado</span>
+      </div>
+      <div className="divide-y">
+        {items.map((report) => (
+          <div key={report.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 p-3 transition-colors hover:bg-muted/40 sm:grid-cols-[minmax(0,1fr)_9rem_auto]">
+            <button type="button" onClick={() => onOpen(report)} className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-sm font-medium">{executionFolioName(report)}</span>
+              <span className="block text-xs text-muted-foreground">{report.cleaning_type?.name || "Reporte de limpieza"} · Línea {report.line_number || "sin indicar"}</span>
+            </button>
+            <div className="text-right sm:text-left">
+              <span className="block text-[10px] font-medium uppercase tracking-wide text-muted-foreground sm:hidden">Fecha</span>
+              <span className="whitespace-nowrap text-xs text-muted-foreground">{formatExecutionDate(report.execution_date)}</span>
+            </div>
+            <div className="col-span-2 flex items-center justify-between gap-2 sm:col-span-1 sm:justify-end">
+              <Badge variant={completed ? "default" : "secondary"}>{completed ? "Completado" : "En progreso"}</Badge>
+              {!completed && isAdmin && <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove(report.id)}><Trash2 className="mr-1 h-4 w-4" />Eliminar</Button>}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   ) : <p className="p-4 text-center text-sm text-muted-foreground">{completed ? "No hay folios completados." : "No hay folios activos."}</p>;
   return (
@@ -816,7 +836,7 @@ function ExecutionPage({ catalogs, reload }: { catalogs: Catalogs; reload: () =>
     return <div className="space-y-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0"><h2 className="text-xl font-semibold break-words">{execution.cleaning_type.name}</h2><p className="text-sm text-muted-foreground break-words">{execution.client.name} · {execution.execution_date} · {done}/{execution.activities.length} actividades</p></div><div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row"><Button className="w-full sm:w-auto" variant="outline" onClick={report}><Download className="mr-2 h-4 w-4" />Reporte PDF</Button><Button className="w-full sm:w-auto" variant="outline" onClick={() => setExecution(null)}>Volver a Limpiezas ICMX</Button></div></div><div className="h-2 rounded-full bg-muted overflow-hidden"><div className="h-full bg-primary transition-all" style={{ width: `${(done / execution.activities.length) * 100}%` }} /></div>{execution.areas.map((area) => { const areaActivities = execution.activities.filter(a => (a.area_name || "Área general") === area.area_name); return <Card key={area.id} className={area.ready ? "border-emerald-500/60" : ""}><CardContent className="space-y-4 p-4 sm:p-5"><div className="flex items-start gap-3"><div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${area.ready ? "bg-emerald-500 text-white" : "bg-muted"}`}>{area.ready ? <Check className="h-4 w-4" /> : <span className="text-sm font-semibold">{areaActivities[0] ? execution.activities.indexOf(areaActivities[0]) + 1 : "·"}</span>}</div><div className="min-w-0 flex-1"><p className="font-semibold break-words">{area.area_name}</p><p className="text-xs text-muted-foreground">{areaActivities.length} actividades · {area.ready ? "Área lista" : "Área pendiente"}</p></div><button type="button" aria-label={`Marcar ${area.area_name} como lista`} disabled={!area.initial_photo || !area.final_photo} onClick={() => updateArea(area, { ready: !area.ready })} className={`relative mt-1 h-7 w-12 shrink-0 rounded-full transition-colors ${area.ready ? "bg-emerald-500" : "bg-slate-300"} disabled:cursor-not-allowed disabled:opacity-50`}><span className={`absolute top-1.5 h-4 w-4 rounded-full bg-white transition-transform ${area.ready ? "translate-x-6" : "translate-x-1"}`} /></button></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2"><div><p className="mb-2 text-xs font-medium">Foto inicial del área</p><PhotoButton label="Tomar foto inicial" value={area.initial_photo} onUploaded={path => updateArea(area, { initial_photo: path })} /></div><div><p className="mb-2 text-xs font-medium">Foto final del área</p><AreaFinalPhoto area={area} activities={areaActivities} onUploaded={path => updateArea(area, { final_photo: path })} /></div></div><div className="divide-y rounded-md border">{areaActivities.map((a, index) => <div key={a.id} className={`grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:flex md:items-center ${a.not_applicable ? "bg-muted/50" : ""}`}><span className="pt-0.5 text-xs text-muted-foreground md:w-5">{index + 1}.</span><p className={`min-w-0 text-sm break-words md:flex-1 ${a.not_applicable ? "line-through text-muted-foreground" : ""}`}>{a.description}</p><ActivityPhoto activity={a} areaInitialPhoto={area.initial_photo} onUploaded={path => updateActivity(a, { initial_photo: path })} /><div className="col-span-2 flex items-center justify-between gap-3 pl-8 md:contents"><label className={`flex min-h-11 items-center gap-2 text-xs ${!area.initial_photo || (a.requires_photo && !a.initial_photo) ? "cursor-not-allowed text-amber-700" : "text-muted-foreground"}`} title={!area.initial_photo ? "Toma primero la foto inicial del área" : a.requires_photo && !a.initial_photo ? "Toma primero la foto inicial" : undefined}><input className="h-5 w-5 accent-primary" type="checkbox" checked={a.not_applicable} disabled={a.completed || !area.initial_photo || (a.requires_photo && !a.initial_photo)} onChange={e => updateActivity(a, { not_applicable: e.target.checked, completed: false })} />No aplica</label>{a.completed ? <Badge className="bg-emerald-600">Lista</Badge> : !a.not_applicable && <Button size="sm" className="min-h-10" disabled={!area.initial_photo || (a.requires_photo && !a.initial_photo)} title={!area.initial_photo ? "Toma primero la foto inicial del área" : a.requires_photo && !a.initial_photo ? "Toma primero la foto inicial" : undefined} onClick={() => updateActivity(a, { completed: true })}>Completar</Button>}</div></div>)}</div></CardContent></Card>; })}</div>;
 }
 
-function evidenceReadyForSignature(execution: Execution) {
+function evidenceReadyForChecklist(execution: Execution) {
   const activeAreaNames = new Set(execution.areas.filter((area) => !area.excluded).map((area) => area.area_name));
   const relevantActivities = execution.activities.filter((activity) => !activity.area_name || activeAreaNames.has(activity.area_name));
   const activitiesReady = relevantActivities.every((activity) =>
@@ -991,7 +1011,7 @@ function ExecutionPageModern({
   const { toast } = useToast();
   const { user } = useAuth();
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
-  const canEditExecution = (!execution?.signature && execution?.status !== "completed") || isAdmin;
+  const canEditExecution = !execution?.signature || isAdmin;
 
   useEffect(() => {
     if (!initialExecution?.id) return;
@@ -1043,7 +1063,10 @@ function ExecutionPageModern({
     await api(path, options);
     const refreshed = await api(`/limpiezas/ejecuciones/${execution!.id}`);
     setExecution(refreshed);
-    if (!refreshed.signature && evidenceReadyForSignature(refreshed)) setSignatureOpen(true);
+    if (!refreshed.signature && evidenceReadyForChecklist(refreshed)) {
+      setChecklistPhotos(refreshed.checklist_photos || []);
+      setChecklistOpen(true);
+    }
   };
 
   const updateActivity = async (activity: Execution["activities"][number], patch: Record<string, unknown>) => {
@@ -1352,14 +1375,14 @@ function ExecutionPageModern({
           </div>
         );
       })}
-      {evidenceReadyForSignature(execution) && !execution.signature && (
+      {evidenceReadyForChecklist(execution) && !execution.signature && (
         <Card className="border-emerald-200 bg-emerald-50/70">
           <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="font-semibold text-emerald-950">Evidencias finales completas</p>
-              <p className="text-sm text-emerald-800">Revisa el reporte y firma para cerrar el servicio.</p>
+              <p className="text-sm text-emerald-800">Toma las fotos del checklist para finalizar. La firma es opcional.</p>
             </div>
-            <Button type="button" onClick={() => setSignatureOpen(true)}>Solicitar firma</Button>
+            <Button type="button" onClick={openChecklist}>Tomar checklist</Button>
           </CardContent>
         </Card>
       )}
